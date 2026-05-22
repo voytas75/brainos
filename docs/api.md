@@ -374,17 +374,44 @@ brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
 Output:
 - JSON object with recall mode, count, and matched episodes
 
+### `semantic-node-upsert`
+
+```bash
+brainos --db ./brain.db semantic-node-upsert n1 SQLite Concept --properties-json '{"kind":"database"}'
+```
+
+Output:
+- ledger event id
+
 ### `semantic-node-get`
 
 ```bash
 brainos --db ./brain.db semantic-node-get n1
 ```
 
+### `semantic-edge-upsert`
+
+```bash
+brainos --db ./brain.db semantic-edge-upsert n1 n2 RELATES_TO --weight 1.0
+```
+
+Output:
+- ledger event id
+
 ### `semantic-edges-list`
 
 ```bash
 brainos --db ./brain.db semantic-edges-list n1 --direction both
 ```
+
+### `procedure-create`
+
+```bash
+brainos --db ./brain.db procedure-create bootstrap '[{"step":"init-db"},{"step":"load-state"}]' --description 'Initialize BrainOS'
+```
+
+Output:
+- procedure id
 
 ### `procedure-list`
 

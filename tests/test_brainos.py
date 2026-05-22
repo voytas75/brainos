@@ -159,4 +159,14 @@ def test_semantic_queries_and_procedures(tmp_path):
     procedures = store.list_procedures(limit=10)
     assert len(procedures) == 1
     assert procedures[0]["name"] == "bootstrap"
+
+    update_event = store.upsert_semantic_node(
+        node_id="n1",
+        name="SQLite",
+        node_type="Concept",
+        properties={"kind": "database", "tier": "core"},
+    )
+    assert isinstance(update_event, str)
+    updated_node = store.get_semantic_node("n1")
+    assert updated_node["properties"]["tier"] == "core"
     store.close()

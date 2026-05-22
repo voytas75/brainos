@@ -193,25 +193,43 @@ uv run brainos --db ./brain.db episode-search Agent --limit 5
 uv run brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
 ```
 
-### 8. Check schema status
+### 8. Create a semantic node
+
+```bash
+uv run brainos --db ./brain.db semantic-node-upsert n1 SQLite Concept --properties-json '{"kind":"database"}'
+```
+
+### 9. Create a semantic edge
+
+```bash
+uv run brainos --db ./brain.db semantic-edge-upsert n1 n2 RELATES_TO --weight 1.0
+```
+
+### 10. Create a procedure
+
+```bash
+uv run brainos --db ./brain.db procedure-create bootstrap '[{"step":"init-db"},{"step":"load-state"}]' --description 'Initialize BrainOS'
+```
+
+### 11. Check schema status
 
 ```bash
 uv run brainos --db ./brain.db schema-status
 ```
 
-### 9. Check runtime capabilities
+### 12. Check runtime capabilities
 
 ```bash
 uv run brainos --db ./brain.db capabilities
 ```
 
-### 10. Verify ledger integrity
+### 13. Verify ledger integrity
 
 ```bash
 uv run brainos --db ./brain.db ledger-verify
 ```
 
-### 10. Inspect ledger
+### 14. Inspect ledger
 
 ```bash
 uv run brainos --db ./brain.db ledger
@@ -267,8 +285,11 @@ Available CLI commands:
 - `episodes-list`
 - `episode-search`
 - `recall`
+- `semantic-node-upsert`
 - `semantic-node-get`
+- `semantic-edge-upsert`
 - `semantic-edges-list`
+- `procedure-create`
 - `procedure-list`
 - `procedure-get`
 - `schema-status`

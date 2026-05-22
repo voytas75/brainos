@@ -41,12 +41,29 @@ def build_parser() -> argparse.ArgumentParser:
     p_recall.add_argument("--session-id")
     p_recall.add_argument("--limit", type=int, default=10)
 
+    p_sem_node_upsert = sub.add_parser("semantic-node-upsert", help="Create or update semantic node")
+    p_sem_node_upsert.add_argument("node_id")
+    p_sem_node_upsert.add_argument("name")
+    p_sem_node_upsert.add_argument("node_type")
+    p_sem_node_upsert.add_argument("--properties-json", default="{}")
+
     p_sem_node_get = sub.add_parser("semantic-node-get", help="Get semantic node")
     p_sem_node_get.add_argument("node_id")
+
+    p_sem_edge_upsert = sub.add_parser("semantic-edge-upsert", help="Create or update semantic edge")
+    p_sem_edge_upsert.add_argument("source_id")
+    p_sem_edge_upsert.add_argument("target_id")
+    p_sem_edge_upsert.add_argument("predicate")
+    p_sem_edge_upsert.add_argument("--weight", type=float, default=1.0)
 
     p_sem_edges_list = sub.add_parser("semantic-edges-list", help="List semantic edges for a node")
     p_sem_edges_list.add_argument("node_id")
     p_sem_edges_list.add_argument("--direction", choices=["out", "in", "both"], default="both")
+
+    p_proc_create = sub.add_parser("procedure-create", help="Create procedure")
+    p_proc_create.add_argument("name")
+    p_proc_create.add_argument("steps_json")
+    p_proc_create.add_argument("--description")
 
     p_proc_list = sub.add_parser("procedure-list", help="List procedures")
     p_proc_list.add_argument("--all", action="store_true")
@@ -101,12 +118,38 @@ def main() -> None:
             store.initialize()
             results = store.recall(args.query, session_id=args.session_id, limit=args.limit)
             print(json.dumps(results, ensure_ascii=False, indent=2))
+        elif args.command == "semantic-node-upsert":
+            store.initialize()
+            event_id = store.upsert_semantic_node(
+                node_id=args.node_id,
+                name=args.name,
+                node_type=args.node_type,
+                properties=json.loads(args.properties_json),
+            )
+            print(event_id)
         elif args.command == "semantic-node-get":
             store.initialize()
             print(json.dumps(store.get_semantic_node(args.node_id), ensure_ascii=False, indent=2))
+        elif args.command == "semantic-edge-upsert":
+            store.initialize()
+            event_id = store.upsert_semantic_edge(
+                source_id=args.source_id,
+                target_id=args.target_id,
+                predicate=args.predicate,
+                weight=args.weight,
+            )
+            print(event_id)
         elif args.command == "semantic-edges-list":
             store.initialize()
             print(json.dumps(store.list_semantic_edges(args.node_id, direction=args.direction), ensure_ascii=False, indent=2))
+        elif args.command == "procedure-create":
+            store.initialize()
+            procedure_id = store.create_procedure(
+                name=args.name,
+                steps=json.loads(args.steps_json),
+                description=args.description,
+            )
+            print(procedure_id)
         elif args.command == "procedure-list":
             store.initialize()
             print(json.dumps(store.list_procedures(active_only=not args.all, limit=args.limit), ensure_ascii=False, indent=2))
