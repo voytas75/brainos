@@ -23,3 +23,10 @@ Deterministic regression fixtures for unified retrieval quality.
 Expanded eval fixture baseline must stay green before scoring changes are trusted.
 
 - lexical-overlap preference when similar vector hits compete
+
+
+## Real-sample benchmark pass v0
+- queries now include more natural BrainOS-like phrasing
+- protects session filtering on vector hits
+- checks maintenance/reindex retrieval wording
+- keeps nonsense/noise suppression as a hard gate
