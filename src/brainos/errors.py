@@ -16,3 +16,7 @@ class NotFoundError(BrainOSError):
 
 class EmbeddingProviderNotConfiguredError(BrainOSError):
     pass
+
+
+class VectorIndexContractError(BrainOSError):
+    pass

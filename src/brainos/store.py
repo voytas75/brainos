@@ -16,6 +16,7 @@ from .errors import (
     NotFoundError,
     PromotionError,
     ValidationError,
+    VectorIndexContractError,
 )
 from .ledger import canonical_json, compute_event_hash
 from .retrieval import RetrievalService
@@ -255,11 +256,36 @@ class BrainOSStore:
     def sqlite_vec_readiness(self) -> dict[str, Any]:
         return sqlite_vec_readiness(self.conn)
 
+    def _vec_table_dimensions(self, table_name: str) -> int | None:
+        row = self.conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (table_name,),
+        ).fetchone()
+        if row is None or row[0] is None:
+            return None
+        sql = str(row[0])
+        marker = "embedding FLOAT["
+        if marker not in sql:
+            return None
+        tail = sql.split(marker, 1)[1]
+        dim_text = tail.split("]", 1)[0].strip()
+        return int(dim_text)
+
+    def _ensure_vec_table_contract(self, table_name: str, dimensions: int) -> None:
+        current_dimensions = self._vec_table_dimensions(table_name)
+        if current_dimensions is None:
+            self.conn.execute(get_vec_table_sql(dimensions, table_name=table_name))
+            return
+        if current_dimensions != dimensions:
+            raise VectorIndexContractError(
+                f"vector index dimension mismatch: table={table_name}, expected={current_dimensions}, got={dimensions}; rebuild required"
+            )
+
     def _ensure_episode_vec_table(self, dimensions: int) -> None:
-        self.conn.execute(get_vec_table_sql(dimensions, table_name="episodes_vec"))
+        self._ensure_vec_table_contract("episodes_vec", dimensions)
 
     def _ensure_semantic_node_vec_table(self, dimensions: int) -> None:
-        self.conn.execute(get_vec_table_sql(dimensions, table_name="semantic_nodes_vec"))
+        self._ensure_vec_table_contract("semantic_nodes_vec", dimensions)
 
     def _upsert_episode_vector(self, episode_id: str, vector: list[float], dimensions: int) -> None:
         self._ensure_episode_vec_table(dimensions)
@@ -515,7 +541,7 @@ class BrainOSStore:
                 "model": result["model"],
                 "storage": "sqlite-vec",
             }
-        except BrainOSError as exc:
+        except (BrainOSError, sqlite3.Error) as exc:
             self._set_vector_index_state(
                 object_type="episode",
                 object_id=episode_id,
@@ -588,7 +614,7 @@ class BrainOSStore:
                 "model": result["model"],
                 "storage": "sqlite-vec",
             }
-        except BrainOSError as exc:
+        except (BrainOSError, sqlite3.Error) as exc:
             self._set_vector_index_state(
                 object_type="semantic_node",
                 object_id=node_id,

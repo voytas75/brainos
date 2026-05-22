@@ -1,3 +1,4 @@
+from brainos.errors import VectorIndexContractError
 from brainos.store import BrainOSStore
 
 
@@ -34,6 +35,30 @@ def test_sync_vector_index_dispatches_to_episode_generator(monkeypatch, tmp_path
     assert result["ok"] is True
     assert result["object_id"] == episode_id
     assert result["vector_status"] == "fresh"
+    store.close()
+
+
+def test_sync_vector_index_batch_collects_dimension_contract_errors(monkeypatch, tmp_path):
+    db = tmp_path / "brain_contract_error.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    e1 = store.add_episode(session_id="s1", content="Need embedding 1", metadata={})
+
+    monkeypatch.setattr(
+        store,
+        "sync_vector_index",
+        lambda object_type, object_id, embedding_profile=None, force=False: (_ for _ in ()).throw(
+            VectorIndexContractError("vector index dimension mismatch: table=episodes_vec, expected=1536, got=3; rebuild required")
+        ),
+    )
+
+    result = store.sync_vector_index_batch(object_type="episode", vector_status="missing", limit=10)
+    assert result["ok"] is False
+    assert result["requested"] >= 1
+    assert result["synced"] == 0
+    assert len(result["errors"]) >= 1
+    assert result["errors"][0]["object_id"] == e1
+    assert "dimension mismatch" in result["errors"][0]["error"]
     store.close()
 
 
