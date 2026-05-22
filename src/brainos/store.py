@@ -933,11 +933,19 @@ class BrainOSStore:
             "mode": "promoted",
         }
 
+    @staticmethod
+    def _tokenize_for_overlap(text: str) -> set[str]:
+        normalized = "".join(ch.lower() if ch.isalnum() else " " for ch in text)
+        return {token for token in normalized.split() if len(token) >= 3}
+
     def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
         VECTOR_DISTANCE_CUTOFF = 1.2
         DUAL_SOURCE_BONUS = 150.0
+        LEXICAL_VECTOR_OVERLAP_BONUS = 80.0
+        LOW_OVERLAP_VECTOR_ONLY_PENALTY = 120.0
 
         episodes = self.search_episodes_text(query, session_id=session_id, limit=limit)
+        query_tokens = self._tokenize_for_overlap(query)
         vector_episodes: list[dict[str, Any]] = []
         vector_mode = "disabled"
         vector_error = None
@@ -971,18 +979,26 @@ class BrainOSStore:
         for idx, item in enumerate(vector_episodes):
             item_id = item["id"]
             distance = float(item.get("distance", 999999.0))
+            item_tokens = self._tokenize_for_overlap(item.get("content", ""))
+            overlap = len(query_tokens & item_tokens)
             if distance > VECTOR_DISTANCE_CUTOFF and item_id not in ranked_map:
                 continue
             score = max(0.0, 500.0 - distance - (idx * 0.001))
+            score += min(float(overlap), 3.0) * LEXICAL_VECTOR_OVERLAP_BONUS
             if item_id in ranked_map:
                 ranked_map[item_id]["match_sources"].append("vector")
                 ranked_map[item_id]["rank_score"] += score + DUAL_SOURCE_BONUS
                 ranked_map[item_id]["vector_distance"] = distance
+                ranked_map[item_id]["lexical_overlap"] = overlap
             else:
+                score -= LOW_OVERLAP_VECTOR_ONLY_PENALTY if overlap == 0 else 0.0
+                if score <= 0.0:
+                    continue
                 merged = dict(item)
                 merged["match_sources"] = ["vector"]
                 merged["rank_score"] = score
                 merged["vector_distance"] = distance
+                merged["lexical_overlap"] = overlap
                 ranked_map[item_id] = merged
 
         ranked_episodes = sorted(
@@ -1027,18 +1043,26 @@ class BrainOSStore:
         for idx, item in enumerate(vector_semantic_hits):
             item_id = item["id"]
             distance = float(item.get("distance", 999999.0))
+            item_tokens = self._tokenize_for_overlap(item.get("name", ""))
+            overlap = len(query_tokens & item_tokens)
             if distance > VECTOR_DISTANCE_CUTOFF and item_id not in ranked_semantic_map:
                 continue
             score = max(0.0, 500.0 - distance - (idx * 0.001))
+            score += min(float(overlap), 3.0) * LEXICAL_VECTOR_OVERLAP_BONUS
             if item_id in ranked_semantic_map:
                 ranked_semantic_map[item_id]["match_sources"].append("vector")
                 ranked_semantic_map[item_id]["rank_score"] += score + DUAL_SOURCE_BONUS
                 ranked_semantic_map[item_id]["vector_distance"] = distance
+                ranked_semantic_map[item_id]["lexical_overlap"] = overlap
             else:
+                score -= LOW_OVERLAP_VECTOR_ONLY_PENALTY if overlap == 0 else 0.0
+                if score <= 0.0:
+                    continue
                 merged = dict(item)
                 merged["match_sources"] = ["vector"]
                 merged["rank_score"] = score
                 merged["vector_distance"] = distance
+                merged["lexical_overlap"] = overlap
                 ranked_semantic_map[item_id] = merged
 
         ranked_semantic_hits = sorted(

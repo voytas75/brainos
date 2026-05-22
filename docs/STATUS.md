@@ -21,3 +21,5 @@ Deterministic regression fixtures for unified retrieval quality.
 
 ## gate_reason
 Expanded eval fixture baseline must stay green before scoring changes are trusted.
+
+- lexical-overlap preference when similar vector hits compete

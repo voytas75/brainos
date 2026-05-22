@@ -268,3 +268,57 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
 
     assert len(report) == 4
     store.close()
+
+
+def test_eval_prefers_overlap_when_similar_vector_hits_compete(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    ids = seed_eval_store(store)
+
+    monkeypatch.setattr(
+        store,
+        "_sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
+    )
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.5, 0.2, 0.3]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure/UDTEMBED3L",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        store,
+        "_vector_search_episodes",
+        lambda query_vector, session_id=None, limit=10: [
+            {
+                "id": ids["ep_similar_bad"],
+                "session_id": "eval",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "Reset browser window size for local UI testing.",
+                "metadata": {"kind": "ui"},
+                "distance": 0.01,
+            },
+            {
+                "id": ids["ep_similar_good"],
+                "session_id": "eval",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "Reset runtime data safely before reindexing the store.",
+                "metadata": {"kind": "ops"},
+                "distance": 0.03,
+            },
+        ],
+    )
+    monkeypatch.setattr(store, "_vector_search_semantic_nodes", lambda query_vector, limit=10: [])
+
+    recall = store.recall("reset runtime data", session_id="eval", limit=5)
+    assert recall["ranked_episodes"][0]["id"] == ids["ep_similar_good"]
+    assert recall["ranked_episodes"][0]["lexical_overlap"] > recall["ranked_episodes"][1]["lexical_overlap"]
+    store.close()

@@ -265,6 +265,7 @@ def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_pa
     assert recall["ranked_episodes"][0]["id"] == episode_id
     assert recall["ranked_episodes"][0]["match_sources"] == ["fts", "vector"]
     assert recall["ranked_episodes"][0]["vector_distance"] == 0.0
+    assert recall["ranked_episodes"][0]["lexical_overlap"] >= 1
     store.close()
 
 
@@ -316,6 +317,7 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
     assert recall["ranked_semantic_hits"][0]["id"] == "n1"
     assert recall["ranked_semantic_hits"][0]["match_sources"] == ["name_match", "vector"]
     assert recall["ranked_semantic_hits"][0]["vector_distance"] == 0.0
+    assert recall["ranked_semantic_hits"][0]["lexical_overlap"] >= 1
     store.close()
 
 
