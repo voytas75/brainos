@@ -532,3 +532,16 @@ Intent:
 - preserve FTS-first posture
 - reward agreement between lexical and vector retrieval
 - reduce low-signal vector-only clutter in ranked results
+
+
+## retrieval eval / benchmark pass v0
+
+Current repo now includes a small retrieval eval fixture covering representative cases:
+- lexical semantic graph query
+- procedural/bootstrap query
+- embedding/semantic quality query
+
+Current intent:
+- protect expected top hits for unified recall
+- validate that ranked episode hits and ranked semantic hits stay useful while scoring evolves
+- give future tuning work a bounded regression baseline
