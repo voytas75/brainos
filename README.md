@@ -486,3 +486,22 @@ Expected healthy result:
 - `sqlite_vec: true`
 - `sqlite_vec_loaded: true`
 - readiness `ok: true`
+
+
+## Vector index maintenance / sync v0
+
+New operational commands:
+
+```bash
+uv run brainos --db ./brain.db vector-index-list --limit 50
+uv run brainos --db ./brain.db vector-index-list --object-type episode --vector-status stale
+uv run brainos --db ./brain.db vector-index-sync episode <episode_id>
+uv run brainos --db ./brain.db vector-index-sync semantic_node <node_id>
+uv run brainos --db ./brain.db vector-index-sync-batch --object-type episode --vector-status missing --limit 100
+```
+
+Current intent:
+- inspect vector index state
+- refresh/sync one object
+- backfill or repair a bounded batch
+- keep maintenance explicit and local-first

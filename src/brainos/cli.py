@@ -86,6 +86,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_schema_status = sub.add_parser("schema-status", help="Show schema version status")
     p_capabilities = sub.add_parser("capabilities", help="Show runtime capabilities")
     p_vec_ready = sub.add_parser("sqlite-vec-readiness", help="Run sqlite-vec loader and readiness check")
+    p_vec_states = sub.add_parser("vector-index-list", help="List vector index states")
+    p_vec_states.add_argument("--object-type", choices=["episode", "semantic_node"])
+    p_vec_states.add_argument("--vector-status")
+    p_vec_states.add_argument("--limit", type=int, default=100)
+    p_vec_sync_one = sub.add_parser("vector-index-sync", help="Refresh and sync one vectorized object")
+    p_vec_sync_one.add_argument("object_type", choices=["episode", "semantic_node"])
+    p_vec_sync_one.add_argument("object_id")
+    p_vec_sync_one.add_argument("--force", action="store_true")
+    p_vec_sync_batch = sub.add_parser("vector-index-sync-batch", help="Refresh and sync a batch of vectorized objects")
+    p_vec_sync_batch.add_argument("--object-type", choices=["episode", "semantic_node"])
+    p_vec_sync_batch.add_argument("--vector-status")
+    p_vec_sync_batch.add_argument("--limit", type=int, default=100)
+    p_vec_sync_batch.add_argument("--force", action="store_true")
     p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
     p_ledger = sub.add_parser("ledger", help="Print ledger entries")
 
@@ -194,6 +207,15 @@ def main() -> None:
         elif args.command == "sqlite-vec-readiness":
             store.initialize()
             print(json.dumps(store.sqlite_vec_readiness(), ensure_ascii=False, indent=2))
+        elif args.command == "vector-index-list":
+            store.initialize()
+            print(json.dumps(store.list_vector_index_states(object_type=args.object_type, vector_status=args.vector_status, limit=args.limit), ensure_ascii=False, indent=2))
+        elif args.command == "vector-index-sync":
+            store.initialize()
+            print(json.dumps(store.sync_vector_index(object_type=args.object_type, object_id=args.object_id, force=args.force), ensure_ascii=False, indent=2))
+        elif args.command == "vector-index-sync-batch":
+            store.initialize()
+            print(json.dumps(store.sync_vector_index_batch(object_type=args.object_type, vector_status=args.vector_status, limit=args.limit, force=args.force), ensure_ascii=False, indent=2))
         elif args.command == "ledger-verify":
             store.initialize()
             print(json.dumps(store.verify_ledger(), ensure_ascii=False, indent=2))

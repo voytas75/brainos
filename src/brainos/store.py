@@ -388,6 +388,39 @@ class BrainOSStore:
             )
         return self.get_vector_index_state("episode", episode_id) or {}
 
+    def refresh_vector_freshness_for_semantic_node(
+        self, node_id: str, *, embedding_profile: str | None = None
+    ) -> dict[str, Any]:
+        node = self.get_semantic_node(node_id)
+        if node is None:
+            raise NotFoundError(f"semantic node not found: {node_id}")
+        source_text = self._canonical_semantic_node_embedding_text(node)
+        state = self.get_vector_index_state("semantic_node", node_id)
+        profile = embedding_profile or self.DEFAULT_EMBEDDING_PROFILE
+        if state is None:
+            self._set_vector_index_state(
+                object_type="semantic_node",
+                object_id=node_id,
+                source_text=source_text,
+                embedding_profile=profile,
+                vector_status=self.VECTOR_STATUS_MISSING,
+            )
+        elif state["source_text_hash"] != self._text_hash(source_text) or state["embedding_profile"] != profile:
+            self._set_vector_index_state(
+                object_type="semantic_node",
+                object_id=node_id,
+                source_text=source_text,
+                embedding_profile=profile,
+                vector_status=self.VECTOR_STATUS_STALE,
+                embedding_provider=state.get("embedding_provider"),
+                embedding_model=state.get("embedding_model"),
+                embedding_dimensions=state.get("embedding_dimensions"),
+                last_embedded_at=state.get("last_embedded_at"),
+                last_error=state.get("last_error"),
+                last_error_at=state.get("last_error_at"),
+            )
+        return self.get_vector_index_state("semantic_node", node_id) or {}
+
     def generate_episode_embedding(self, episode_id: str, *, embedding_profile: str | None = None) -> dict[str, Any]:
         episode = self.get_episode(episode_id)
         if episode is None:
@@ -533,6 +566,76 @@ class BrainOSStore:
                 last_error_at=self._now_iso(),
             )
             raise
+
+    def sync_vector_index(
+        self,
+        *,
+        object_type: str,
+        object_id: str,
+        embedding_profile: str | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        if object_type == "episode":
+            state = self.refresh_vector_freshness_for_episode(object_id, embedding_profile=embedding_profile)
+            if force or state.get("vector_status") in {
+                self.VECTOR_STATUS_MISSING,
+                self.VECTOR_STATUS_STALE,
+                self.VECTOR_STATUS_ERROR,
+                self.VECTOR_STATUS_DISABLED,
+            }:
+                return self.generate_episode_embedding(object_id, embedding_profile=embedding_profile)
+            return {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": state.get("vector_status"), "mode": "noop"}
+
+        if object_type == "semantic_node":
+            state = self.refresh_vector_freshness_for_semantic_node(object_id, embedding_profile=embedding_profile)
+            if force or state.get("vector_status") in {
+                self.VECTOR_STATUS_MISSING,
+                self.VECTOR_STATUS_STALE,
+                self.VECTOR_STATUS_ERROR,
+                self.VECTOR_STATUS_DISABLED,
+            }:
+                return self.generate_semantic_node_embedding(object_id, embedding_profile=embedding_profile)
+            return {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": state.get("vector_status"), "mode": "noop"}
+
+        raise ValidationError("object_type must be one of: episode, semantic_node")
+
+    def sync_vector_index_batch(
+        self,
+        *,
+        object_type: str | None = None,
+        vector_status: str | None = None,
+        limit: int = 100,
+        embedding_profile: str | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        states = self.list_vector_index_states(object_type=object_type, vector_status=vector_status, limit=limit)
+        results = []
+        errors = []
+        for state in states:
+            try:
+                results.append(
+                    self.sync_vector_index(
+                        object_type=state["object_type"],
+                        object_id=state["object_id"],
+                        embedding_profile=embedding_profile,
+                        force=force,
+                    )
+                )
+            except BrainOSError as exc:
+                errors.append(
+                    {
+                        "object_type": state["object_type"],
+                        "object_id": state["object_id"],
+                        "error": str(exc),
+                    }
+                )
+        return {
+            "ok": len(errors) == 0,
+            "requested": len(states),
+            "synced": len(results),
+            "errors": errors,
+            "results": results,
+        }
 
     def set_working_memory(self, key: str, value: dict[str, Any], *, causal_event_id: str | None = None) -> str:
         payload_json = json.dumps(value, ensure_ascii=False)
