@@ -2,99 +2,39 @@
 
 BrainOS is a SQLite-first cognitive memory system for LLM agents.
 
-This repository implements the first local, production-oriented slice based on the attached BrainOS technical PDF: a deterministic single-file storage core with working, episodic, semantic, procedural, and provenance layers.
+This repository contains the first local, production-oriented slice based on the BrainOS technical PDF: a deterministic single-file storage core with working, episodic, semantic, procedural, and provenance layers.
 
-## Status
+## What this project is
 
-**Current state:** usable local storage core / first commit candidate.
+BrainOS stores multiple memory layers for an LLM agent inside a single SQLite database file.
 
-Included now:
+Current implementation provides:
+- working memory as JSON key/value state
+- episodic memory as session-scoped events
+- full-text search over episodes with FTS5
+- semantic memory as nodes and edges
+- procedural memory as JSON-defined procedures
+- an immutable ledger with chained hashes for provenance/audit
+
+The current repo is a **local storage core**, not a full runtime platform yet.
+
+## What problem it solves
+
+Instead of splitting agent memory across multiple services, BrainOS keeps the core memory model in one transactional SQLite file.
+
+That gives:
+- low infrastructure cost
+- deterministic local behavior
+- ACID transactions
+- simple portability
+- easy local development and testing
+
+## Current status
+
+Implemented now:
 - single-file SQLite database (`brain.db`)
 - WAL mode and foreign keys
 - JSON validation on JSON-bearing columns
-- working memory (`wm`)
-- episodic memory (`episodes` + FTS5 search mirror)
-- semantic memory (`semantic_nodes`, `semantic_edges`)
-- procedural memory (`procedures`)
-- immutable ledger (`ledger`) with chained SHA-256 hashes
-- Python API for local integration
-- CLI for initialization and basic operations
-- tests and smoke checks
-
-Not included yet:
-- mandatory vector search runtime with `sqlite-vec`
-- full hybrid retrieval orchestration (`vector + FTS + graph`)
-- full cognitive execution loop from the PDF
-- schema migrations / versioning
-- HTTP API
-
-## Environment policy
-
-### Virtual environment
-Yes — this repo should use a local virtual environment.
-
-Preferred workflow:
-- use `uv sync --extra dev`
-- use `uv run ...`
-- do not rely on manual activation as the default workflow
-
-### `.env`
-No — this repo does **not** currently require a `.env` file.
-
-Reason:
-- current implementation is local-only
-- no API keys are needed
-- no external services are required
-- no runtime configuration is required beyond the SQLite file path
-
-Add `.env` only when the project gains real external integrations, for example:
-- embedding providers
-- remote APIs
-- telemetry backends
-- server runtime configuration
-
-## Why this shape
-
-The attached PDF describes a strong target architecture, but the provided excerpt is incomplete in two important places:
-- the execution-flow section is cut off
-- `sqlite-vec` usage is referenced but not fully operationalized
-
-So this repository takes the sensible first step:
-- implement the durable storage core now
-- keep vector support optional
-- leave retrieval/orchestration as the next slice instead of faking completeness
-
-## Architecture overview
-
-BrainOS maps five memory areas into one SQLite database:
-
-1. **Working memory**
-   - fast key/value state
-   - JSON-validated values
-   - intended for current agent state, flags, and short-lived context
-
-2. **Episodic memory**
-   - append-style event storage
-   - each episode belongs to a session
-   - FTS5 mirror enables keyword search
-
-3. **Semantic memory**
-   - graph-like knowledge representation
-   - nodes + typed edges
-   - suitable for concepts, entities, facts, and relations
-
-4. **Procedural memory**
-   - executable or semi-executable procedure definitions
-   - JSON steps structure for workflows / DAG-like action descriptions
-
-5. **Provenance / ledger**
-   - every meaningful write emits a ledger event
-   - ledger entries are hash-chained for auditability
-   - causal links can reference prior events
-
-## Data model
-
-Implemented tables / virtual tables:
 - `wm`
 - `episodes`
 - `episodes_fts`
@@ -102,64 +42,169 @@ Implemented tables / virtual tables:
 - `semantic_edges`
 - `procedures`
 - `ledger`
+- Python API
+- CLI
+- tests and smoke checks
 
-Implemented indexes:
-- `idx_episodes_session`
-- `idx_edges_target`
-- `idx_ledger_timestamp`
+Not implemented yet:
+- required `sqlite-vec` runtime integration
+- hybrid retrieval orchestration (`FTS + vector + graph`)
+- full cognitive execution loop from the PDF
+- migrations / schema versioning
+- HTTP API
 
-### Ledger note
+## How it works
 
-The PDF excerpt describes a cryptographically linked ledger, but the shown DDL did not include an explicit previous-link column.
+BrainOS maps five memory areas into one SQLite database.
 
-This implementation adds:
-- `previous_hash`
+### 1. Working memory
+Short-lived, current agent state.
 
-That makes the chain explicit and testable.
+Table:
+- `wm`
 
-## Install
+Use cases:
+- current mode
+- temporary state
+- active flags
+- local runtime context
 
-Install dependencies with `uv`:
+### 2. Episodic memory
+Append-style event memory for sessions.
+
+Tables:
+- `episodes`
+- `episodes_fts`
+
+Use cases:
+- interaction history
+- observations
+- logs worth recalling
+- searchable memory fragments
+
+### 3. Semantic memory
+Graph-like knowledge storage.
+
+Tables:
+- `semantic_nodes`
+- `semantic_edges`
+
+Use cases:
+- concepts
+- entities
+- facts
+- relations between concepts
+
+### 4. Procedural memory
+Structured procedures stored as JSON.
+
+Table:
+- `procedures`
+
+Use cases:
+- workflows
+- reusable agent routines
+- DAG-like step definitions
+
+### 5. Provenance / ledger
+Every meaningful write creates an auditable event.
+
+Table:
+- `ledger`
+
+Properties:
+- causal reference support
+- chained hashes
+- immutable event history for inspection
+
+## Architecture notes
+
+The attached PDF describes a strong target architecture, but the provided excerpt is incomplete in two important places:
+- the execution-flow section is cut off
+- `sqlite-vec` is mentioned, but operational details are incomplete in the excerpt
+
+So this repo intentionally implements the durable storage core first.
+
+One explicit implementation decision:
+- the PDF narrative implies cryptographic chaining, but the shown ledger DDL did not include an explicit link field
+- this implementation adds `previous_hash` to make the chain explicit and verifiable
+
+## Environment and tooling
+
+### Virtual environment
+Yes — this repo should use a local virtual environment managed by `uv`.
+
+Preferred workflow:
+- `uv sync --extra dev`
+- `uv run ...`
+
+### `.env`
+No — this repo does **not** require a `.env` file right now.
+
+Reason:
+- no external APIs
+- no secrets
+- no server runtime config
+- only local SQLite storage
+
+Add `.env` only when the project gains real external integrations.
+
+## How to run
+
+### 1. Install dependencies
 
 ```bash
 uv sync --extra dev
 ```
 
-## Quick start
-
-Initialize a database:
+### 2. Initialize the database
 
 ```bash
-uv run python -m brainos.cli --db ./brain.db init
+uv run brainos --db ./brain.db init
 ```
 
-Store working memory:
+### 3. Write working memory
 
 ```bash
-uv run python -m brainos.cli --db ./brain.db wm-set agent_state '{"mode":"ready"}'
-uv run python -m brainos.cli --db ./brain.db wm-get agent_state
+uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
 ```
 
-Add and search episodic memory:
+### 4. Read working memory
 
 ```bash
-uv run python -m brainos.cli --db ./brain.db episode-add session-1 'Agent initialized successfully' --metadata-json '{"source":"manual"}'
-uv run python -m brainos.cli --db ./brain.db episode-search Agent --limit 5
+uv run brainos --db ./brain.db wm-get agent_state
 ```
 
-Inspect the ledger:
+### 5. Add episodic memory
 
 ```bash
-uv run python -m brainos.cli --db ./brain.db ledger
+uv run brainos --db ./brain.db episode-add session-1 'Agent initialized successfully' --metadata-json '{"source":"manual"}'
 ```
 
-Run tests:
+### 6. Search episodic memory
 
 ```bash
+uv run brainos --db ./brain.db episode-search Agent --limit 5
+```
+
+### 7. Inspect ledger
+
+```bash
+uv run brainos --db ./brain.db ledger
+```
+
+## Typical local workflow
+
+```bash
+uv sync --extra dev
 uv run pytest tests/test_brainos.py -q
+uv run brainos --db ./brain.db init
+uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
+uv run brainos --db ./brain.db episode-add session-1 'BrainOS initialized' --metadata-json '{"source":"smoke"}'
+uv run brainos --db ./brain.db ledger
 ```
 
-## Python API
+## Python usage
 
 Minimal example:
 
@@ -188,11 +233,9 @@ print(results)
 store.close()
 ```
 
-See full API notes in [`docs/api.md`](docs/api.md).
+## Main commands
 
-## CLI surface
-
-Available commands:
+Available CLI commands:
 - `init`
 - `wm-set`
 - `wm-get`
@@ -206,39 +249,64 @@ Example:
 uv run brainos --db ./brain.db init
 ```
 
-## Package layout
+## Project structure
 
+- `README.md` — main project description, how it works, how to run
+- `docs/api.md` — Python API and CLI reference
+- `docs/implementation-notes.md` — implementation decisions, spec gaps, next slice notes
 - `src/brainos/schema.py` — schema and initialization
-- `src/brainos/store.py` — main storage API
+- `src/brainos/store.py` — storage API
 - `src/brainos/ledger.py` — canonical JSON + hash helpers
-- `src/brainos/cli.py` — command-line interface
-- `docs/api.md` — first API reference
-- `docs/implementation-notes.md` — spec gaps and implementation choices
-- `tests/` — unit and smoke tests
+- `src/brainos/cli.py` — CLI entrypoint
+- `tests/` — tests
 
-## Design constraints and tradeoffs
+## Docs map
 
-### What is production-ready now
+Use docs this way:
+- start with `README.md` if you want to understand the project and run it
+- read `docs/api.md` if you want the exact API surface
+- read `docs/implementation-notes.md` if you want design tradeoffs and spec-gap notes
+
+## Design constraints
+
+What is solid already:
 - deterministic local persistence
-- audit-friendly write path
-- transactional SQLite storage
+- transactional writes
+- audit-friendly ledger trail
+- simple Python integration
 - local testability
-- simple integration surface for Python-based agents
 
-### What is intentionally deferred
+What is intentionally deferred:
 - vector runtime bootstrapping
-- embedding provider abstraction
-- retrieval ranking policies
-- background consolidation flows
-- network service exposure
+- embedding integration
+- ranking fusion
+- graph traversal/retrieval API
+- procedure execution engine
+- network exposure
 
-That is deliberate. The current repo is a reliable storage core, not yet a complete cognitive OS runtime.
+## Development verification
+
+Run tests:
+
+```bash
+uv run pytest tests/test_brainos.py -q
+```
+
+Run a simple smoke path:
+
+```bash
+uv run brainos --db ./brain.db init
+uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
+uv run brainos --db ./brain.db episode-add session-1 'BrainOS initialized with WAL and ledger' --metadata-json '{"source":"smoke"}'
+uv run brainos --db ./brain.db episode-search BrainOS --limit 5
+uv run brainos --db ./brain.db ledger
+```
 
 ## Roadmap
 
 Recommended next slice:
 1. add optional `sqlite-vec` capability detection and vector-table bootstrap
-2. define a retrieval API combining FTS, vector similarity, and graph neighborhood
+2. define retrieval that combines FTS, vector similarity, and graph neighborhood
 3. add schema versioning / migrations
 4. formalize the cognitive execution loop
 5. optionally add a local HTTP API

@@ -1,5 +1,13 @@
 # BrainOS implementation notes
 
+This document is for development-facing details that do not belong in the main README.
+
+Use this file for:
+- implementation decisions
+- spec gaps
+- tradeoffs
+- next-slice engineering notes
+
 ## What was implemented from the PDF
 
 ### Included now
@@ -22,6 +30,26 @@
 - the PDF DDL for `episodes_fts` and `episodes` does not specify a trigger strategy; this implementation mirrors rows in application code
 - the PDF ledger schema did not include `previous_hash`, but the narrative requires cryptographic chaining; this field was added explicitly
 - accepted edge predicates in code are not hard-enforced yet; the PDF presents them as vocabulary examples rather than a strict enum
+
+## Why the repo does not use `.env` yet
+
+Current implementation is local-only and does not require:
+- secrets
+- API keys
+- remote endpoints
+- runtime service configuration
+
+That keeps the initial repo simpler and cleaner.
+
+Introduce `.env` only when there is an actual external-integration need.
+
+## Why the repo uses `uv`
+
+This repo uses `uv` for local development because it keeps the workflow small and repeatable:
+- local virtualenv management
+- dependency install
+- locked dependency resolution via `uv.lock`
+- clean command execution with `uv run ...`
 
 ## Suggested next slice
 1. optional embedding provider abstraction
