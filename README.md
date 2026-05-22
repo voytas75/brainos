@@ -533,3 +533,18 @@ Current intent:
 - compact operator/debug view over ranked retrieval
 - expose score components and match sources for top hits
 - make scoring changes easier to inspect without reading full raw recall payloads
+
+
+## Retrieval health CLI
+
+Get a compact health summary for the retrieval/vector subsystem:
+
+```bash
+uv run brainos --db ./brain.db retrieval-health
+```
+
+Current summary includes:
+- sqlite-vec capability state
+- vector index counts by status/type
+- retrieval benchmark pass/fail summary
+- top-level issues list

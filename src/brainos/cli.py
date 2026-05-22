@@ -7,6 +7,7 @@ import sys
 from .errors import BrainOSError
 from .benchmark import run_retrieval_benchmark
 from .explain import explain_recall
+from .health import retrieval_health_summary
 from .store import BrainOSStore
 
 
@@ -107,6 +108,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_explain.add_argument("query")
     p_explain.add_argument("--session-id")
     p_explain.add_argument("--limit", type=int, default=5)
+    p_health = sub.add_parser("retrieval-health", help="Show retrieval/vector subsystem health summary")
+    p_health.add_argument("--benchmark-limit", type=int, default=5)
     p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
     p_ledger = sub.add_parser("ledger", help="Print ledger entries")
 
@@ -230,6 +233,9 @@ def main() -> None:
         elif args.command == "retrieval-explain":
             store.initialize()
             print(json.dumps(explain_recall(store, args.query, session_id=args.session_id, limit=args.limit), ensure_ascii=False, indent=2))
+        elif args.command == "retrieval-health":
+            store.initialize()
+            print(json.dumps(retrieval_health_summary(store, benchmark_limit=args.benchmark_limit), ensure_ascii=False, indent=2))
         elif args.command == "ledger-verify":
             store.initialize()
             print(json.dumps(store.verify_ledger(), ensure_ascii=False, indent=2))
