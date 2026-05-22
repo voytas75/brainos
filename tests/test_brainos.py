@@ -1,4 +1,5 @@
-from brainos.store import BrainOSStore, PromotionError, ValidationError
+from brainos.errors import PromotionError, ValidationError
+from brainos.store import BrainOSStore
 
 
 def test_initialize_and_core_tables(tmp_path):

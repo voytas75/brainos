@@ -443,3 +443,22 @@ Current behavior:
 - semantic node updates mark vector metadata `stale`
 - episode content changes can be re-evaluated into `stale` state
 - live embedding execution is intentionally not implemented yet
+
+
+## Embedding execution adapter v0
+
+Current code includes:
+- `LiteLLMEmbeddingAdapter`
+- `embed_texts(...)` execution path through LiteLLM
+- `generate_episode_embedding(...)` for episode objects
+
+Required environment variables:
+- `BRAINOS_EMBEDDING_MODEL`
+- `AZURE_API_BASE`
+- `AZURE_API_KEY`
+- `AZURE_API_VERSION`
+
+Current behavior:
+- missing env -> controlled `EmbeddingProviderNotConfiguredError`
+- successful execution should move vector state to `fresh`
+- execution failure records vector state as `error`

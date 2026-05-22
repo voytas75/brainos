@@ -79,3 +79,11 @@ This repo uses `uv` for local development because it keeps the workflow small an
 - added schema v3 with `vector_index_state`
 - added embedding contract surface without provider execution
 - added stale/missing lifecycle tracking for episodes and semantic nodes
+
+
+## Embedding adapter slice added
+
+- added `litellm` runtime dependency
+- added real embedding adapter boundary for Azure-through-LiteLLM
+- added episode embedding execution path with vector-state updates
+- semantic-node execution path still intentionally deferred

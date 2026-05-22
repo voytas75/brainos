@@ -11,7 +11,9 @@ requires-python = ">=3.10"
 authors = [
   { name = "Wojtek / OpenClaw" }
 ]
-dependencies = []
+dependencies = [
+  "litellm>=1.75.0"
+]
 
 [project.optional-dependencies]
 dev = [

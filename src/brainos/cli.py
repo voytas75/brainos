@@ -4,7 +4,8 @@ import argparse
 import json
 import sys
 
-from .store import BrainOSError, BrainOSStore
+from .errors import BrainOSError
+from .store import BrainOSStore
 
 
 def build_parser() -> argparse.ArgumentParser:

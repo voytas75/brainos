@@ -9,32 +9,20 @@ from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any, Iterator
 
+from .embedding import DEFAULT_EMBEDDING_PROFILE, LiteLLMEmbeddingAdapter
+from .errors import (
+    BrainOSError,
+    EmbeddingProviderNotConfiguredError,
+    NotFoundError,
+    PromotionError,
+    ValidationError,
+)
 from .ledger import canonical_json, compute_event_hash
 from .schema import detect_capabilities, get_schema_status, initialize_schema
 
 
-class BrainOSError(Exception):
-    pass
-
-
-class ValidationError(BrainOSError):
-    pass
-
-
-class PromotionError(BrainOSError):
-    pass
-
-
-class NotFoundError(BrainOSError):
-    pass
-
-
-class EmbeddingProviderNotConfiguredError(BrainOSError):
-    pass
-
-
 class BrainOSStore:
-    DEFAULT_EMBEDDING_PROFILE = "brainos-embedding-default"
+    DEFAULT_EMBEDDING_PROFILE = DEFAULT_EMBEDDING_PROFILE
     VECTOR_STATUS_MISSING = "missing"
     VECTOR_STATUS_FRESH = "fresh"
     VECTOR_STATUS_STALE = "stale"
@@ -236,20 +224,13 @@ class BrainOSStore:
         return [dict(r) for r in rows]
 
     def get_embedding_profile_contract(self) -> dict[str, Any]:
-        return {
-            "profile": self.DEFAULT_EMBEDDING_PROFILE,
-            "provider_path": "litellm",
-            "operational_provider": "azure",
-            "mode": "contract_only",
-            "text_object_families": ["episode", "semantic_node"],
-        }
+        contract = LiteLLMEmbeddingAdapter(profile=self.DEFAULT_EMBEDDING_PROFILE).contract()
+        contract["text_object_families"] = ["episode", "semantic_node"]
+        return contract
 
     def embed_texts(self, texts: list[str], profile: str | None = None) -> dict[str, Any]:
-        if not isinstance(texts, list) or any(not isinstance(text, str) for text in texts):
-            raise ValidationError("texts must be a list of strings")
-        raise EmbeddingProviderNotConfiguredError(
-            "embedding execution is not implemented yet; use LiteLLM + Azure profile in a later slice"
-        )
+        adapter = LiteLLMEmbeddingAdapter(profile=profile or self.DEFAULT_EMBEDDING_PROFILE)
+        return adapter.embed_texts(texts)
 
     def mark_episode_vector_missing(self, episode_id: str, *, embedding_profile: str | None = None) -> None:
         episode = self.get_episode(episode_id)
@@ -305,6 +286,47 @@ class BrainOSStore:
                 last_error_at=state.get("last_error_at"),
             )
         return self.get_vector_index_state("episode", episode_id) or {}
+
+    def generate_episode_embedding(self, episode_id: str, *, embedding_profile: str | None = None) -> dict[str, Any]:
+        episode = self.get_episode(episode_id)
+        if episode is None:
+            raise NotFoundError(f"episode not found: {episode_id}")
+        profile = embedding_profile or self.DEFAULT_EMBEDDING_PROFILE
+        source_text = self._canonical_episode_embedding_text(episode)
+        try:
+            result = self.embed_texts([source_text], profile=profile)
+            self._set_vector_index_state(
+                object_type="episode",
+                object_id=episode_id,
+                source_text=source_text,
+                embedding_profile=profile,
+                vector_status=self.VECTOR_STATUS_FRESH,
+                embedding_provider=result["provider"],
+                embedding_model=result["model"],
+                embedding_dimensions=result["dimensions"],
+                last_embedded_at=self._now_iso(),
+            )
+            return {
+                "ok": True,
+                "object_type": "episode",
+                "object_id": episode_id,
+                "vector_status": self.VECTOR_STATUS_FRESH,
+                "embedding_profile": profile,
+                "dimensions": result["dimensions"],
+                "provider": result["provider"],
+                "model": result["model"],
+            }
+        except BrainOSError as exc:
+            self._set_vector_index_state(
+                object_type="episode",
+                object_id=episode_id,
+                source_text=source_text,
+                embedding_profile=profile,
+                vector_status=self.VECTOR_STATUS_ERROR,
+                last_error=str(exc),
+                last_error_at=self._now_iso(),
+            )
+            raise
 
     def set_working_memory(self, key: str, value: dict[str, Any], *, causal_event_id: str | None = None) -> str:
         payload_json = json.dumps(value, ensure_ascii=False)

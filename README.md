@@ -418,3 +418,19 @@ Current codebase now includes:
 - stale/missing tracking for embeddable objects
 
 It does **not** yet perform live embedding generation or vector retrieval.
+
+
+## Embedding execution adapter status
+
+Current code now includes a real LiteLLM-based embedding adapter boundary.
+
+What exists now:
+- logical embedding profile contract
+- environment-based Azure/LiteLLM resolution
+- execution path for episode embedding generation
+- vector metadata updates to `fresh` or `error`
+
+What is still not implemented:
+- batch refresh workflows
+- semantic-node embedding generation path
+- `sqlite-vec` retrieval integration
