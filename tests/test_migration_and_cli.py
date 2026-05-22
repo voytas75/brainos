@@ -128,3 +128,52 @@ def test_cli_not_found_and_validation_errors(tmp_path):
     err = json.loads(bad_preview.stderr)
     assert err["ok"] is False
     assert "procedure_steps must be a JSON array of objects" in err["error"]
+
+
+def test_cli_episode_promotion_get(tmp_path):
+    db = tmp_path / "brain.db"
+    subprocess.run(["uv", "run", "brainos", "--db", str(db), "init"], check=True, capture_output=True, text=True)
+    episode = subprocess.run(
+        [
+            "uv",
+            "run",
+            "brainos",
+            "--db",
+            str(db),
+            "episode-add",
+            "s1",
+            "Semantic fact",
+            "--metadata-json",
+            '{"promotion_type":"semantic","semantic_name":"Semantic fact","semantic_type":"Fact"}',
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    episode_id = episode.stdout.strip()
+
+    subprocess.run(
+        ["uv", "run", "brainos", "--db", str(db), "promote-episode", episode_id],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    promotion = subprocess.run(
+        ["uv", "run", "brainos", "--db", str(db), "episode-promotion-get", episode_id],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(promotion.stdout)
+    assert payload["episode_id"] == episode_id
+    assert payload["target_layer"] == "semantic"
+
+    missing = subprocess.run(
+        ["uv", "run", "brainos", "--db", str(db), "episode-promotion-get", "missing"],
+        capture_output=True,
+        text=True,
+    )
+    assert missing.returncode == 2
+    err = json.loads(missing.stderr)
+    assert "episode promotion not found" in err["error"]

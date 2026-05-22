@@ -560,3 +560,13 @@ Examples:
 - missing semantic node
 - invalid promotion metadata
 - duplicate promotion
+
+
+### `episode-promotion-get`
+
+```bash
+brainos --db ./brain.db episode-promotion-get <episode-id>
+```
+
+Output:
+- JSON promotion record for one episode

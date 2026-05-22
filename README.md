@@ -298,6 +298,7 @@ Available CLI commands:
 - `episode-add`
 - `episodes-list`
 - `consolidation-preview`
+- `episode-promotion-get`
 - `promote-episode`
 - `episode-search`
 - `recall`
@@ -397,3 +398,12 @@ It writes a summary artifact to:
 ## CLI error behavior
 
 For expected user-facing errors (for example not found, invalid promotion metadata, duplicate promotion), CLI exits with code `2` and returns a compact JSON error object on stderr.
+
+
+## Promotion audit
+
+To inspect whether a specific episode was already promoted:
+
+```bash
+uv run brainos --db ./brain.db episode-promotion-get <episode-id>
+```

@@ -35,6 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_ep_preview = sub.add_parser("consolidation-preview", help="Preview promotion candidate for one episode")
     p_ep_preview.add_argument("episode_id")
 
+    p_ep_promotion_get = sub.add_parser("episode-promotion-get", help="Get promotion state for one episode")
+    p_ep_promotion_get.add_argument("episode_id")
+
     p_ep_promote = sub.add_parser("promote-episode", help="Promote one episode into semantic or procedural layer")
     p_ep_promote.add_argument("episode_id")
 
@@ -119,6 +122,12 @@ def main() -> None:
         elif args.command == "consolidation-preview":
             store.initialize()
             print(json.dumps(store.preview_consolidation(args.episode_id), ensure_ascii=False, indent=2))
+        elif args.command == "episode-promotion-get":
+            store.initialize()
+            promotion = store.get_episode_promotion(args.episode_id)
+            if promotion is None:
+                raise BrainOSError(f"episode promotion not found: {args.episode_id}")
+            print(json.dumps(promotion, ensure_ascii=False, indent=2))
         elif args.command == "promote-episode":
             store.initialize()
             print(json.dumps(store.promote_episode(args.episode_id), ensure_ascii=False, indent=2))
