@@ -3,6 +3,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from .sqlite_vec import configured_sqlite_vec_path, load_sqlite_vec_extension
+
 SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """
@@ -120,6 +122,8 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
     fts5_available = True
     vec_available = True
     vec_error = None
+    vec_path = configured_sqlite_vec_path()
+    vec_loaded = False
 
     try:
         conn.execute("CREATE VIRTUAL TABLE temp.__brainos_fts_probe USING fts5(content);")
@@ -128,6 +132,9 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
         fts5_available = False
 
     try:
+        if vec_path:
+            load_sqlite_vec_extension(conn, vec_path)
+            vec_loaded = True
         conn.execute(get_vec_table_sql(1536).replace("episodes_vec", "temp.__brainos_vec_probe"))
         conn.execute("DROP TABLE temp.__brainos_vec_probe;")
     except sqlite3.Error as exc:
@@ -138,6 +145,8 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
         "fts5": fts5_available,
         "sqlite_vec": vec_available,
         "sqlite_vec_error": vec_error,
+        "sqlite_vec_path": vec_path,
+        "sqlite_vec_loaded": vec_loaded,
     }
 
 
@@ -193,6 +202,9 @@ def initialize_schema(conn: sqlite3.Connection, *, enable_vector: bool = False) 
     conn.executescript(SCHEMA_SQL)
     migrated_version = run_migrations(conn, current_version)
     if enable_vector:
+        vec_path = configured_sqlite_vec_path()
+        if vec_path:
+            load_sqlite_vec_extension(conn, vec_path)
         conn.execute(get_vec_table_sql(1536))
     if current_version == 0:
         set_schema_version(conn, SCHEMA_VERSION)

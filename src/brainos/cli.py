@@ -85,6 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_schema_status = sub.add_parser("schema-status", help="Show schema version status")
     p_capabilities = sub.add_parser("capabilities", help="Show runtime capabilities")
+    p_vec_ready = sub.add_parser("sqlite-vec-readiness", help="Run sqlite-vec loader and readiness check")
     p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
     p_ledger = sub.add_parser("ledger", help="Print ledger entries")
 
@@ -190,6 +191,9 @@ def main() -> None:
         elif args.command == "capabilities":
             store.initialize()
             print(json.dumps(store.capabilities(), ensure_ascii=False, indent=2))
+        elif args.command == "sqlite-vec-readiness":
+            store.initialize()
+            print(json.dumps(store.sqlite_vec_readiness(), ensure_ascii=False, indent=2))
         elif args.command == "ledger-verify":
             store.initialize()
             print(json.dumps(store.verify_ledger(), ensure_ascii=False, indent=2))

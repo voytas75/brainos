@@ -460,3 +460,29 @@ Notes:
 - BrainOS keeps provider specifics out of domain logic.
 - `brainos-embedding-default` is the logical profile currently resolved through LiteLLM + Azure env config.
 - If `sqlite-vec` is unavailable, embedding execution may still succeed but vector storage is marked `disabled`.
+
+
+## sqlite-vec runtime configuration
+
+BrainOS can load `sqlite-vec` explicitly when the runtime does not expose `vec0` by default.
+
+Required env for runtime enablement:
+- `BRAINOS_SQLITE_VEC_PATH`
+
+Example:
+
+```bash
+export BRAINOS_SQLITE_VEC_PATH="/home/voytas/.bun/install/cache/sqlite-vec-linux-x64@0.1.7-dd4d9ab07e99b7ce@@@1/vec0.so"
+```
+
+Verification commands:
+
+```bash
+uv run brainos --db ./brain.db capabilities
+uv run brainos --db ./brain.db sqlite-vec-readiness
+```
+
+Expected healthy result:
+- `sqlite_vec: true`
+- `sqlite_vec_loaded: true`
+- readiness `ok: true`

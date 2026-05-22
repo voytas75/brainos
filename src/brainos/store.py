@@ -19,6 +19,7 @@ from .errors import (
 )
 from .ledger import canonical_json, compute_event_hash
 from .schema import detect_capabilities, get_schema_status, get_vec_table_sql, initialize_schema
+from .sqlite_vec import sqlite_vec_readiness
 
 
 class BrainOSStore:
@@ -225,6 +226,9 @@ class BrainOSStore:
 
     def _sqlite_vec_capability(self) -> dict[str, Any]:
         return self.capabilities()
+
+    def sqlite_vec_readiness(self) -> dict[str, Any]:
+        return sqlite_vec_readiness(self.conn)
 
     def _ensure_episode_vec_table(self, dimensions: int) -> None:
         self.conn.execute(get_vec_table_sql(dimensions))
