@@ -476,3 +476,16 @@ Current `generate_episode_embedding(...)` behavior:
 - embedding failure -> vector state `error`
 - embedding success + no sqlite-vec -> vector state `disabled`
 - embedding success + sqlite-vec available -> vector state `fresh`
+
+
+## sqlite-vec recall integration v0
+
+Current recall behavior:
+- `episodes` = existing FTS results
+- `vector_episodes` = sqlite-vec similarity results for episodes when runtime is ready
+- `semantic_hits` = semantic node name matches
+
+Fallback behavior:
+- if sqlite-vec runtime is unavailable, `vector_episodes` is empty and `vector_mode` is `disabled`
+- if embedding/query execution fails, `vector_mode` is `error`
+- this slice does not yet merge/rerank FTS and vector hits into one unified ranking

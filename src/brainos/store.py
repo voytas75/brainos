@@ -242,6 +242,47 @@ class BrainOSStore:
             (episode_id, vector_json),
         )
 
+    def _vector_search_episodes(
+        self, query_vector: list[float], *, session_id: str | None = None, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        vector_json = json.dumps(query_vector, ensure_ascii=False)
+        if session_id:
+            rows = self.conn.execute(
+                """
+                SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata, v.distance
+                FROM episodes_vec v
+                JOIN episodes e ON e.id = v.id
+                WHERE v.embedding MATCH ? AND e.session_id = ?
+                ORDER BY v.distance ASC
+                LIMIT ?
+                """,
+                (vector_json, session_id, limit),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """
+                SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata, v.distance
+                FROM episodes_vec v
+                JOIN episodes e ON e.id = v.id
+                WHERE v.embedding MATCH ?
+                ORDER BY v.distance ASC
+                LIMIT ?
+                """,
+                (vector_json, limit),
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["metadata"] = self._decode_json_field(item, "metadata") or {}
+            promotion = self.get_episode_promotion(item["id"])
+            if promotion is not None:
+                item["promotion"] = promotion
+            vector_state = self.get_vector_index_state("episode", item["id"])
+            if vector_state is not None:
+                item["vector_state"] = vector_state
+            result.append(item)
+        return result
+
     def get_embedding_profile_contract(self) -> dict[str, Any]:
         contract = LiteLLMEmbeddingAdapter(profile=self.DEFAULT_EMBEDDING_PROFILE).contract()
         contract["text_object_families"] = ["episode", "semantic_node"]
@@ -682,6 +723,23 @@ class BrainOSStore:
 
     def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
         episodes = self.search_episodes_text(query, session_id=session_id, limit=limit)
+        vector_episodes: list[dict[str, Any]] = []
+        vector_mode = "disabled"
+        vector_error = None
+
+        capabilities = self._sqlite_vec_capability()
+        if capabilities.get("sqlite_vec"):
+            try:
+                embedding = self.embed_texts([query], profile=self.DEFAULT_EMBEDDING_PROFILE)
+                vector_episodes = self._vector_search_episodes(
+                    embedding["vectors"][0], session_id=session_id, limit=limit
+                )
+                vector_mode = "sqlite_vec_episode_similarity"
+            except BrainOSError as exc:
+                vector_mode = "error"
+                vector_error = str(exc)
+        else:
+            vector_error = capabilities.get("sqlite_vec_error")
 
         semantic_hits = []
         query_lower = query.lower()
@@ -700,6 +758,8 @@ class BrainOSStore:
         summary_parts = []
         if episodes:
             summary_parts.append(f"episodes:{len(episodes)}")
+        if vector_episodes:
+            summary_parts.append(f"vector_episodes:{len(vector_episodes)}")
         if semantic_hits:
             summary_parts.append(f"semantic_hits:{len(semantic_hits)}")
 
@@ -707,10 +767,14 @@ class BrainOSStore:
             "query": query,
             "session_id": session_id,
             "episodes": episodes,
+            "vector_episodes": vector_episodes,
             "semantic_hits": semantic_hits,
             "count": len(episodes),
+            "vector_count": len(vector_episodes),
             "semantic_count": len(semantic_hits),
-            "mode": "fts_plus_semantic_name_match",
+            "mode": "fts_plus_vector_episode_similarity_plus_semantic_name_match",
+            "vector_mode": vector_mode,
+            "vector_error": vector_error,
             "summary": ", ".join(summary_parts) if summary_parts else "no_hits",
         }
 

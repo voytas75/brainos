@@ -114,9 +114,11 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     store.upsert_semantic_node(node_id="semantic-1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
 
     recall = store.recall("semantic", session_id="s1", limit=5)
-    assert recall["mode"] == "fts_plus_semantic_name_match"
+    assert recall["mode"] == "fts_plus_vector_episode_similarity_plus_semantic_name_match"
     assert recall["count"] == 1
     assert recall["semantic_count"] == 1
+    assert recall["vector_count"] == 0
+    assert recall["vector_mode"] in {"disabled", "error", "sqlite_vec_episode_similarity"}
     assert recall["episodes"][0]["metadata"]["kind"] == "graph"
     assert recall["semantic_hits"][0]["name"] == "Semantic Memory"
     assert recall["summary"] == "episodes:1, semantic_hits:1"
@@ -157,6 +159,53 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
         assert False, "expected PromotionError"
     except PromotionError:
         pass
+    store.close()
+
+
+def test_recall_returns_vector_episodes_when_vec_path_available(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    episode_id = store.add_episode(session_id="s1", content="Azure embedding smoke test for BrainOS.", metadata={})
+
+    monkeypatch.setattr(
+        store,
+        "_sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
+    )
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.1, 0.2, 0.3]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure/UDTEMBED3L",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        store,
+        "_vector_search_episodes",
+        lambda query_vector, session_id=None, limit=10: [
+            {
+                "id": episode_id,
+                "session_id": "s1",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "Azure embedding smoke test for BrainOS.",
+                "metadata": {},
+                "distance": 0.0,
+            }
+        ],
+    )
+
+    recall = store.recall("embedding smoke", session_id="s1", limit=5)
+    assert recall["vector_mode"] == "sqlite_vec_episode_similarity"
+    assert recall["vector_count"] == 1
+    assert recall["vector_episodes"][0]["id"] == episode_id
     store.close()
 
 
