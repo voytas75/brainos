@@ -5,6 +5,7 @@ import json
 import sys
 
 from .errors import BrainOSError
+from .benchmark import run_retrieval_benchmark
 from .store import BrainOSStore
 
 
@@ -99,6 +100,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_vec_sync_batch.add_argument("--vector-status")
     p_vec_sync_batch.add_argument("--limit", type=int, default=100)
     p_vec_sync_batch.add_argument("--force", action="store_true")
+    p_bench = sub.add_parser("retrieval-benchmark", help="Run local retrieval benchmark suite")
+    p_bench.add_argument("--limit", type=int, default=5)
     p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
     p_ledger = sub.add_parser("ledger", help="Print ledger entries")
 
@@ -216,6 +219,9 @@ def main() -> None:
         elif args.command == "vector-index-sync-batch":
             store.initialize()
             print(json.dumps(store.sync_vector_index_batch(object_type=args.object_type, vector_status=args.vector_status, limit=args.limit, force=args.force), ensure_ascii=False, indent=2))
+        elif args.command == "retrieval-benchmark":
+            store.initialize()
+            print(json.dumps(run_retrieval_benchmark(store, limit=args.limit), ensure_ascii=False, indent=2))
         elif args.command == "ledger-verify":
             store.initialize()
             print(json.dumps(store.verify_ledger(), ensure_ascii=False, indent=2))

@@ -505,3 +505,17 @@ Current intent:
 - refresh/sync one object
 - backfill or repair a bounded batch
 - keep maintenance explicit and local-first
+
+
+## Retrieval benchmark CLI
+
+Run the local benchmark suite:
+
+```bash
+uv run brainos --db ./brain.db retrieval-benchmark
+```
+
+Current intent:
+- quick operator-visible retrieval quality snapshot
+- validate expected top hits for the bounded benchmark suite
+- make later tuning passes easier to judge locally
