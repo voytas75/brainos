@@ -434,3 +434,29 @@ What is still not implemented:
 - batch refresh workflows
 - semantic-node embedding generation path
 - `sqlite-vec` retrieval integration
+
+
+## Azure embedding provider configuration
+
+BrainOS uses LiteLLM as the execution adapter for embeddings.
+Current operational target: Azure embeddings.
+
+Required environment variables:
+- `BRAINOS_EMBEDDING_MODEL` - model/deployment name passed to LiteLLM
+- `AZURE_API_BASE` - Azure OpenAI endpoint base URL
+- `AZURE_API_KEY` - Azure API key
+- `AZURE_API_VERSION` - Azure API version for embeddings
+
+Example:
+
+```bash
+export BRAINOS_EMBEDDING_MODEL="azure/<your-embedding-deployment>"
+export AZURE_API_BASE="https://<your-resource>.openai.azure.com"
+export AZURE_API_KEY="..."
+export AZURE_API_VERSION="2024-10-21"
+```
+
+Notes:
+- BrainOS keeps provider specifics out of domain logic.
+- `brainos-embedding-default` is the logical profile currently resolved through LiteLLM + Azure env config.
+- If `sqlite-vec` is unavailable, embedding execution may still succeed but vector storage is marked `disabled`.

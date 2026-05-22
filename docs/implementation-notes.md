@@ -87,3 +87,17 @@ This repo uses `uv` for local development because it keeps the workflow small an
 - added real embedding adapter boundary for Azure-through-LiteLLM
 - added episode embedding execution path with vector-state updates
 - semantic-node execution path still intentionally deferred
+
+
+## sqlite-vec storage integration v0
+
+Added in this slice:
+- capability-gated episode vector storage path
+- `episodes_vec` creation by embedding dimension when storage is attempted
+- conservative storage behavior: no vector retrieval yet
+- disabled-state fallback when runtime lacks `vec0`
+
+Azure configuration path:
+- BrainOS logical embedding profile: `brainos-embedding-default`
+- LiteLLM execution adapter reads Azure config from env
+- recommended model naming for current path: `azure/<deployment-name>`

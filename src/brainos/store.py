@@ -18,7 +18,7 @@ from .errors import (
     ValidationError,
 )
 from .ledger import canonical_json, compute_event_hash
-from .schema import detect_capabilities, get_schema_status, initialize_schema
+from .schema import detect_capabilities, get_schema_status, get_vec_table_sql, initialize_schema
 
 
 class BrainOSStore:
@@ -223,9 +223,29 @@ class BrainOSStore:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def _sqlite_vec_capability(self) -> dict[str, Any]:
+        return self.capabilities()
+
+    def _ensure_episode_vec_table(self, dimensions: int) -> None:
+        self.conn.execute(get_vec_table_sql(dimensions))
+
+    def _upsert_episode_vector(self, episode_id: str, vector: list[float], dimensions: int) -> None:
+        self._ensure_episode_vec_table(dimensions)
+        vector_json = json.dumps(vector, ensure_ascii=False)
+        self.conn.execute("DELETE FROM episodes_vec WHERE id = ?", (episode_id,))
+        self.conn.execute(
+            "INSERT INTO episodes_vec(id, embedding) VALUES (?, ?)",
+            (episode_id, vector_json),
+        )
+
     def get_embedding_profile_contract(self) -> dict[str, Any]:
         contract = LiteLLMEmbeddingAdapter(profile=self.DEFAULT_EMBEDDING_PROFILE).contract()
         contract["text_object_families"] = ["episode", "semantic_node"]
+        contract["vector_storage"] = {
+            "kind": "sqlite-vec",
+            "status": "capability_gated",
+            "object_families": ["episode"],
+        }
         return contract
 
     def embed_texts(self, texts: list[str], profile: str | None = None) -> dict[str, Any]:
@@ -295,6 +315,35 @@ class BrainOSStore:
         source_text = self._canonical_episode_embedding_text(episode)
         try:
             result = self.embed_texts([source_text], profile=profile)
+            capabilities = self._sqlite_vec_capability()
+            if not capabilities.get("sqlite_vec"):
+                self._set_vector_index_state(
+                    object_type="episode",
+                    object_id=episode_id,
+                    source_text=source_text,
+                    embedding_profile=profile,
+                    vector_status=self.VECTOR_STATUS_DISABLED,
+                    embedding_provider=result["provider"],
+                    embedding_model=result["model"],
+                    embedding_dimensions=result["dimensions"],
+                    last_embedded_at=self._now_iso(),
+                    last_error=capabilities.get("sqlite_vec_error"),
+                    last_error_at=self._now_iso(),
+                )
+                return {
+                    "ok": True,
+                    "object_type": "episode",
+                    "object_id": episode_id,
+                    "vector_status": self.VECTOR_STATUS_DISABLED,
+                    "embedding_profile": profile,
+                    "dimensions": result["dimensions"],
+                    "provider": result["provider"],
+                    "model": result["model"],
+                    "storage": "disabled",
+                    "storage_reason": capabilities.get("sqlite_vec_error"),
+                }
+
+            self._upsert_episode_vector(episode_id, result["vectors"][0], result["dimensions"])
             self._set_vector_index_state(
                 object_type="episode",
                 object_id=episode_id,
@@ -305,6 +354,8 @@ class BrainOSStore:
                 embedding_model=result["model"],
                 embedding_dimensions=result["dimensions"],
                 last_embedded_at=self._now_iso(),
+                last_error=None,
+                last_error_at=None,
             )
             return {
                 "ok": True,
@@ -315,6 +366,7 @@ class BrainOSStore:
                 "dimensions": result["dimensions"],
                 "provider": result["provider"],
                 "model": result["model"],
+                "storage": "sqlite-vec",
             }
         except BrainOSError as exc:
             self._set_vector_index_state(

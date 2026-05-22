@@ -133,3 +133,90 @@ def test_generate_episode_embedding_records_error_state(monkeypatch, tmp_path):
     assert state["vector_status"] == "error"
     assert state["last_error"] is not None
     store.close()
+
+
+def test_generate_episode_embedding_marks_disabled_when_sqlite_vec_unavailable(monkeypatch, tmp_path):
+    db = tmp_path / "brain_v3_disabled.db"
+    create_v3_database(db)
+    store = BrainOSStore(db)
+    store.initialize()
+    episode_id = store.add_episode(session_id="s1", content="Needs vector storage", metadata={})
+
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.1, 0.2, 0.3]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure-embed-test",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        store,
+        "_sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": False, "sqlite_vec_error": "no such module: vec0"},
+    )
+
+    result = store.generate_episode_embedding(episode_id)
+    assert result["vector_status"] == "disabled"
+    assert result["storage"] == "disabled"
+
+    state = store.get_vector_index_state("episode", episode_id)
+    assert state is not None
+    assert state["vector_status"] == "disabled"
+    assert state["embedding_dimensions"] == 3
+    assert state["last_error"] == "no such module: vec0"
+    store.close()
+
+
+def test_generate_episode_embedding_stores_vector_when_sqlite_vec_available(monkeypatch, tmp_path):
+    db = tmp_path / "brain_v3_store.db"
+    create_v3_database(db)
+    store = BrainOSStore(db)
+    store.initialize()
+    episode_id = store.add_episode(session_id="s1", content="Store this vector", metadata={})
+
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.11, 0.22, 0.33]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure-embed-test",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        store,
+        "_sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
+    )
+
+    created = []
+    inserted = []
+
+    monkeypatch.setattr(store, "_ensure_episode_vec_table", lambda dimensions: created.append(dimensions))
+    monkeypatch.setattr(
+        store,
+        "_upsert_episode_vector",
+        lambda eid, vector, dimensions: inserted.append((eid, vector, dimensions)),
+    )
+
+    result = store.generate_episode_embedding(episode_id)
+    assert result["vector_status"] == "fresh"
+    assert result["storage"] == "sqlite-vec"
+    assert inserted == [(episode_id, [0.11, 0.22, 0.33], 3)]
+
+    state = store.get_vector_index_state("episode", episode_id)
+    assert state is not None
+    assert state["vector_status"] == "fresh"
+    assert state["embedding_dimensions"] == 3
+    assert state["embedding_model"] == "azure-embed-test"
+    store.close()

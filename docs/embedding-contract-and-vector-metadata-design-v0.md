@@ -499,3 +499,17 @@ Use:
 - **Azure embedding model** as the initial operational provider
 
 This preserves product coherence while keeping the vector layer native to BrainOS.
+
+
+## Provider configuration note (Azure operational path)
+
+Execution adapter expects these env vars:
+- `BRAINOS_EMBEDDING_MODEL`
+- `AZURE_API_BASE`
+- `AZURE_API_KEY`
+- `AZURE_API_VERSION`
+
+Recommended current operational model form:
+- `azure/<deployment-name>`
+
+This keeps the BrainOS domain contract profile-based while letting LiteLLM resolve Azure specifics externally.

@@ -462,3 +462,17 @@ Current behavior:
 - missing env -> controlled `EmbeddingProviderNotConfiguredError`
 - successful execution should move vector state to `fresh`
 - execution failure records vector state as `error`
+
+
+## sqlite-vec storage integration v0
+
+Current scope:
+- episode embedding generation may attempt vector storage into `episodes_vec`
+- storage is capability-gated by runtime `sqlite_vec`
+- when `sqlite_vec=false`, BrainOS records vector state as `disabled`
+- retrieval/search over `episodes_vec` is still intentionally deferred
+
+Current `generate_episode_embedding(...)` behavior:
+- embedding failure -> vector state `error`
+- embedding success + no sqlite-vec -> vector state `disabled`
+- embedding success + sqlite-vec available -> vector state `fresh`
