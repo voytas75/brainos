@@ -141,7 +141,10 @@ def main() -> None:
             print(event_id)
         elif args.command == "semantic-node-get":
             store.initialize()
-            print(json.dumps(store.get_semantic_node(args.node_id), ensure_ascii=False, indent=2))
+            node = store.get_semantic_node(args.node_id)
+            if node is None:
+                raise BrainOSError(f"semantic node not found: {args.node_id}")
+            print(json.dumps(node, ensure_ascii=False, indent=2))
         elif args.command == "semantic-edge-upsert":
             store.initialize()
             event_id = store.upsert_semantic_edge(
@@ -167,7 +170,10 @@ def main() -> None:
             print(json.dumps(store.list_procedures(active_only=not args.all, limit=args.limit), ensure_ascii=False, indent=2))
         elif args.command == "procedure-get":
             store.initialize()
-            print(json.dumps(store.get_procedure(args.procedure_id), ensure_ascii=False, indent=2))
+            procedure = store.get_procedure(args.procedure_id)
+            if procedure is None:
+                raise BrainOSError(f"procedure not found: {args.procedure_id}")
+            print(json.dumps(procedure, ensure_ascii=False, indent=2))
         elif args.command == "schema-status":
             store.initialize()
             print(json.dumps(store.schema_status(), ensure_ascii=False, indent=2))

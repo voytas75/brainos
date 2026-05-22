@@ -392,3 +392,8 @@ Run the bounded end-to-end smoke test:
 
 It writes a summary artifact to:
 - `artifacts/e2e-summary.json`
+
+
+## CLI error behavior
+
+For expected user-facing errors (for example not found, invalid promotion metadata, duplicate promotion), CLI exits with code `2` and returns a compact JSON error object on stderr.

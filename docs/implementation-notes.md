@@ -65,3 +65,10 @@ This repo uses `uv` for local development because it keeps the workflow small an
 - explicit duplicate-promotion blocking
 - explicit validation errors for promotion metadata
 - added official `scripts/e2e_smoke.sh` smoke path
+
+
+## Migration + CLI polish notes
+
+- added explicit migration coverage for v1 -> v2
+- CLI now returns compact JSON errors for expected user-facing failures
+- missing-object reads now fail clearly instead of printing `null`

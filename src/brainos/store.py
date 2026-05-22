@@ -23,6 +23,10 @@ class PromotionError(BrainOSError):
     pass
 
 
+class NotFoundError(BrainOSError):
+    pass
+
+
 class BrainOSStore:
     def __init__(self, db_path: str | Path, *, enable_vector: bool = False):
         self.db_path = str(db_path)
@@ -307,7 +311,7 @@ class BrainOSStore:
     def preview_consolidation(self, episode_id: str) -> dict[str, Any]:
         episode = self.get_episode(episode_id)
         if episode is None:
-            raise PromotionError(f"episode not found: {episode_id}")
+            raise NotFoundError(f"episode not found: {episode_id}")
 
         existing_promotion = self.get_episode_promotion(episode_id)
         if existing_promotion is not None:

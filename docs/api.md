@@ -548,3 +548,15 @@ Current enforcement:
 - `procedure_steps` must be a JSON array of objects when present
 - duplicate promotion of the same episode is rejected
 - promotion state is tracked in `episode_promotions`
+
+
+## CLI UX / error behavior v0
+
+Expected user-facing errors return:
+- exit code `2`
+- JSON error payload on stderr
+
+Examples:
+- missing semantic node
+- invalid promotion metadata
+- duplicate promotion
