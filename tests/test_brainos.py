@@ -124,7 +124,10 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     assert recall["ranked_episodes"][0]["id"] == semantic_episode_id
     assert recall["ranked_episodes"][0]["match_sources"] == ["fts"]
     assert recall["semantic_hits"][0]["name"] == "Semantic Memory"
-    assert recall["summary"] == "episodes:1, ranked_episodes:1, semantic_hits:1"
+    assert recall["ranked_semantic_count"] == 1
+    assert recall["ranked_semantic_hits"][0]["id"] == "semantic-1"
+    assert recall["ranked_semantic_hits"][0]["match_sources"] == ["name_match"]
+    assert recall["summary"] == "episodes:1, ranked_episodes:1, semantic_hits:1, ranked_semantic_hits:1"
 
     semantic_preview = store.preview_consolidation(semantic_episode_id)
     assert semantic_preview["promotion_type"] == "semantic"
@@ -262,6 +265,57 @@ def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_pa
     assert recall["ranked_episodes"][0]["id"] == episode_id
     assert recall["ranked_episodes"][0]["match_sources"] == ["fts", "vector"]
     assert recall["ranked_episodes"][0]["vector_distance"] == 0.0
+    store.close()
+
+
+def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    store.upsert_semantic_node(node_id="n1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
+
+    monkeypatch.setattr(
+        store,
+        "_sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
+    )
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.1, 0.2, 0.3]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure/UDTEMBED3L",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(store, "_vector_search_episodes", lambda query_vector, session_id=None, limit=10: [])
+    monkeypatch.setattr(
+        store,
+        "_vector_search_semantic_nodes",
+        lambda query_vector, limit=10: [
+            {
+                "id": "n1",
+                "name": "Semantic Memory",
+                "type": "Concept",
+                "properties": {"area": "memory"},
+                "edges": [],
+                "distance": 0.0,
+            }
+        ],
+    )
+
+    recall = store.recall("semantic", session_id="s1", limit=5)
+    assert recall["semantic_count"] == 1
+    assert recall["vector_semantic_count"] == 1
+    assert recall["ranked_semantic_count"] == 1
+    assert recall["ranked_semantic_hits"][0]["id"] == "n1"
+    assert recall["ranked_semantic_hits"][0]["match_sources"] == ["name_match", "vector"]
+    assert recall["ranked_semantic_hits"][0]["vector_distance"] == 0.0
     store.close()
 
 

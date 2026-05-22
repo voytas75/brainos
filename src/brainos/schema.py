@@ -100,9 +100,9 @@ CREATE INDEX IF NOT EXISTS idx_episode_promotions_target ON episode_promotions(t
 CREATE INDEX IF NOT EXISTS idx_vector_index_status ON vector_index_state(vector_status, object_type);
 """
 
-def get_vec_table_sql(dimensions: int) -> str:
+def get_vec_table_sql(dimensions: int, table_name: str = "episodes_vec") -> str:
     return f"""
-CREATE VIRTUAL TABLE IF NOT EXISTS episodes_vec USING vec0(
+CREATE VIRTUAL TABLE IF NOT EXISTS {table_name} USING vec0(
     id TEXT PRIMARY KEY,
     embedding FLOAT[{int(dimensions)}]
 );
@@ -135,7 +135,7 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
         if vec_path:
             load_sqlite_vec_extension(conn, vec_path)
             vec_loaded = True
-        conn.execute(get_vec_table_sql(1536).replace("episodes_vec", "temp.__brainos_vec_probe"))
+        conn.execute(get_vec_table_sql(1536, table_name="temp.__brainos_vec_probe"))
         conn.execute("DROP TABLE temp.__brainos_vec_probe;")
     except sqlite3.Error as exc:
         vec_available = False
@@ -205,7 +205,8 @@ def initialize_schema(conn: sqlite3.Connection, *, enable_vector: bool = False) 
         vec_path = configured_sqlite_vec_path()
         if vec_path:
             load_sqlite_vec_extension(conn, vec_path)
-        conn.execute(get_vec_table_sql(1536))
+        conn.execute(get_vec_table_sql(1536, table_name="episodes_vec"))
+        conn.execute(get_vec_table_sql(1536, table_name="semantic_nodes_vec"))
     if current_version == 0:
         set_schema_version(conn, SCHEMA_VERSION)
     elif migrated_version != current_version:

@@ -231,7 +231,10 @@ class BrainOSStore:
         return sqlite_vec_readiness(self.conn)
 
     def _ensure_episode_vec_table(self, dimensions: int) -> None:
-        self.conn.execute(get_vec_table_sql(dimensions))
+        self.conn.execute(get_vec_table_sql(dimensions, table_name="episodes_vec"))
+
+    def _ensure_semantic_node_vec_table(self, dimensions: int) -> None:
+        self.conn.execute(get_vec_table_sql(dimensions, table_name="semantic_nodes_vec"))
 
     def _upsert_episode_vector(self, episode_id: str, vector: list[float], dimensions: int) -> None:
         self._ensure_episode_vec_table(dimensions)
@@ -240,6 +243,15 @@ class BrainOSStore:
         self.conn.execute(
             "INSERT INTO episodes_vec(id, embedding) VALUES (?, ?)",
             (episode_id, vector_json),
+        )
+
+    def _upsert_semantic_node_vector(self, node_id: str, vector: list[float], dimensions: int) -> None:
+        self._ensure_semantic_node_vec_table(dimensions)
+        vector_json = json.dumps(vector, ensure_ascii=False)
+        self.conn.execute("DELETE FROM semantic_nodes_vec WHERE id = ?", (node_id,))
+        self.conn.execute(
+            "INSERT INTO semantic_nodes_vec(id, embedding) VALUES (?, ?)",
+            (node_id, vector_json),
         )
 
     def _vector_search_episodes(
@@ -283,13 +295,37 @@ class BrainOSStore:
             result.append(item)
         return result
 
+    def _vector_search_semantic_nodes(self, query_vector: list[float], *, limit: int = 10) -> list[dict[str, Any]]:
+        vector_json = json.dumps(query_vector, ensure_ascii=False)
+        rows = self.conn.execute(
+            """
+            SELECT n.id, n.name, n.type, n.properties, v.distance
+            FROM semantic_nodes_vec v
+            JOIN semantic_nodes n ON n.id = v.id
+            WHERE v.embedding MATCH ?
+            ORDER BY v.distance ASC
+            LIMIT ?
+            """,
+            (vector_json, limit),
+        ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["properties"] = self._decode_json_field(item, "properties") or {}
+            item["edges"] = self.list_semantic_edges(item["id"], direction="both")
+            vector_state = self.get_vector_index_state("semantic_node", item["id"])
+            if vector_state is not None:
+                item["vector_state"] = vector_state
+            result.append(item)
+        return result
+
     def get_embedding_profile_contract(self) -> dict[str, Any]:
         contract = LiteLLMEmbeddingAdapter(profile=self.DEFAULT_EMBEDDING_PROFILE).contract()
         contract["text_object_families"] = ["episode", "semantic_node"]
         contract["vector_storage"] = {
             "kind": "sqlite-vec",
             "status": "capability_gated",
-            "object_families": ["episode"],
+            "object_families": ["episode", "semantic_node"],
         }
         return contract
 
@@ -417,6 +453,79 @@ class BrainOSStore:
             self._set_vector_index_state(
                 object_type="episode",
                 object_id=episode_id,
+                source_text=source_text,
+                embedding_profile=profile,
+                vector_status=self.VECTOR_STATUS_ERROR,
+                last_error=str(exc),
+                last_error_at=self._now_iso(),
+            )
+            raise
+
+    def generate_semantic_node_embedding(self, node_id: str, *, embedding_profile: str | None = None) -> dict[str, Any]:
+        node = self.get_semantic_node(node_id)
+        if node is None:
+            raise NotFoundError(f"semantic node not found: {node_id}")
+        profile = embedding_profile or self.DEFAULT_EMBEDDING_PROFILE
+        source_text = self._canonical_semantic_node_embedding_text(node)
+        try:
+            result = self.embed_texts([source_text], profile=profile)
+            capabilities = self._sqlite_vec_capability()
+            if not capabilities.get("sqlite_vec"):
+                self._set_vector_index_state(
+                    object_type="semantic_node",
+                    object_id=node_id,
+                    source_text=source_text,
+                    embedding_profile=profile,
+                    vector_status=self.VECTOR_STATUS_DISABLED,
+                    embedding_provider=result["provider"],
+                    embedding_model=result["model"],
+                    embedding_dimensions=result["dimensions"],
+                    last_embedded_at=self._now_iso(),
+                    last_error=capabilities.get("sqlite_vec_error"),
+                    last_error_at=self._now_iso(),
+                )
+                return {
+                    "ok": True,
+                    "object_type": "semantic_node",
+                    "object_id": node_id,
+                    "vector_status": self.VECTOR_STATUS_DISABLED,
+                    "embedding_profile": profile,
+                    "dimensions": result["dimensions"],
+                    "provider": result["provider"],
+                    "model": result["model"],
+                    "storage": "disabled",
+                    "storage_reason": capabilities.get("sqlite_vec_error"),
+                }
+
+            self._upsert_semantic_node_vector(node_id, result["vectors"][0], result["dimensions"])
+            self._set_vector_index_state(
+                object_type="semantic_node",
+                object_id=node_id,
+                source_text=source_text,
+                embedding_profile=profile,
+                vector_status=self.VECTOR_STATUS_FRESH,
+                embedding_provider=result["provider"],
+                embedding_model=result["model"],
+                embedding_dimensions=result["dimensions"],
+                last_embedded_at=self._now_iso(),
+                last_error=None,
+                last_error_at=None,
+            )
+            return {
+                "ok": True,
+                "object_type": "semantic_node",
+                "object_id": node_id,
+                "vector_status": self.VECTOR_STATUS_FRESH,
+                "embedding_profile": profile,
+                "dimensions": result["dimensions"],
+                "provider": result["provider"],
+                "model": result["model"],
+                "storage": "sqlite-vec",
+            }
+        except BrainOSError as exc:
+            self._set_vector_index_state(
+                object_type="semantic_node",
+                object_id=node_id,
                 source_text=source_text,
                 embedding_profile=profile,
                 vector_status=self.VECTOR_STATUS_ERROR,
@@ -726,13 +835,15 @@ class BrainOSStore:
         vector_episodes: list[dict[str, Any]] = []
         vector_mode = "disabled"
         vector_error = None
+        query_vector: list[float] | None = None
 
         capabilities = self._sqlite_vec_capability()
         if capabilities.get("sqlite_vec"):
             try:
                 embedding = self.embed_texts([query], profile=self.DEFAULT_EMBEDDING_PROFILE)
+                query_vector = embedding["vectors"][0]
                 vector_episodes = self._vector_search_episodes(
-                    embedding["vectors"][0], session_id=session_id, limit=limit
+                    query_vector, session_id=session_id, limit=limit
                 )
                 vector_mode = "sqlite_vec_episode_similarity"
             except BrainOSError as exc:
@@ -769,6 +880,7 @@ class BrainOSStore:
         )[:limit]
 
         semantic_hits = []
+        vector_semantic_hits: list[dict[str, Any]] = []
         query_lower = query.lower()
         node_rows = self.conn.execute(
             "SELECT id, name, type, properties FROM semantic_nodes ORDER BY name"
@@ -782,6 +894,39 @@ class BrainOSStore:
                 if len(semantic_hits) >= limit:
                     break
 
+        if vector_mode == "sqlite_vec_episode_similarity" and query_vector is not None:
+            try:
+                vector_semantic_hits = self._vector_search_semantic_nodes(query_vector, limit=limit)
+            except (BrainOSError, sqlite3.Error):
+                vector_semantic_hits = []
+
+        ranked_semantic_map: dict[str, dict[str, Any]] = {}
+        for idx, item in enumerate(semantic_hits):
+            merged = dict(item)
+            merged["match_sources"] = ["name_match"]
+            merged["rank_score"] = 1000.0 - float(idx)
+            ranked_semantic_map[item["id"]] = merged
+
+        for idx, item in enumerate(vector_semantic_hits):
+            item_id = item["id"]
+            distance = float(item.get("distance", 999999.0))
+            score = max(0.0, 500.0 - distance - (idx * 0.001))
+            if item_id in ranked_semantic_map:
+                ranked_semantic_map[item_id]["match_sources"].append("vector")
+                ranked_semantic_map[item_id]["rank_score"] += score
+                ranked_semantic_map[item_id]["vector_distance"] = distance
+            else:
+                merged = dict(item)
+                merged["match_sources"] = ["vector"]
+                merged["rank_score"] = score
+                merged["vector_distance"] = distance
+                ranked_semantic_map[item_id] = merged
+
+        ranked_semantic_hits = sorted(
+            ranked_semantic_map.values(),
+            key=lambda item: (-float(item.get("rank_score", 0.0)), str(item.get("id", ""))),
+        )[:limit]
+
         summary_parts = []
         if episodes:
             summary_parts.append(f"episodes:{len(episodes)}")
@@ -791,6 +936,10 @@ class BrainOSStore:
             summary_parts.append(f"ranked_episodes:{len(ranked_episodes)}")
         if semantic_hits:
             summary_parts.append(f"semantic_hits:{len(semantic_hits)}")
+        if vector_semantic_hits:
+            summary_parts.append(f"vector_semantic_hits:{len(vector_semantic_hits)}")
+        if ranked_semantic_hits:
+            summary_parts.append(f"ranked_semantic_hits:{len(ranked_semantic_hits)}")
 
         return {
             "query": query,
@@ -799,10 +948,14 @@ class BrainOSStore:
             "vector_episodes": vector_episodes,
             "ranked_episodes": ranked_episodes,
             "semantic_hits": semantic_hits,
+            "vector_semantic_hits": vector_semantic_hits,
+            "ranked_semantic_hits": ranked_semantic_hits,
             "count": len(episodes),
             "vector_count": len(vector_episodes),
             "ranked_count": len(ranked_episodes),
             "semantic_count": len(semantic_hits),
+            "vector_semantic_count": len(vector_semantic_hits),
+            "ranked_semantic_count": len(ranked_semantic_hits),
             "mode": "fts_plus_vector_episode_similarity_plus_semantic_name_match",
             "vector_mode": vector_mode,
             "vector_error": vector_error,

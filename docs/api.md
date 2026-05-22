@@ -503,3 +503,17 @@ Current ranking policy is intentionally simple:
 - duplicate episode ids are merged and annotated with `match_sources`
 
 This is a bounded productization step, not a final retrieval-science policy.
+
+
+## semantic-node vector path v0
+
+Current architecture now includes:
+- semantic node embedding generation
+- semantic node vector storage in `semantic_nodes_vec`
+- semantic vector recall results in `vector_semantic_hits`
+- unified semantic ranking in `ranked_semantic_hits`
+
+Current semantic ranking policy mirrors episode ranking v0:
+- name-match hits get strong base score
+- vector hits add distance-based score
+- duplicate node ids are merged and annotated with `match_sources`
