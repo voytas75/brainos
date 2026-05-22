@@ -187,7 +187,13 @@ uv run brainos --db ./brain.db episode-add session-1 'Agent initialized successf
 uv run brainos --db ./brain.db episode-search Agent --limit 5
 ```
 
-### 7. Inspect ledger
+### 7. Recall from episodic memory
+
+```bash
+uv run brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
+```
+
+### 8. Inspect ledger
 
 ```bash
 uv run brainos --db ./brain.db ledger
@@ -240,7 +246,13 @@ Available CLI commands:
 - `wm-set`
 - `wm-get`
 - `episode-add`
+- `episodes-list`
 - `episode-search`
+- `recall`
+- `semantic-node-get`
+- `semantic-edges-list`
+- `procedure-list`
+- `procedure-get`
 - `ledger`
 
 Example:

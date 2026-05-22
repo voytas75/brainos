@@ -122,12 +122,23 @@ Behavior:
 - inserts a mirrored row into `episodes_fts`
 - appends a ledger `episodic / CREATE` event
 
-### `search_episodes_text(query, limit=10) -> list[dict]`
+### `list_episodes(session_id=None, limit=20) -> list[dict]`
+
+Lists episodes in reverse chronological order.
+
+Parameters:
+- `session_id: str | None = None`
+- `limit: int = 20`
+
+Returns row dictionaries with parsed `metadata`.
+
+### `search_episodes_text(query, session_id=None, limit=10) -> list[dict]`
 
 Runs FTS5 search against episodic memory.
 
 Parameters:
 - `query: str`
+- `session_id: str | None = None`
 - `limit: int = 10`
 
 Returns row dictionaries with:
@@ -138,7 +149,18 @@ Returns row dictionaries with:
 - `metadata`
 
 Note:
-- `metadata` is currently returned as stored JSON string from SQLite rows
+- `metadata` is returned as parsed JSON
+
+### `recall(query, session_id=None, limit=10) -> dict`
+
+Returns a minimal recall payload based on episodic FTS results.
+
+Current behavior:
+- episodic-only
+- FTS-only
+- optional filter by `session_id`
+
+This is the first recall slice, not the final hybrid retrieval design.
 
 ---
 
@@ -176,6 +198,18 @@ Constraints:
 - referenced nodes must exist
 - foreign keys are enforced
 
+### `get_semantic_node(node_id) -> dict | None`
+
+Returns one semantic node with parsed `properties`.
+
+### `list_semantic_edges(node_id, direction="both") -> list[dict]`
+
+Lists edges related to one node.
+
+Parameters:
+- `node_id: str`
+- `direction: str = "both"` where allowed values are `out`, `in`, `both`
+
 ---
 
 ## Procedural memory
@@ -197,6 +231,14 @@ Returns:
 Notes:
 - `steps` are stored as JSON in `steps_json`
 - current implementation does not validate a strict DAG schema yet
+
+### `get_procedure(procedure_id) -> dict | None`
+
+Returns one procedure with parsed `steps`.
+
+### `list_procedures(active_only=True, limit=50) -> list[dict]`
+
+Lists procedures with parsed `steps`.
 
 ---
 
@@ -289,14 +331,56 @@ brainos --db ./brain.db episode-add session-1 'Agent initialized' --metadata-jso
 Output:
 - episode id
 
-### `episode-search`
+### `episodes-list`
 
 ```bash
-brainos --db ./brain.db episode-search Agent --limit 5
+brainos --db ./brain.db episodes-list --session-id session-1 --limit 10
 ```
 
 Output:
 - JSON array of episode rows
+
+### `episode-search`
+
+```bash
+brainos --db ./brain.db episode-search Agent --session-id session-1 --limit 5
+```
+
+Output:
+- JSON array of episode rows
+
+### `recall`
+
+```bash
+brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
+```
+
+Output:
+- JSON object with recall mode, count, and matched episodes
+
+### `semantic-node-get`
+
+```bash
+brainos --db ./brain.db semantic-node-get n1
+```
+
+### `semantic-edges-list`
+
+```bash
+brainos --db ./brain.db semantic-edges-list n1 --direction both
+```
+
+### `procedure-list`
+
+```bash
+brainos --db ./brain.db procedure-list --limit 20
+```
+
+### `procedure-get`
+
+```bash
+brainos --db ./brain.db procedure-get <procedure-id>
+```
 
 ### `ledger`
 

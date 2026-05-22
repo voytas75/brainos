@@ -1,6 +1,3 @@
-import json
-import sqlite3
-
 from brainos.store import BrainOSStore
 
 
@@ -46,33 +43,68 @@ def test_working_memory_and_ledger_chain(tmp_path):
     store.close()
 
 
-def test_episode_fts_search(tmp_path):
+def test_episode_listing_search_and_recall(tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
 
     store.add_episode(session_id="s1", content="Agent learned SQLite WAL mode", metadata={"kind": "note"})
-    store.add_episode(session_id="s1", content="Different memory fragment", metadata={"kind": "other"})
+    store.add_episode(session_id="s2", content="Different memory fragment", metadata={"kind": "other"})
+    store.add_episode(session_id="s1", content="Agent learned semantic edges", metadata={"kind": "graph"})
+
+    listed = store.list_episodes(session_id="s1", limit=10)
+    assert len(listed) == 2
+    assert all(item["session_id"] == "s1" for item in listed)
+    assert isinstance(listed[0]["metadata"], dict)
 
     results = store.search_episodes_text("SQLite", limit=5)
     assert len(results) == 1
     assert "SQLite" in results[0]["content"]
-    assert json.loads(results[0]["metadata"])["kind"] == "note"
+    assert results[0]["metadata"]["kind"] == "note"
+
+    filtered = store.search_episodes_text("Agent", session_id="s1", limit=10)
+    assert len(filtered) == 2
+    assert all(item["session_id"] == "s1" for item in filtered)
+
+    recall = store.recall("semantic", session_id="s1", limit=5)
+    assert recall["mode"] == "fts_only"
+    assert recall["count"] == 1
+    assert recall["episodes"][0]["metadata"]["kind"] == "graph"
     store.close()
 
 
-def test_semantic_edges_enforce_foreign_keys(tmp_path):
+def test_semantic_queries_and_procedures(tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
 
-    store.upsert_semantic_node(node_id="n1", name="SQLite", node_type="Concept")
-    store.upsert_semantic_node(node_id="n2", name="BrainOS", node_type="Entity")
+    store.upsert_semantic_node(node_id="n1", name="SQLite", node_type="Concept", properties={"kind": "db"})
+    store.upsert_semantic_node(node_id="n2", name="BrainOS", node_type="Entity", properties={"kind": "system"})
+    store.upsert_semantic_node(node_id="n3", name="WAL", node_type="Concept", properties={"kind": "mode"})
     store.upsert_semantic_edge(source_id="n2", target_id="n1", predicate="USES")
+    store.upsert_semantic_edge(source_id="n1", target_id="n3", predicate="SUPPORTS")
 
-    with_store = sqlite3.connect(db)
-    with_store.execute("PRAGMA foreign_keys=ON")
-    count = with_store.execute("SELECT COUNT(*) FROM semantic_edges").fetchone()[0]
-    assert count == 1
-    with_store.close()
+    node = store.get_semantic_node("n1")
+    assert node is not None
+    assert node["properties"]["kind"] == "db"
+
+    both_edges = store.list_semantic_edges("n1", direction="both")
+    assert len(both_edges) == 2
+
+    out_edges = store.list_semantic_edges("n1", direction="out")
+    assert len(out_edges) == 1
+    assert out_edges[0]["predicate"] == "SUPPORTS"
+
+    proc_id = store.create_procedure(
+        name="bootstrap",
+        description="Initialize BrainOS",
+        steps=[{"step": "init-db"}, {"step": "load-state"}],
+    )
+    procedure = store.get_procedure(proc_id)
+    assert procedure is not None
+    assert procedure["steps"][0]["step"] == "init-db"
+
+    procedures = store.list_procedures(limit=10)
+    assert len(procedures) == 1
+    assert procedures[0]["name"] == "bootstrap"
     store.close()

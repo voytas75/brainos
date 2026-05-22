@@ -35,6 +35,13 @@ class BrainOSStore:
     def close(self) -> None:
         self.conn.close()
 
+    @staticmethod
+    def _decode_json_field(row: dict[str, Any], field: str) -> dict[str, Any] | list[Any] | None:
+        value = row.get(field)
+        if value is None:
+            return None
+        return json.loads(value)
+
     def _last_ledger_hash(self) -> str | None:
         row = self.conn.execute(
             "SELECT crypto_hash FROM ledger ORDER BY timestamp DESC, rowid DESC LIMIT 1"
@@ -127,19 +134,78 @@ class BrainOSStore:
             )
         return episode_id
 
-    def search_episodes_text(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        rows = self.conn.execute(
-            """
-            SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata
-            FROM episodes_fts f
-            JOIN episodes e ON e.id = f.content_id
-            WHERE episodes_fts MATCH ?
-            ORDER BY rank
-            LIMIT ?
-            """,
-            (query, limit),
-        ).fetchall()
-        return [dict(r) for r in rows]
+    def list_episodes(self, *, session_id: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+        if session_id:
+            rows = self.conn.execute(
+                """
+                SELECT id, session_id, timestamp, content, metadata
+                FROM episodes
+                WHERE session_id = ?
+                ORDER BY timestamp DESC, rowid DESC
+                LIMIT ?
+                """,
+                (session_id, limit),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """
+                SELECT id, session_id, timestamp, content, metadata
+                FROM episodes
+                ORDER BY timestamp DESC, rowid DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["metadata"] = self._decode_json_field(item, "metadata") or {}
+            result.append(item)
+        return result
+
+    def search_episodes_text(
+        self, query: str, *, session_id: str | None = None, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        if session_id:
+            rows = self.conn.execute(
+                """
+                SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata
+                FROM episodes_fts f
+                JOIN episodes e ON e.id = f.content_id
+                WHERE episodes_fts MATCH ? AND e.session_id = ?
+                ORDER BY rank
+                LIMIT ?
+                """,
+                (query, session_id, limit),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """
+                SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata
+                FROM episodes_fts f
+                JOIN episodes e ON e.id = f.content_id
+                WHERE episodes_fts MATCH ?
+                ORDER BY rank
+                LIMIT ?
+                """,
+                (query, limit),
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["metadata"] = self._decode_json_field(item, "metadata") or {}
+            result.append(item)
+        return result
+
+    def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
+        episodes = self.search_episodes_text(query, session_id=session_id, limit=limit)
+        return {
+            "query": query,
+            "session_id": session_id,
+            "episodes": episodes,
+            "count": len(episodes),
+            "mode": "fts_only",
+        }
 
     def upsert_semantic_node(
         self,
@@ -169,6 +235,17 @@ class BrainOSStore:
                 payload={"id": node_id, "name": name, "type": node_type, "properties": properties},
                 causal_event_id=causal_event_id,
             )
+
+    def get_semantic_node(self, node_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT id, name, type, properties FROM semantic_nodes WHERE id = ?",
+            (node_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        item["properties"] = self._decode_json_field(item, "properties") or {}
+        return item
 
     def upsert_semantic_edge(
         self,
@@ -201,6 +278,31 @@ class BrainOSStore:
                 causal_event_id=causal_event_id,
             )
 
+    def list_semantic_edges(self, node_id: str, *, direction: str = "both") -> list[dict[str, Any]]:
+        if direction == "out":
+            rows = self.conn.execute(
+                "SELECT source_id, target_id, predicate, weight FROM semantic_edges WHERE source_id = ? ORDER BY target_id, predicate",
+                (node_id,),
+            ).fetchall()
+        elif direction == "in":
+            rows = self.conn.execute(
+                "SELECT source_id, target_id, predicate, weight FROM semantic_edges WHERE target_id = ? ORDER BY source_id, predicate",
+                (node_id,),
+            ).fetchall()
+        elif direction == "both":
+            rows = self.conn.execute(
+                """
+                SELECT source_id, target_id, predicate, weight
+                FROM semantic_edges
+                WHERE source_id = ? OR target_id = ?
+                ORDER BY source_id, target_id, predicate
+                """,
+                (node_id, node_id),
+            ).fetchall()
+        else:
+            raise ValueError("direction must be one of: out, in, both")
+        return [dict(r) for r in rows]
+
     def create_procedure(
         self,
         *,
@@ -228,6 +330,37 @@ class BrainOSStore:
                 causal_event_id=causal_event_id,
             )
         return procedure_id
+
+    def get_procedure(self, procedure_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT id, name, description, steps_json, is_active FROM procedures WHERE id = ?",
+            (procedure_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        item["steps"] = self._decode_json_field(item, "steps_json") or []
+        del item["steps_json"]
+        return item
+
+    def list_procedures(self, *, active_only: bool = True, limit: int = 50) -> list[dict[str, Any]]:
+        if active_only:
+            rows = self.conn.execute(
+                "SELECT id, name, description, steps_json, is_active FROM procedures WHERE is_active = 1 ORDER BY name LIMIT ?",
+                (limit,),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                "SELECT id, name, description, steps_json, is_active FROM procedures ORDER BY name LIMIT ?",
+                (limit,),
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["steps"] = self._decode_json_field(item, "steps_json") or []
+            del item["steps_json"]
+            result.append(item)
+        return result
 
     def list_ledger(self) -> list[dict[str, Any]]:
         rows = self.conn.execute(

@@ -27,9 +27,33 @@ def build_parser() -> argparse.ArgumentParser:
     p_ep_add.add_argument("content")
     p_ep_add.add_argument("--metadata-json", default="{}")
 
+    p_ep_list = sub.add_parser("episodes-list", help="List episodes")
+    p_ep_list.add_argument("--session-id")
+    p_ep_list.add_argument("--limit", type=int, default=20)
+
     p_ep_search = sub.add_parser("episode-search", help="Search episodes with FTS5")
     p_ep_search.add_argument("query")
+    p_ep_search.add_argument("--session-id")
     p_ep_search.add_argument("--limit", type=int, default=10)
+
+    p_recall = sub.add_parser("recall", help="Recall from episodic memory")
+    p_recall.add_argument("query")
+    p_recall.add_argument("--session-id")
+    p_recall.add_argument("--limit", type=int, default=10)
+
+    p_sem_node_get = sub.add_parser("semantic-node-get", help="Get semantic node")
+    p_sem_node_get.add_argument("node_id")
+
+    p_sem_edges_list = sub.add_parser("semantic-edges-list", help="List semantic edges for a node")
+    p_sem_edges_list.add_argument("node_id")
+    p_sem_edges_list.add_argument("--direction", choices=["out", "in", "both"], default="both")
+
+    p_proc_list = sub.add_parser("procedure-list", help="List procedures")
+    p_proc_list.add_argument("--all", action="store_true")
+    p_proc_list.add_argument("--limit", type=int, default=50)
+
+    p_proc_get = sub.add_parser("procedure-get", help="Get procedure")
+    p_proc_get.add_argument("procedure_id")
 
     p_ledger = sub.add_parser("ledger", help="Print ledger entries")
 
@@ -61,10 +85,30 @@ def main() -> None:
                 metadata=json.loads(args.metadata_json),
             )
             print(episode_id)
+        elif args.command == "episodes-list":
+            store.initialize()
+            results = store.list_episodes(session_id=args.session_id, limit=args.limit)
+            print(json.dumps(results, ensure_ascii=False, indent=2))
         elif args.command == "episode-search":
             store.initialize()
-            results = store.search_episodes_text(args.query, limit=args.limit)
+            results = store.search_episodes_text(args.query, session_id=args.session_id, limit=args.limit)
             print(json.dumps(results, ensure_ascii=False, indent=2))
+        elif args.command == "recall":
+            store.initialize()
+            results = store.recall(args.query, session_id=args.session_id, limit=args.limit)
+            print(json.dumps(results, ensure_ascii=False, indent=2))
+        elif args.command == "semantic-node-get":
+            store.initialize()
+            print(json.dumps(store.get_semantic_node(args.node_id), ensure_ascii=False, indent=2))
+        elif args.command == "semantic-edges-list":
+            store.initialize()
+            print(json.dumps(store.list_semantic_edges(args.node_id, direction=args.direction), ensure_ascii=False, indent=2))
+        elif args.command == "procedure-list":
+            store.initialize()
+            print(json.dumps(store.list_procedures(active_only=not args.all, limit=args.limit), ensure_ascii=False, indent=2))
+        elif args.command == "procedure-get":
+            store.initialize()
+            print(json.dumps(store.get_procedure(args.procedure_id), ensure_ascii=False, indent=2))
         elif args.command == "ledger":
             store.initialize()
             print(json.dumps(store.list_ledger(), ensure_ascii=False, indent=2))
