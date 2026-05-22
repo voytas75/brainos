@@ -15,6 +15,7 @@ Current implementation provides:
 - semantic memory as nodes and edges
 - procedural memory as JSON-defined procedures
 - consolidation preview and explicit promotion from episodes into semantic/procedural layers
+- promotion state tracking and duplicate-promotion protection
 - an immutable ledger with chained hashes for provenance/audit
 
 The current repo is a **local storage core**, not a full runtime platform yet.
@@ -51,7 +52,7 @@ Not implemented yet:
 - vector storage/runtime integration beyond capability detection
 - hybrid retrieval orchestration (`FTS + vector + graph`)
 - full cognitive execution loop from the PDF
-- schema migrations
+- schema migrations beyond current hardening baseline
 - HTTP API
 
 ## How it works
@@ -376,6 +377,18 @@ uv run brainos --db ./brain.db ledger
 Recommended next slice:
 1. add optional `sqlite-vec` capability detection and vector-table bootstrap
 2. define retrieval that combines FTS, vector similarity, and graph neighborhood
-3. add real schema migrations beyond v1 bootstrap
+3. add real schema migrations beyond current hardening baseline beyond v1 bootstrap
 4. formalize the cognitive execution loop
 5. optionally add a local HTTP API
+
+
+## Official smoke test
+
+Run the bounded end-to-end smoke test:
+
+```bash
+./scripts/e2e_smoke.sh
+```
+
+It writes a summary artifact to:
+- `artifacts/e2e-summary.json`

@@ -57,3 +57,11 @@ This repo uses `uv` for local development because it keeps the workflow small an
 3. retrieval API combining FTS + vector + graph neighborhood
 4. explicit cognitive loop orchestration
 5. migration/versioning support
+
+
+## Hardening added after first e2e pass
+
+- added `episode_promotions` table
+- explicit duplicate-promotion blocking
+- explicit validation errors for promotion metadata
+- added official `scripts/e2e_smoke.sh` smoke path

@@ -1,4 +1,4 @@
-from brainos.store import BrainOSStore
+from brainos.store import BrainOSStore, PromotionError, ValidationError
 
 
 def test_initialize_and_core_tables(tmp_path):
@@ -19,6 +19,7 @@ def test_initialize_and_core_tables(tmp_path):
     assert "semantic_edges" in tables
     assert "procedures" in tables
     assert "ledger" in tables
+    assert "episode_promotions" in tables
     store.close()
 
 
@@ -34,8 +35,8 @@ def test_schema_status_and_capabilities(tmp_path):
     store.initialize()
 
     status_after = store.schema_status()
-    assert status_after["current_version"] == 1
-    assert status_after["expected_version"] == 1
+    assert status_after["current_version"] == 2
+    assert status_after["expected_version"] == 2
     assert status_after["is_initialized"] is True
     assert status_after["is_current"] is True
 
@@ -131,6 +132,13 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     assert promoted_node is not None
     assert promoted_node["properties"]["source_episode_id"] == semantic_episode_id
 
+    promotion_record = store.get_episode_promotion(semantic_episode_id)
+    assert promotion_record is not None
+    assert promotion_record["target_layer"] == "semantic"
+
+    already_promoted_preview = store.preview_consolidation(semantic_episode_id)
+    assert already_promoted_preview["mode"] == "already_promoted"
+
     procedure_preview = store.preview_consolidation(procedure_episode_id)
     assert procedure_preview["promotion_type"] == "procedure"
     assert procedure_preview["candidate"]["target_layer"] == "procedural"
@@ -142,6 +150,42 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     promoted_procedure = store.get_procedure(procedure_promote["created_id"])
     assert promoted_procedure is not None
     assert promoted_procedure["steps"][1]["step"] == "load-state"
+
+    try:
+        store.promote_episode(procedure_episode_id)
+        assert False, "expected PromotionError"
+    except PromotionError:
+        pass
+    store.close()
+
+
+def test_validation_errors_for_promotion_metadata(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    bad_semantic = store.add_episode(
+        session_id="s1",
+        content="Bad semantic metadata",
+        metadata={"promotion_type": "semantic", "semantic_properties": ["bad"]},
+    )
+    bad_procedure = store.add_episode(
+        session_id="s1",
+        content="Bad procedure metadata",
+        metadata={"promotion_type": "procedure", "procedure_steps": ["not-an-object"]},
+    )
+    bad_type = store.add_episode(
+        session_id="s1",
+        content="Bad promotion type",
+        metadata={"promotion_type": "nonsense"},
+    )
+
+    for episode_id in [bad_semantic, bad_procedure, bad_type]:
+        try:
+            store.preview_consolidation(episode_id)
+            assert False, "expected ValidationError"
+        except ValidationError:
+            pass
     store.close()
 
 

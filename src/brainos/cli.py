@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
-from .store import BrainOSStore
+from .store import BrainOSError, BrainOSStore
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -181,6 +182,9 @@ def main() -> None:
             print(json.dumps(store.list_ledger(), ensure_ascii=False, indent=2))
         else:
             parser.error(f"Unknown command: {args.command}")
+    except (BrainOSError, json.JSONDecodeError) as exc:
+        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2), file=sys.stderr)
+        raise SystemExit(2)
     finally:
         store.close()
 

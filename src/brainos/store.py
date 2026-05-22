@@ -11,6 +11,18 @@ from .ledger import canonical_json, compute_event_hash
 from .schema import detect_capabilities, get_schema_status, initialize_schema
 
 
+class BrainOSError(Exception):
+    pass
+
+
+class ValidationError(BrainOSError):
+    pass
+
+
+class PromotionError(BrainOSError):
+    pass
+
+
 class BrainOSStore:
     def __init__(self, db_path: str | Path, *, enable_vector: bool = False):
         self.db_path = str(db_path)
@@ -47,6 +59,18 @@ class BrainOSStore:
         if value is None:
             return None
         return json.loads(value)
+
+    @staticmethod
+    def _ensure_dict(value: Any, *, field_name: str) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            raise ValidationError(f"{field_name} must be a JSON object")
+        return value
+
+    @staticmethod
+    def _ensure_list_of_dicts(value: Any, *, field_name: str) -> list[dict[str, Any]]:
+        if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+            raise ValidationError(f"{field_name} must be a JSON array of objects")
+        return value
 
     def _last_ledger_hash(self) -> str | None:
         row = self.conn.execute(
@@ -149,7 +173,17 @@ class BrainOSStore:
             return None
         item = dict(row)
         item["metadata"] = self._decode_json_field(item, "metadata") or {}
+        promotion = self.get_episode_promotion(episode_id)
+        if promotion is not None:
+            item["promotion"] = promotion
         return item
+
+    def get_episode_promotion(self, episode_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT episode_id, target_layer, target_id, status, promoted_at, ledger_event_id FROM episode_promotions WHERE episode_id = ?",
+            (episode_id,),
+        ).fetchone()
+        return None if row is None else dict(row)
 
     def list_episodes(self, *, session_id: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
         if session_id:
@@ -177,6 +211,9 @@ class BrainOSStore:
         for row in rows:
             item = dict(row)
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
+            promotion = self.get_episode_promotion(item["id"])
+            if promotion is not None:
+                item["promotion"] = promotion
             result.append(item)
         return result
 
@@ -211,50 +248,84 @@ class BrainOSStore:
         for row in rows:
             item = dict(row)
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
+            promotion = self.get_episode_promotion(item["id"])
+            if promotion is not None:
+                item["promotion"] = promotion
             result.append(item)
         return result
+
+    def _validate_promotion_metadata(self, metadata: dict[str, Any]) -> str:
+        promotion_type = metadata.get("promotion_type")
+        if promotion_type is None:
+            return "semantic"
+        promotion_type = str(promotion_type).lower()
+        if promotion_type not in {"semantic", "procedure"}:
+            raise ValidationError("promotion_type must be one of: semantic, procedure")
+        return promotion_type
+
+    def _build_procedure_candidate(self, episode: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+        procedure_name = metadata.get("procedure_name") or f"procedure_from_{episode['id'][:8]}"
+        raw_steps = metadata.get("procedure_steps")
+        if raw_steps is None:
+            steps = [{"step": episode["content"]}]
+        else:
+            steps = self._ensure_list_of_dicts(raw_steps, field_name="procedure_steps")
+        return {
+            "target_layer": "procedural",
+            "procedure": {
+                "name": procedure_name,
+                "description": metadata.get("description") or f"Promoted from episode {episode['id']}",
+                "steps": steps,
+            },
+        }
+
+    def _build_semantic_candidate(self, episode: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+        node_id = metadata.get("semantic_node_id") or f"sem_{episode['id'][:8]}"
+        node_name = metadata.get("semantic_name") or episode["content"][:80]
+        node_type = metadata.get("semantic_type") or "Fact"
+        properties = {
+            "source_episode_id": episode["id"],
+            "source_kind": metadata.get("kind", "episode"),
+            "session_id": episode["session_id"],
+        }
+        raw_properties = metadata.get("semantic_properties")
+        if raw_properties is None:
+            extra_properties = {}
+        else:
+            extra_properties = self._ensure_dict(raw_properties, field_name="semantic_properties")
+        properties.update(extra_properties)
+        return {
+            "target_layer": "semantic",
+            "semantic_node": {
+                "id": node_id,
+                "name": node_name,
+                "type": node_type,
+                "properties": properties,
+            },
+        }
 
     def preview_consolidation(self, episode_id: str) -> dict[str, Any]:
         episode = self.get_episode(episode_id)
         if episode is None:
-            raise ValueError(f"episode not found: {episode_id}")
+            raise PromotionError(f"episode not found: {episode_id}")
+
+        existing_promotion = self.get_episode_promotion(episode_id)
+        if existing_promotion is not None:
+            return {
+                "episode_id": episode_id,
+                "episode": episode,
+                "promotion": existing_promotion,
+                "mode": "already_promoted",
+                "message": "episode has already been promoted",
+            }
 
         metadata = episode["metadata"] or {}
-        promotion_type = str(metadata.get("promotion_type") or "semantic").lower()
-        source_kind = metadata.get("kind", "episode")
+        promotion_type = self._validate_promotion_metadata(metadata)
 
         if promotion_type == "procedure":
-            procedure_name = metadata.get("procedure_name") or f"procedure_from_{episode_id[:8]}"
-            steps = metadata.get("procedure_steps") or [{"step": episode["content"]}]
-            candidate = {
-                "target_layer": "procedural",
-                "procedure": {
-                    "name": procedure_name,
-                    "description": metadata.get("description") or f"Promoted from episode {episode_id}",
-                    "steps": steps,
-                },
-            }
+            candidate = self._build_procedure_candidate(episode, metadata)
         else:
-            node_id = metadata.get("semantic_node_id") or f"sem_{episode_id[:8]}"
-            node_name = metadata.get("semantic_name") or episode["content"][:80]
-            node_type = metadata.get("semantic_type") or "Fact"
-            properties = {
-                "source_episode_id": episode_id,
-                "source_kind": source_kind,
-                "session_id": episode["session_id"],
-            }
-            extra_properties = metadata.get("semantic_properties") or {}
-            if isinstance(extra_properties, dict):
-                properties.update(extra_properties)
-            candidate = {
-                "target_layer": "semantic",
-                "semantic_node": {
-                    "id": node_id,
-                    "name": node_name,
-                    "type": node_type,
-                    "properties": properties,
-                },
-            }
+            candidate = self._build_semantic_candidate(episode, metadata)
 
         return {
             "episode_id": episode_id,
@@ -265,17 +336,26 @@ class BrainOSStore:
         }
 
     def promote_episode(self, episode_id: str) -> dict[str, Any]:
+        existing_promotion = self.get_episode_promotion(episode_id)
+        if existing_promotion is not None:
+            raise PromotionError("episode has already been promoted")
+
         preview = self.preview_consolidation(episode_id)
         candidate = preview["candidate"]
 
         if candidate["target_layer"] == "procedural":
             procedure = candidate["procedure"]
-            procedure_id = self.create_procedure(
-                name=procedure["name"],
-                description=procedure["description"],
-                steps=procedure["steps"],
-                causal_event_id=episode_id,
-            )
+            with self.transaction():
+                procedure_id = self.create_procedure(
+                    name=procedure["name"],
+                    description=procedure["description"],
+                    steps=procedure["steps"],
+                    causal_event_id=episode_id,
+                )
+                self.conn.execute(
+                    "INSERT INTO episode_promotions(episode_id, target_layer, target_id, status, ledger_event_id) VALUES (?, ?, ?, ?, ?)",
+                    (episode_id, "procedural", procedure_id, "promoted", None),
+                )
             return {
                 "ok": True,
                 "episode_id": episode_id,
@@ -285,13 +365,18 @@ class BrainOSStore:
             }
 
         semantic_node = candidate["semantic_node"]
-        event_id = self.upsert_semantic_node(
-            node_id=semantic_node["id"],
-            name=semantic_node["name"],
-            node_type=semantic_node["type"],
-            properties=semantic_node["properties"],
-            causal_event_id=episode_id,
-        )
+        with self.transaction():
+            event_id = self.upsert_semantic_node(
+                node_id=semantic_node["id"],
+                name=semantic_node["name"],
+                node_type=semantic_node["type"],
+                properties=semantic_node["properties"],
+                causal_event_id=episode_id,
+            )
+            self.conn.execute(
+                "INSERT INTO episode_promotions(episode_id, target_layer, target_id, status, ledger_event_id) VALUES (?, ?, ?, ?, ?)",
+                (episode_id, "semantic", semantic_node["id"], "promoted", event_id),
+            )
         return {
             "ok": True,
             "episode_id": episode_id,
@@ -428,7 +513,7 @@ class BrainOSStore:
                 (node_id, node_id),
             ).fetchall()
         else:
-            raise ValueError("direction must be one of: out, in, both")
+            raise ValidationError("direction must be one of: out, in, both")
         return [dict(r) for r in rows]
 
     def create_procedure(
@@ -440,6 +525,7 @@ class BrainOSStore:
         procedure_id: str | None = None,
         causal_event_id: str | None = None,
     ) -> str:
+        self._ensure_list_of_dicts(steps, field_name="steps")
         procedure_id = procedure_id or str(uuid.uuid4())
         with self.transaction():
             self.conn.execute(

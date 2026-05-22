@@ -538,3 +538,13 @@ Not part of this API yet:
 - graph traversal API
 - procedure execution engine
 - background compaction / consolidation workers
+
+
+## Promotion hardening v0
+
+Current enforcement:
+- `promotion_type` must be `semantic` or `procedure`
+- `semantic_properties` must be a JSON object when present
+- `procedure_steps` must be a JSON array of objects when present
+- duplicate promotion of the same episode is rejected
+- promotion state is tracked in `episode_promotions`

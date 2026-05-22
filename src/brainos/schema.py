@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """
 PRAGMA journal_mode=WAL;
@@ -64,9 +64,20 @@ CREATE TABLE IF NOT EXISTS ledger (
     crypto_hash TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS episode_promotions (
+    episode_id TEXT PRIMARY KEY,
+    target_layer TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    promoted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ledger_event_id TEXT,
+    FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_episodes_session ON episodes(session_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON semantic_edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON ledger(timestamp);
+CREATE INDEX IF NOT EXISTS idx_episode_promotions_target ON episode_promotions(target_layer, target_id);
 """
 
 VEC_TABLE_SQL = """
@@ -111,13 +122,39 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
     }
 
 
+def run_migrations(conn: sqlite3.Connection, current_version: int) -> int:
+    version = current_version
+
+    if version < 2:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS episode_promotions (
+                episode_id TEXT PRIMARY KEY,
+                target_layer TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                promoted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ledger_event_id TEXT,
+                FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_episode_promotions_target ON episode_promotions(target_layer, target_id);
+            """
+        )
+        version = 2
+
+    return version
+
+
 def initialize_schema(conn: sqlite3.Connection, *, enable_vector: bool = False) -> None:
     current_version = get_schema_version(conn)
     conn.executescript(SCHEMA_SQL)
+    migrated_version = run_migrations(conn, current_version)
     if enable_vector:
         conn.execute(VEC_TABLE_SQL)
     if current_version == 0:
         set_schema_version(conn, SCHEMA_VERSION)
+    elif migrated_version != current_version:
+        set_schema_version(conn, migrated_version)
     conn.commit()
 
 
