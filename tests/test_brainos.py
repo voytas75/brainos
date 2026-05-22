@@ -95,10 +95,15 @@ def test_episode_listing_search_and_recall(tmp_path):
     assert len(filtered) == 2
     assert all(item["session_id"] == "s1" for item in filtered)
 
+    store.upsert_semantic_node(node_id="semantic-1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
+
     recall = store.recall("semantic", session_id="s1", limit=5)
-    assert recall["mode"] == "fts_only"
+    assert recall["mode"] == "fts_plus_semantic_name_match"
     assert recall["count"] == 1
+    assert recall["semantic_count"] == 1
     assert recall["episodes"][0]["metadata"]["kind"] == "graph"
+    assert recall["semantic_hits"][0]["name"] == "Semantic Memory"
+    assert recall["summary"] == "episodes:1, semantic_hits:1"
     store.close()
 
 

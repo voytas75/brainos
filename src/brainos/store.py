@@ -205,12 +205,36 @@ class BrainOSStore:
 
     def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
         episodes = self.search_episodes_text(query, session_id=session_id, limit=limit)
+
+        semantic_hits = []
+        query_lower = query.lower()
+        node_rows = self.conn.execute(
+            "SELECT id, name, type, properties FROM semantic_nodes ORDER BY name"
+        ).fetchall()
+        for row in node_rows:
+            item = dict(row)
+            if query_lower in item["name"].lower():
+                item["properties"] = self._decode_json_field(item, "properties") or {}
+                item["edges"] = self.list_semantic_edges(item["id"], direction="both")
+                semantic_hits.append(item)
+                if len(semantic_hits) >= limit:
+                    break
+
+        summary_parts = []
+        if episodes:
+            summary_parts.append(f"episodes:{len(episodes)}")
+        if semantic_hits:
+            summary_parts.append(f"semantic_hits:{len(semantic_hits)}")
+
         return {
             "query": query,
             "session_id": session_id,
             "episodes": episodes,
+            "semantic_hits": semantic_hits,
             "count": len(episodes),
-            "mode": "fts_only",
+            "semantic_count": len(semantic_hits),
+            "mode": "fts_plus_semantic_name_match",
+            "summary": ", ".join(summary_parts) if summary_parts else "no_hits",
         }
 
     def upsert_semantic_node(

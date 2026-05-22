@@ -155,12 +155,13 @@ Note:
 
 ### `recall(query, session_id=None, limit=10) -> dict`
 
-Returns a minimal recall payload based on episodic FTS results.
+Returns a minimal recall payload based on episodic FTS results plus lightweight semantic matching.
 
 Current behavior:
-- episodic-only
-- FTS-only
+- episodic FTS results
 - optional filter by `session_id`
+- lightweight semantic node name matching
+- semantic edge enrichment for matched nodes
 
 This is the first recall slice, not the final hybrid retrieval design.
 
