@@ -50,7 +50,7 @@ Not implemented yet:
 - required `sqlite-vec` runtime integration
 - hybrid retrieval orchestration (`FTS + vector + graph`)
 - full cognitive execution loop from the PDF
-- migrations / schema versioning
+- schema migrations
 - HTTP API
 
 ## How it works
@@ -193,7 +193,13 @@ uv run brainos --db ./brain.db episode-search Agent --limit 5
 uv run brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
 ```
 
-### 8. Inspect ledger
+### 8. Check schema status
+
+```bash
+uv run brainos --db ./brain.db schema-status
+```
+
+### 9. Inspect ledger
 
 ```bash
 uv run brainos --db ./brain.db ledger
@@ -253,6 +259,7 @@ Available CLI commands:
 - `semantic-edges-list`
 - `procedure-list`
 - `procedure-get`
+- `schema-status`
 - `ledger`
 
 Example:
@@ -319,6 +326,6 @@ uv run brainos --db ./brain.db ledger
 Recommended next slice:
 1. add optional `sqlite-vec` capability detection and vector-table bootstrap
 2. define retrieval that combines FTS, vector similarity, and graph neighborhood
-3. add schema versioning / migrations
+3. add real schema migrations beyond v1 bootstrap
 4. formalize the cognitive execution loop
 5. optionally add a local HTTP API

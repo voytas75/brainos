@@ -22,6 +22,25 @@ def test_initialize_and_core_tables(tmp_path):
     store.close()
 
 
+def test_schema_status_and_initialize(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+
+    status_before = store.schema_status()
+    assert status_before["current_version"] == 0
+    assert status_before["is_initialized"] is False
+    assert status_before["is_current"] is False
+
+    store.initialize()
+
+    status_after = store.schema_status()
+    assert status_after["current_version"] == 1
+    assert status_after["expected_version"] == 1
+    assert status_after["is_initialized"] is True
+    assert status_after["is_current"] is True
+    store.close()
+
+
 def test_working_memory_and_ledger_chain(tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)

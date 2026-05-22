@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
+SCHEMA_VERSION = 1
+
 SCHEMA_SQL = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
@@ -67,7 +69,17 @@ CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON ledger(timestamp);
 """
 
 
+def get_schema_version(conn: sqlite3.Connection) -> int:
+    row = conn.execute("PRAGMA user_version;").fetchone()
+    return 0 if row is None else int(row[0])
+
+
+def set_schema_version(conn: sqlite3.Connection, version: int) -> None:
+    conn.execute(f"PRAGMA user_version={int(version)};")
+
+
 def initialize_schema(conn: sqlite3.Connection, *, enable_vector: bool = False) -> None:
+    current_version = get_schema_version(conn)
     conn.executescript(SCHEMA_SQL)
     if enable_vector:
         conn.execute(
@@ -78,4 +90,16 @@ def initialize_schema(conn: sqlite3.Connection, *, enable_vector: bool = False) 
             );
             """
         )
+    if current_version == 0:
+        set_schema_version(conn, SCHEMA_VERSION)
     conn.commit()
+
+
+def get_schema_status(conn: sqlite3.Connection) -> dict[str, int | bool]:
+    current = get_schema_version(conn)
+    return {
+        "current_version": current,
+        "expected_version": SCHEMA_VERSION,
+        "is_initialized": current > 0,
+        "is_current": current == SCHEMA_VERSION,
+    }

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from .ledger import canonical_json, compute_event_hash
-from .schema import initialize_schema
+from .schema import get_schema_status, initialize_schema
 
 
 class BrainOSStore:
@@ -22,6 +22,9 @@ class BrainOSStore:
 
     def initialize(self) -> None:
         initialize_schema(self.conn, enable_vector=self.enable_vector)
+
+    def schema_status(self) -> dict[str, Any]:
+        return get_schema_status(self.conn)
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
