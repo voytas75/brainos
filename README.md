@@ -47,7 +47,7 @@ Implemented now:
 - tests and smoke checks
 
 Not implemented yet:
-- required `sqlite-vec` runtime integration
+- vector storage/runtime integration beyond capability detection
 - hybrid retrieval orchestration (`FTS + vector + graph`)
 - full cognitive execution loop from the PDF
 - schema migrations
@@ -199,7 +199,13 @@ uv run brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
 uv run brainos --db ./brain.db schema-status
 ```
 
-### 9. Verify ledger integrity
+### 9. Check runtime capabilities
+
+```bash
+uv run brainos --db ./brain.db capabilities
+```
+
+### 10. Verify ledger integrity
 
 ```bash
 uv run brainos --db ./brain.db ledger-verify
@@ -266,6 +272,7 @@ Available CLI commands:
 - `procedure-list`
 - `procedure-get`
 - `schema-status`
+- `capabilities`
 - `ledger-verify`
 - `ledger`
 

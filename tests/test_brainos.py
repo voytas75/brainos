@@ -22,7 +22,7 @@ def test_initialize_and_core_tables(tmp_path):
     store.close()
 
 
-def test_schema_status_and_initialize(tmp_path):
+def test_schema_status_and_capabilities(tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
 
@@ -38,6 +38,11 @@ def test_schema_status_and_initialize(tmp_path):
     assert status_after["expected_version"] == 1
     assert status_after["is_initialized"] is True
     assert status_after["is_current"] is True
+
+    capabilities = store.capabilities()
+    assert capabilities["fts5"] is True
+    assert "sqlite_vec" in capabilities
+    assert "sqlite_vec_error" in capabilities
     store.close()
 
 

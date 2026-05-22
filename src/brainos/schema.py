@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import Any
 
 SCHEMA_VERSION = 1
 
@@ -68,6 +69,13 @@ CREATE INDEX IF NOT EXISTS idx_edges_target ON semantic_edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON ledger(timestamp);
 """
 
+VEC_TABLE_SQL = """
+CREATE VIRTUAL TABLE IF NOT EXISTS episodes_vec USING vec0(
+    id TEXT PRIMARY KEY,
+    embedding FLOAT[1536]
+);
+"""
+
 
 def get_schema_version(conn: sqlite3.Connection) -> int:
     row = conn.execute("PRAGMA user_version;").fetchone()
@@ -78,18 +86,36 @@ def set_schema_version(conn: sqlite3.Connection, version: int) -> None:
     conn.execute(f"PRAGMA user_version={int(version)};")
 
 
+def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
+    fts5_available = True
+    vec_available = True
+    vec_error = None
+
+    try:
+        conn.execute("CREATE VIRTUAL TABLE temp.__brainos_fts_probe USING fts5(content);")
+        conn.execute("DROP TABLE temp.__brainos_fts_probe;")
+    except sqlite3.Error:
+        fts5_available = False
+
+    try:
+        conn.execute(VEC_TABLE_SQL.replace("episodes_vec", "temp.__brainos_vec_probe"))
+        conn.execute("DROP TABLE temp.__brainos_vec_probe;")
+    except sqlite3.Error as exc:
+        vec_available = False
+        vec_error = str(exc)
+
+    return {
+        "fts5": fts5_available,
+        "sqlite_vec": vec_available,
+        "sqlite_vec_error": vec_error,
+    }
+
+
 def initialize_schema(conn: sqlite3.Connection, *, enable_vector: bool = False) -> None:
     current_version = get_schema_version(conn)
     conn.executescript(SCHEMA_SQL)
     if enable_vector:
-        conn.execute(
-            """
-            CREATE VIRTUAL TABLE IF NOT EXISTS episodes_vec USING vec0(
-                id TEXT PRIMARY KEY,
-                embedding FLOAT[1536]
-            );
-            """
-        )
+        conn.execute(VEC_TABLE_SQL)
     if current_version == 0:
         set_schema_version(conn, SCHEMA_VERSION)
     conn.commit()

@@ -22,6 +22,8 @@ uv run brainos --db ./brain.db init
 
 Current version does not require a `.env` file.
 
+A runtime capability probe is available to check whether FTS5 and `sqlite-vec` are usable in the current SQLite build.
+
 ---
 
 ## Python API
@@ -394,6 +396,15 @@ brainos --db ./brain.db procedure-list --limit 20
 ```bash
 brainos --db ./brain.db procedure-get <procedure-id>
 ```
+
+### `capabilities`
+
+```bash
+brainos --db ./brain.db capabilities
+```
+
+Output:
+- JSON object with runtime capability flags such as `fts5` and `sqlite_vec`
 
 ### `ledger-verify`
 
