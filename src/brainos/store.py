@@ -741,6 +741,33 @@ class BrainOSStore:
         else:
             vector_error = capabilities.get("sqlite_vec_error")
 
+        ranked_map: dict[str, dict[str, Any]] = {}
+        for idx, item in enumerate(episodes):
+            merged = dict(item)
+            merged["match_sources"] = ["fts"]
+            merged["rank_score"] = 1000.0 - float(idx)
+            ranked_map[item["id"]] = merged
+
+        for idx, item in enumerate(vector_episodes):
+            item_id = item["id"]
+            distance = float(item.get("distance", 999999.0))
+            score = max(0.0, 500.0 - distance - (idx * 0.001))
+            if item_id in ranked_map:
+                ranked_map[item_id]["match_sources"].append("vector")
+                ranked_map[item_id]["rank_score"] += score
+                ranked_map[item_id]["vector_distance"] = distance
+            else:
+                merged = dict(item)
+                merged["match_sources"] = ["vector"]
+                merged["rank_score"] = score
+                merged["vector_distance"] = distance
+                ranked_map[item_id] = merged
+
+        ranked_episodes = sorted(
+            ranked_map.values(),
+            key=lambda item: (-float(item.get("rank_score", 0.0)), str(item.get("id", ""))),
+        )[:limit]
+
         semantic_hits = []
         query_lower = query.lower()
         node_rows = self.conn.execute(
@@ -760,6 +787,8 @@ class BrainOSStore:
             summary_parts.append(f"episodes:{len(episodes)}")
         if vector_episodes:
             summary_parts.append(f"vector_episodes:{len(vector_episodes)}")
+        if ranked_episodes:
+            summary_parts.append(f"ranked_episodes:{len(ranked_episodes)}")
         if semantic_hits:
             summary_parts.append(f"semantic_hits:{len(semantic_hits)}")
 
@@ -768,9 +797,11 @@ class BrainOSStore:
             "session_id": session_id,
             "episodes": episodes,
             "vector_episodes": vector_episodes,
+            "ranked_episodes": ranked_episodes,
             "semantic_hits": semantic_hits,
             "count": len(episodes),
             "vector_count": len(vector_episodes),
+            "ranked_count": len(ranked_episodes),
             "semantic_count": len(semantic_hits),
             "mode": "fts_plus_vector_episode_similarity_plus_semantic_name_match",
             "vector_mode": vector_mode,

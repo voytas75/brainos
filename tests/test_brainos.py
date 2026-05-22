@@ -120,8 +120,11 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     assert recall["vector_count"] == 0
     assert recall["vector_mode"] in {"disabled", "error", "sqlite_vec_episode_similarity"}
     assert recall["episodes"][0]["metadata"]["kind"] == "graph"
+    assert recall["ranked_count"] == 1
+    assert recall["ranked_episodes"][0]["id"] == semantic_episode_id
+    assert recall["ranked_episodes"][0]["match_sources"] == ["fts"]
     assert recall["semantic_hits"][0]["name"] == "Semantic Memory"
-    assert recall["summary"] == "episodes:1, semantic_hits:1"
+    assert recall["summary"] == "episodes:1, ranked_episodes:1, semantic_hits:1"
 
     semantic_preview = store.preview_consolidation(semantic_episode_id)
     assert semantic_preview["promotion_type"] == "semantic"
@@ -205,7 +208,60 @@ def test_recall_returns_vector_episodes_when_vec_path_available(monkeypatch, tmp
     recall = store.recall("embedding smoke", session_id="s1", limit=5)
     assert recall["vector_mode"] == "sqlite_vec_episode_similarity"
     assert recall["vector_count"] == 1
+    assert recall["ranked_count"] == 1
     assert recall["vector_episodes"][0]["id"] == episode_id
+    assert recall["ranked_episodes"][0]["id"] == episode_id
+    assert recall["ranked_episodes"][0]["match_sources"] == ["fts", "vector"]
+    store.close()
+
+
+def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    episode_id = store.add_episode(session_id="s1", content="semantic embedding overlap", metadata={})
+
+    monkeypatch.setattr(
+        store,
+        "_sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
+    )
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.1, 0.2, 0.3]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure/UDTEMBED3L",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        store,
+        "_vector_search_episodes",
+        lambda query_vector, session_id=None, limit=10: [
+            {
+                "id": episode_id,
+                "session_id": "s1",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "semantic embedding overlap",
+                "metadata": {},
+                "distance": 0.0,
+            }
+        ],
+    )
+
+    recall = store.recall("semantic", session_id="s1", limit=5)
+    assert recall["count"] == 1
+    assert recall["vector_count"] == 1
+    assert recall["ranked_count"] == 1
+    assert recall["ranked_episodes"][0]["id"] == episode_id
+    assert recall["ranked_episodes"][0]["match_sources"] == ["fts", "vector"]
+    assert recall["ranked_episodes"][0]["vector_distance"] == 0.0
     store.close()
 
 

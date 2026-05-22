@@ -489,3 +489,17 @@ Fallback behavior:
 - if sqlite-vec runtime is unavailable, `vector_episodes` is empty and `vector_mode` is `disabled`
 - if embedding/query execution fails, `vector_mode` is `error`
 - this slice does not yet merge/rerank FTS and vector hits into one unified ranking
+
+
+## unified recall ranking v0
+
+Current recall response now also includes:
+- `ranked_episodes` - merged/deduplicated episode hits from FTS and vector similarity
+- `ranked_count`
+
+Current ranking policy is intentionally simple:
+- FTS hits get a strong base score
+- vector hits get an additional score based on distance
+- duplicate episode ids are merged and annotated with `match_sources`
+
+This is a bounded productization step, not a final retrieval-science policy.
