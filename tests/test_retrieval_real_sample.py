@@ -224,3 +224,66 @@ def test_real_sample_benchmark_pass(monkeypatch, tmp_path):
     assert all(item["episode_vector_mode"] == "sqlite_vec_episode_similarity" for item in benchmark_report)
     assert all(item["semantic_vector_mode"] == "sqlite_vec_semantic_similarity" for item in benchmark_report)
     store.close()
+
+
+def test_real_sample_scores_explain_top_hit(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    ids = seed_real_sample_store(store)
+
+    monkeypatch.setattr(
+        store,
+        "_sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
+    )
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.33, 0.21, 0.31]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure/UDTEMBED3L",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        store,
+        "_vector_search_episodes",
+        lambda query_vector, session_id=None, limit=10: [
+            {
+                "id": ids["ep_reindex_runtime"],
+                "session_id": "real",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "Reindex stale vectors after runtime changes or source text updates.",
+                "metadata": {"kind": "maintenance"},
+                "distance": 0.04,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        store,
+        "_vector_search_semantic_nodes",
+        lambda query_vector, limit=10: [
+            {
+                "id": "sem-reindex",
+                "name": "Vector Reindex",
+                "type": "Procedure",
+                "properties": {"area": "maintenance"},
+                "edges": [],
+                "distance": 0.03,
+            }
+        ],
+    )
+
+    recall = store.recall("how to repair stale vectors", session_id="real", limit=5)
+    top_episode = recall["ranked_episodes"][0]
+    top_semantic = recall["ranked_semantic_hits"][0]
+    assert "score_components" in top_episode
+    assert "episode_vector" in top_episode["score_components"] or "fts_rank" in top_episode["score_components"]
+    assert "score_components" in top_semantic
+    assert "semantic_vector" in top_semantic["score_components"] or "name_match_rank" in top_semantic["score_components"]
+    store.close()

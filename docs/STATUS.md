@@ -30,3 +30,5 @@ Expanded eval fixture baseline must stay green before scoring changes are truste
 - protects session filtering on vector hits
 - checks maintenance/reindex retrieval wording
 - keeps nonsense/noise suppression as a hard gate
+
+- score components are now surfaced on ranked hits for operator/debug visibility
