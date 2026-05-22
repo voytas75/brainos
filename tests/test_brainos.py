@@ -59,6 +59,11 @@ def test_working_memory_and_ledger_chain(tmp_path):
     assert ledger[0]["event_id"] == e1
     assert ledger[1]["event_id"] != e1
     assert ledger[1]["event_id"] == e2
+
+    verification = store.verify_ledger()
+    assert verification["ok"] is True
+    assert verification["entry_count"] == 2
+    assert verification["problems"] == []
     store.close()
 
 
@@ -89,6 +94,24 @@ def test_episode_listing_search_and_recall(tmp_path):
     assert recall["mode"] == "fts_only"
     assert recall["count"] == 1
     assert recall["episodes"][0]["metadata"]["kind"] == "graph"
+    store.close()
+
+
+def test_ledger_verification_detects_tampering(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    store.set_working_memory("agent_state", {"mode": "ready"})
+    store.set_working_memory("agent_state", {"mode": "busy"})
+
+    store.conn.execute("UPDATE ledger SET crypto_hash = 'tampered' WHERE rowid = 1")
+    store.conn.commit()
+
+    verification = store.verify_ledger()
+    assert verification["ok"] is False
+    assert verification["entry_count"] == 2
+    assert any(problem["kind"] == "crypto_hash_mismatch" for problem in verification["problems"])
     store.close()
 
 

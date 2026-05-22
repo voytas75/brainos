@@ -258,6 +258,19 @@ Fields:
 - `previous_hash`
 - `crypto_hash`
 
+### `verify_ledger() -> dict`
+
+Verifies the ledger chain by recomputing expected hashes and checking previous-hash continuity.
+
+Returns:
+- `ok: bool`
+- `entry_count: int`
+- `problems: list[dict]`
+
+Problem kinds currently include:
+- `previous_hash_mismatch`
+- `crypto_hash_mismatch`
+
 ### Hash chaining
 
 Each ledger event includes:
@@ -381,6 +394,15 @@ brainos --db ./brain.db procedure-list --limit 20
 ```bash
 brainos --db ./brain.db procedure-get <procedure-id>
 ```
+
+### `ledger-verify`
+
+```bash
+brainos --db ./brain.db ledger-verify
+```
+
+Output:
+- JSON object with `ok`, `entry_count`, and `problems`
 
 ### `ledger`
 

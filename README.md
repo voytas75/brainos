@@ -199,7 +199,13 @@ uv run brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
 uv run brainos --db ./brain.db schema-status
 ```
 
-### 9. Inspect ledger
+### 9. Verify ledger integrity
+
+```bash
+uv run brainos --db ./brain.db ledger-verify
+```
+
+### 10. Inspect ledger
 
 ```bash
 uv run brainos --db ./brain.db ledger
@@ -260,6 +266,7 @@ Available CLI commands:
 - `procedure-list`
 - `procedure-get`
 - `schema-status`
+- `ledger-verify`
 - `ledger`
 
 Example:

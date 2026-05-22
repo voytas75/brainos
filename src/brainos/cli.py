@@ -56,6 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_proc_get.add_argument("procedure_id")
 
     p_schema_status = sub.add_parser("schema-status", help="Show schema version status")
+    p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
 
     p_ledger = sub.add_parser("ledger", help="Print ledger entries")
 
@@ -114,6 +115,9 @@ def main() -> None:
         elif args.command == "schema-status":
             store.initialize()
             print(json.dumps(store.schema_status(), ensure_ascii=False, indent=2))
+        elif args.command == "ledger-verify":
+            store.initialize()
+            print(json.dumps(store.verify_ledger(), ensure_ascii=False, indent=2))
         elif args.command == "ledger":
             store.initialize()
             print(json.dumps(store.list_ledger(), ensure_ascii=False, indent=2))

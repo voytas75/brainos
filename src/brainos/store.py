@@ -370,3 +370,48 @@ class BrainOSStore:
             "SELECT event_id, timestamp, layer, action, payload, causal_event_id, previous_hash, crypto_hash FROM ledger ORDER BY timestamp, rowid"
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def verify_ledger(self) -> dict[str, Any]:
+        entries = self.list_ledger()
+        previous_hash = None
+        problems: list[dict[str, Any]] = []
+
+        for index, entry in enumerate(entries):
+            expected_hash = compute_event_hash(
+                event_id=entry["event_id"],
+                layer=entry["layer"],
+                action=entry["action"],
+                payload_json=entry["payload"],
+                causal_event_id=entry["causal_event_id"],
+                previous_hash=previous_hash,
+            )
+
+            if entry["previous_hash"] != previous_hash:
+                problems.append(
+                    {
+                        "index": index,
+                        "event_id": entry["event_id"],
+                        "kind": "previous_hash_mismatch",
+                        "expected": previous_hash,
+                        "actual": entry["previous_hash"],
+                    }
+                )
+
+            if entry["crypto_hash"] != expected_hash:
+                problems.append(
+                    {
+                        "index": index,
+                        "event_id": entry["event_id"],
+                        "kind": "crypto_hash_mismatch",
+                        "expected": expected_hash,
+                        "actual": entry["crypto_hash"],
+                    }
+                )
+
+            previous_hash = entry["crypto_hash"]
+
+        return {
+            "ok": len(problems) == 0,
+            "entry_count": len(entries),
+            "problems": problems,
+        }
