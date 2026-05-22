@@ -10,6 +10,18 @@ Current API surface is intentionally small:
 
 This is a storage-core API, not yet a retrieval orchestration or network API.
 
+## Environment
+
+Preferred local workflow uses `uv`:
+
+```bash
+uv sync --extra dev
+uv run pytest
+uv run brainos --db ./brain.db init
+```
+
+Current version does not require a `.env` file.
+
 ---
 
 ## Python API

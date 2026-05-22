@@ -28,6 +28,31 @@ Not included yet:
 - schema migrations / versioning
 - HTTP API
 
+## Environment policy
+
+### Virtual environment
+Yes — this repo should use a local virtual environment.
+
+Preferred workflow:
+- use `uv sync --extra dev`
+- use `uv run ...`
+- do not rely on manual activation as the default workflow
+
+### `.env`
+No — this repo does **not** currently require a `.env` file.
+
+Reason:
+- current implementation is local-only
+- no API keys are needed
+- no external services are required
+- no runtime configuration is required beyond the SQLite file path
+
+Add `.env` only when the project gains real external integrations, for example:
+- embedding providers
+- remote APIs
+- telemetry backends
+- server runtime configuration
+
 ## Why this shape
 
 The attached PDF describes a strong target architecture, but the provided excerpt is incomplete in two important places:
@@ -94,10 +119,10 @@ That makes the chain explicit and testable.
 
 ## Install
 
+Install dependencies with `uv`:
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+uv sync --extra dev
 ```
 
 ## Quick start
@@ -105,33 +130,33 @@ pip install -e .[dev]
 Initialize a database:
 
 ```bash
-python -m brainos.cli --db ./brain.db init
+uv run python -m brainos.cli --db ./brain.db init
 ```
 
 Store working memory:
 
 ```bash
-python -m brainos.cli --db ./brain.db wm-set agent_state '{"mode":"ready"}'
-python -m brainos.cli --db ./brain.db wm-get agent_state
+uv run python -m brainos.cli --db ./brain.db wm-set agent_state '{"mode":"ready"}'
+uv run python -m brainos.cli --db ./brain.db wm-get agent_state
 ```
 
 Add and search episodic memory:
 
 ```bash
-python -m brainos.cli --db ./brain.db episode-add session-1 'Agent initialized successfully' --metadata-json '{"source":"manual"}'
-python -m brainos.cli --db ./brain.db episode-search Agent --limit 5
+uv run python -m brainos.cli --db ./brain.db episode-add session-1 'Agent initialized successfully' --metadata-json '{"source":"manual"}'
+uv run python -m brainos.cli --db ./brain.db episode-search Agent --limit 5
 ```
 
 Inspect the ledger:
 
 ```bash
-python -m brainos.cli --db ./brain.db ledger
+uv run python -m brainos.cli --db ./brain.db ledger
 ```
 
 Run tests:
 
 ```bash
-pytest tests/test_brainos.py -q
+uv run pytest tests/test_brainos.py -q
 ```
 
 ## Python API
@@ -178,7 +203,7 @@ Available commands:
 Example:
 
 ```bash
-brainos --db ./brain.db init
+uv run brainos --db ./brain.db init
 ```
 
 ## Package layout
@@ -217,13 +242,3 @@ Recommended next slice:
 3. add schema versioning / migrations
 4. formalize the cognitive execution loop
 5. optionally add a local HTTP API
-
-## Local commit readiness
-
-Current repo is ready for a **local initial commit**.
-
-Suggested commit message:
-
-```text
-feat: bootstrap initial BrainOS SQLite storage core
-```
