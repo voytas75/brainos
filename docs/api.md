@@ -517,3 +517,18 @@ Current semantic ranking policy mirrors episode ranking v0:
 - name-match hits get strong base score
 - vector hits add distance-based score
 - duplicate node ids are merged and annotated with `match_sources`
+
+
+## retrieval quality / scoring pass v0
+
+Quality pass changes:
+- weak vector-only hits are filtered by a conservative distance cutoff
+- dual-source matches get an explicit ranking bonus
+- fallback mapping is now split by subsystem:
+  - `episode_vector_mode` / `episode_vector_error`
+  - `semantic_vector_mode` / `semantic_vector_error`
+
+Intent:
+- preserve FTS-first posture
+- reward agreement between lexical and vector retrieval
+- reduce low-signal vector-only clutter in ranked results

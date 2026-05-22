@@ -319,6 +319,53 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
     store.close()
 
 
+def test_recall_filters_weak_vector_only_hits(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    monkeypatch.setattr(
+        store,
+        "_sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
+    )
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.1, 0.2, 0.3]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure/UDTEMBED3L",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        store,
+        "_vector_search_episodes",
+        lambda query_vector, session_id=None, limit=10: [
+            {
+                "id": "ghost-1",
+                "session_id": "s1",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "Weak vector only match",
+                "metadata": {},
+                "distance": 9.5,
+            }
+        ],
+    )
+    monkeypatch.setattr(store, "_vector_search_semantic_nodes", lambda query_vector, limit=10: [])
+
+    recall = store.recall("unrelated", session_id="s1", limit=5)
+    assert recall["vector_count"] == 1
+    assert recall["ranked_count"] == 0
+    assert recall["episode_vector_mode"] == "sqlite_vec_episode_similarity"
+    assert recall["semantic_vector_mode"] == "sqlite_vec_semantic_similarity"
+    store.close()
+
+
 def test_validation_errors_for_promotion_metadata(tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)

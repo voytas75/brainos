@@ -934,6 +934,9 @@ class BrainOSStore:
         }
 
     def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
+        VECTOR_DISTANCE_CUTOFF = 1.2
+        DUAL_SOURCE_BONUS = 150.0
+
         episodes = self.search_episodes_text(query, session_id=session_id, limit=limit)
         vector_episodes: list[dict[str, Any]] = []
         vector_mode = "disabled"
@@ -955,6 +958,9 @@ class BrainOSStore:
         else:
             vector_error = capabilities.get("sqlite_vec_error")
 
+        episode_vector_mode = vector_mode
+        episode_vector_error = vector_error
+
         ranked_map: dict[str, dict[str, Any]] = {}
         for idx, item in enumerate(episodes):
             merged = dict(item)
@@ -965,10 +971,12 @@ class BrainOSStore:
         for idx, item in enumerate(vector_episodes):
             item_id = item["id"]
             distance = float(item.get("distance", 999999.0))
+            if distance > VECTOR_DISTANCE_CUTOFF and item_id not in ranked_map:
+                continue
             score = max(0.0, 500.0 - distance - (idx * 0.001))
             if item_id in ranked_map:
                 ranked_map[item_id]["match_sources"].append("vector")
-                ranked_map[item_id]["rank_score"] += score
+                ranked_map[item_id]["rank_score"] += score + DUAL_SOURCE_BONUS
                 ranked_map[item_id]["vector_distance"] = distance
             else:
                 merged = dict(item)
@@ -984,6 +992,8 @@ class BrainOSStore:
 
         semantic_hits = []
         vector_semantic_hits: list[dict[str, Any]] = []
+        semantic_vector_mode = "disabled"
+        semantic_vector_error = None
         query_lower = query.lower()
         node_rows = self.conn.execute(
             "SELECT id, name, type, properties FROM semantic_nodes ORDER BY name"
@@ -997,11 +1007,15 @@ class BrainOSStore:
                 if len(semantic_hits) >= limit:
                     break
 
-        if vector_mode == "sqlite_vec_episode_similarity" and query_vector is not None:
+        if query_vector is not None and capabilities.get("sqlite_vec"):
             try:
                 vector_semantic_hits = self._vector_search_semantic_nodes(query_vector, limit=limit)
-            except (BrainOSError, sqlite3.Error):
-                vector_semantic_hits = []
+                semantic_vector_mode = "sqlite_vec_semantic_similarity"
+            except (BrainOSError, sqlite3.Error) as exc:
+                semantic_vector_mode = "error"
+                semantic_vector_error = str(exc)
+        else:
+            semantic_vector_error = capabilities.get("sqlite_vec_error") if not capabilities.get("sqlite_vec") else None
 
         ranked_semantic_map: dict[str, dict[str, Any]] = {}
         for idx, item in enumerate(semantic_hits):
@@ -1013,10 +1027,12 @@ class BrainOSStore:
         for idx, item in enumerate(vector_semantic_hits):
             item_id = item["id"]
             distance = float(item.get("distance", 999999.0))
+            if distance > VECTOR_DISTANCE_CUTOFF and item_id not in ranked_semantic_map:
+                continue
             score = max(0.0, 500.0 - distance - (idx * 0.001))
             if item_id in ranked_semantic_map:
                 ranked_semantic_map[item_id]["match_sources"].append("vector")
-                ranked_semantic_map[item_id]["rank_score"] += score
+                ranked_semantic_map[item_id]["rank_score"] += score + DUAL_SOURCE_BONUS
                 ranked_semantic_map[item_id]["vector_distance"] = distance
             else:
                 merged = dict(item)
@@ -1062,6 +1078,10 @@ class BrainOSStore:
             "mode": "fts_plus_vector_episode_similarity_plus_semantic_name_match",
             "vector_mode": vector_mode,
             "vector_error": vector_error,
+            "episode_vector_mode": episode_vector_mode,
+            "episode_vector_error": episode_vector_error,
+            "semantic_vector_mode": semantic_vector_mode,
+            "semantic_vector_error": semantic_vector_error,
             "summary": ", ".join(summary_parts) if summary_parts else "no_hits",
         }
 
