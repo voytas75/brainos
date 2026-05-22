@@ -519,3 +519,17 @@ Current intent:
 - quick operator-visible retrieval quality snapshot
 - validate expected top hits for the bounded benchmark suite
 - make later tuning passes easier to judge locally
+
+
+## Retrieval explain CLI
+
+Inspect why ranked retrieval returned what it did:
+
+```bash
+uv run brainos --db ./brain.db retrieval-explain "azure embeddings" --session-id s1
+```
+
+Current intent:
+- compact operator/debug view over ranked retrieval
+- expose score components and match sources for top hits
+- make scoring changes easier to inspect without reading full raw recall payloads
