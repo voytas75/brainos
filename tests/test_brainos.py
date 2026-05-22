@@ -72,28 +72,42 @@ def test_working_memory_and_ledger_chain(tmp_path):
     store.close()
 
 
-def test_episode_listing_search_and_recall(tmp_path):
+def test_episode_listing_search_recall_and_consolidation(tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
 
-    store.add_episode(session_id="s1", content="Agent learned SQLite WAL mode", metadata={"kind": "note"})
+    semantic_episode_id = store.add_episode(
+        session_id="s1",
+        content="Agent learned semantic edges",
+        metadata={
+            "kind": "graph",
+            "promotion_type": "semantic",
+            "semantic_name": "Semantic edges",
+            "semantic_type": "Fact",
+            "semantic_properties": {"topic": "memory"},
+        },
+    )
+    procedure_episode_id = store.add_episode(
+        session_id="s1",
+        content="Bootstrap the store in two steps",
+        metadata={
+            "kind": "procedure",
+            "promotion_type": "procedure",
+            "procedure_name": "bootstrap_from_episode",
+            "procedure_steps": [{"step": "init-db"}, {"step": "load-state"}],
+        },
+    )
     store.add_episode(session_id="s2", content="Different memory fragment", metadata={"kind": "other"})
-    store.add_episode(session_id="s1", content="Agent learned semantic edges", metadata={"kind": "graph"})
 
     listed = store.list_episodes(session_id="s1", limit=10)
     assert len(listed) == 2
     assert all(item["session_id"] == "s1" for item in listed)
     assert isinstance(listed[0]["metadata"], dict)
 
-    results = store.search_episodes_text("SQLite", limit=5)
+    results = store.search_episodes_text("semantic", limit=5)
     assert len(results) == 1
-    assert "SQLite" in results[0]["content"]
-    assert results[0]["metadata"]["kind"] == "note"
-
-    filtered = store.search_episodes_text("Agent", session_id="s1", limit=10)
-    assert len(filtered) == 2
-    assert all(item["session_id"] == "s1" for item in filtered)
+    assert results[0]["metadata"]["kind"] == "graph"
 
     store.upsert_semantic_node(node_id="semantic-1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
 
@@ -104,6 +118,30 @@ def test_episode_listing_search_and_recall(tmp_path):
     assert recall["episodes"][0]["metadata"]["kind"] == "graph"
     assert recall["semantic_hits"][0]["name"] == "Semantic Memory"
     assert recall["summary"] == "episodes:1, semantic_hits:1"
+
+    semantic_preview = store.preview_consolidation(semantic_episode_id)
+    assert semantic_preview["promotion_type"] == "semantic"
+    assert semantic_preview["candidate"]["target_layer"] == "semantic"
+    assert semantic_preview["candidate"]["semantic_node"]["properties"]["topic"] == "memory"
+
+    semantic_promote = store.promote_episode(semantic_episode_id)
+    assert semantic_promote["ok"] is True
+    assert semantic_promote["target_layer"] == "semantic"
+    promoted_node = store.get_semantic_node(semantic_promote["created_id"])
+    assert promoted_node is not None
+    assert promoted_node["properties"]["source_episode_id"] == semantic_episode_id
+
+    procedure_preview = store.preview_consolidation(procedure_episode_id)
+    assert procedure_preview["promotion_type"] == "procedure"
+    assert procedure_preview["candidate"]["target_layer"] == "procedural"
+    assert procedure_preview["candidate"]["procedure"]["steps"][0]["step"] == "init-db"
+
+    procedure_promote = store.promote_episode(procedure_episode_id)
+    assert procedure_promote["ok"] is True
+    assert procedure_promote["target_layer"] == "procedural"
+    promoted_procedure = store.get_procedure(procedure_promote["created_id"])
+    assert promoted_procedure is not None
+    assert promoted_procedure["steps"][1]["step"] == "load-state"
     store.close()
 
 

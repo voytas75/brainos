@@ -14,6 +14,7 @@ Current implementation provides:
 - full-text search over episodes with FTS5
 - semantic memory as nodes and edges
 - procedural memory as JSON-defined procedures
+- consolidation preview and explicit promotion from episodes into semantic/procedural layers
 - an immutable ledger with chained hashes for provenance/audit
 
 The current repo is a **local storage core**, not a full runtime platform yet.
@@ -187,49 +188,61 @@ uv run brainos --db ./brain.db episode-add session-1 'Agent initialized successf
 uv run brainos --db ./brain.db episode-search Agent --limit 5
 ```
 
-### 7. Recall from episodic memory
+### 7. Preview consolidation candidate from an episode
+
+```bash
+uv run brainos --db ./brain.db consolidation-preview <episode-id>
+```
+
+### 8. Promote episode into semantic/procedural layer
+
+```bash
+uv run brainos --db ./brain.db promote-episode <episode-id>
+```
+
+### 9. Recall from episodic memory
 
 ```bash
 uv run brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
 ```
 
-### 8. Create a semantic node
+### 10. Create a semantic node
 
 ```bash
 uv run brainos --db ./brain.db semantic-node-upsert n1 SQLite Concept --properties-json '{"kind":"database"}'
 ```
 
-### 9. Create a semantic edge
+### 11. Create a semantic edge
 
 ```bash
 uv run brainos --db ./brain.db semantic-edge-upsert n1 n2 RELATES_TO --weight 1.0
 ```
 
-### 10. Create a procedure
+### 12. Create a procedure
 
 ```bash
 uv run brainos --db ./brain.db procedure-create bootstrap '[{"step":"init-db"},{"step":"load-state"}]' --description 'Initialize BrainOS'
 ```
 
-### 11. Check schema status
+### 13. Check schema status
 
 ```bash
 uv run brainos --db ./brain.db schema-status
 ```
 
-### 12. Check runtime capabilities
+### 14. Check runtime capabilities
 
 ```bash
 uv run brainos --db ./brain.db capabilities
 ```
 
-### 13. Verify ledger integrity
+### 15. Verify ledger integrity
 
 ```bash
 uv run brainos --db ./brain.db ledger-verify
 ```
 
-### 14. Inspect ledger
+### 16. Inspect ledger
 
 ```bash
 uv run brainos --db ./brain.db ledger
@@ -283,6 +296,8 @@ Available CLI commands:
 - `wm-get`
 - `episode-add`
 - `episodes-list`
+- `consolidation-preview`
+- `promote-episode`
 - `episode-search`
 - `recall`
 - `semantic-node-upsert`

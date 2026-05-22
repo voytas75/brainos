@@ -140,6 +140,17 @@ class BrainOSStore:
             )
         return episode_id
 
+    def get_episode(self, episode_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT id, session_id, timestamp, content, metadata FROM episodes WHERE id = ?",
+            (episode_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        item["metadata"] = self._decode_json_field(item, "metadata") or {}
+        return item
+
     def list_episodes(self, *, session_id: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
         if session_id:
             rows = self.conn.execute(
@@ -202,6 +213,93 @@ class BrainOSStore:
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
             result.append(item)
         return result
+
+    def preview_consolidation(self, episode_id: str) -> dict[str, Any]:
+        episode = self.get_episode(episode_id)
+        if episode is None:
+            raise ValueError(f"episode not found: {episode_id}")
+
+        metadata = episode["metadata"] or {}
+        promotion_type = str(metadata.get("promotion_type") or "semantic").lower()
+        source_kind = metadata.get("kind", "episode")
+
+        if promotion_type == "procedure":
+            procedure_name = metadata.get("procedure_name") or f"procedure_from_{episode_id[:8]}"
+            steps = metadata.get("procedure_steps") or [{"step": episode["content"]}]
+            candidate = {
+                "target_layer": "procedural",
+                "procedure": {
+                    "name": procedure_name,
+                    "description": metadata.get("description") or f"Promoted from episode {episode_id}",
+                    "steps": steps,
+                },
+            }
+        else:
+            node_id = metadata.get("semantic_node_id") or f"sem_{episode_id[:8]}"
+            node_name = metadata.get("semantic_name") or episode["content"][:80]
+            node_type = metadata.get("semantic_type") or "Fact"
+            properties = {
+                "source_episode_id": episode_id,
+                "source_kind": source_kind,
+                "session_id": episode["session_id"],
+            }
+            extra_properties = metadata.get("semantic_properties") or {}
+            if isinstance(extra_properties, dict):
+                properties.update(extra_properties)
+            candidate = {
+                "target_layer": "semantic",
+                "semantic_node": {
+                    "id": node_id,
+                    "name": node_name,
+                    "type": node_type,
+                    "properties": properties,
+                },
+            }
+
+        return {
+            "episode_id": episode_id,
+            "episode": episode,
+            "promotion_type": promotion_type,
+            "candidate": candidate,
+            "mode": "preview_only",
+        }
+
+    def promote_episode(self, episode_id: str) -> dict[str, Any]:
+        preview = self.preview_consolidation(episode_id)
+        candidate = preview["candidate"]
+
+        if candidate["target_layer"] == "procedural":
+            procedure = candidate["procedure"]
+            procedure_id = self.create_procedure(
+                name=procedure["name"],
+                description=procedure["description"],
+                steps=procedure["steps"],
+                causal_event_id=episode_id,
+            )
+            return {
+                "ok": True,
+                "episode_id": episode_id,
+                "target_layer": "procedural",
+                "created_id": procedure_id,
+                "mode": "promoted",
+            }
+
+        semantic_node = candidate["semantic_node"]
+        event_id = self.upsert_semantic_node(
+            node_id=semantic_node["id"],
+            name=semantic_node["name"],
+            node_type=semantic_node["type"],
+            properties=semantic_node["properties"],
+            causal_event_id=episode_id,
+        )
+        return {
+            "ok": True,
+            "episode_id": episode_id,
+            "target_layer": "semantic",
+            "created_id": semantic_node["id"],
+            "ledger_event_id": event_id,
+            "mode": "promoted",
+        }
 
     def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
         episodes = self.search_episodes_text(query, session_id=session_id, limit=limit)

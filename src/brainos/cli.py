@@ -31,6 +31,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_ep_list.add_argument("--session-id")
     p_ep_list.add_argument("--limit", type=int, default=20)
 
+    p_ep_preview = sub.add_parser("consolidation-preview", help="Preview promotion candidate for one episode")
+    p_ep_preview.add_argument("episode_id")
+
+    p_ep_promote = sub.add_parser("promote-episode", help="Promote one episode into semantic or procedural layer")
+    p_ep_promote.add_argument("episode_id")
+
     p_ep_search = sub.add_parser("episode-search", help="Search episodes with FTS5")
     p_ep_search.add_argument("query")
     p_ep_search.add_argument("--session-id")
@@ -75,7 +81,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_schema_status = sub.add_parser("schema-status", help="Show schema version status")
     p_capabilities = sub.add_parser("capabilities", help="Show runtime capabilities")
     p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
-
     p_ledger = sub.add_parser("ledger", help="Print ledger entries")
 
     return parser
@@ -110,6 +115,12 @@ def main() -> None:
             store.initialize()
             results = store.list_episodes(session_id=args.session_id, limit=args.limit)
             print(json.dumps(results, ensure_ascii=False, indent=2))
+        elif args.command == "consolidation-preview":
+            store.initialize()
+            print(json.dumps(store.preview_consolidation(args.episode_id), ensure_ascii=False, indent=2))
+        elif args.command == "promote-episode":
+            store.initialize()
+            print(json.dumps(store.promote_episode(args.episode_id), ensure_ascii=False, indent=2))
         elif args.command == "episode-search":
             store.initialize()
             results = store.search_episodes_text(args.query, session_id=args.session_id, limit=args.limit)
