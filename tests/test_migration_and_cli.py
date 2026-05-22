@@ -70,19 +70,19 @@ def create_v1_database(path: Path) -> None:
     conn.close()
 
 
-def test_migrates_v1_to_v2(tmp_path):
+def test_migrates_v1_to_v3(tmp_path):
     db = tmp_path / "brain_v1.db"
     create_v1_database(db)
 
     store = BrainOSStore(db)
     store.initialize()
 
-    assert store.schema_status()["current_version"] == 2
+    assert store.schema_status()["current_version"] == 3
     promotion_tables = store.conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='episode_promotions'"
     ).fetchall()
     assert len(promotion_tables) == 1
-    assert get_schema_version(store.conn) == 2
+    assert get_schema_version(store.conn) == 3
     store.close()
 
 

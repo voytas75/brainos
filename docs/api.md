@@ -424,3 +424,22 @@ Not part of this API yet:
 - graph traversal API
 - procedure execution engine
 - background compaction / consolidation workers
+
+
+## Vector metadata / embedding boundary v0
+
+Current code includes:
+- `get_embedding_profile_contract()`
+- `get_vector_index_state(object_type, object_id)`
+- `list_vector_index_states(...)`
+- `mark_episode_vector_missing(...)`
+- `mark_semantic_node_vector_missing(...)`
+- `refresh_vector_freshness_for_episode(...)`
+- `embed_texts(...)` contract stub
+
+Current behavior:
+- episode writes create vector metadata in `missing` state
+- semantic node creation creates vector metadata in `missing` state
+- semantic node updates mark vector metadata `stale`
+- episode content changes can be re-evaluated into `stale` state
+- live embedding execution is intentionally not implemented yet

@@ -72,3 +72,10 @@ This repo uses `uv` for local development because it keeps the workflow small an
 - added explicit migration coverage for v1 -> v2
 - CLI now returns compact JSON errors for expected user-facing failures
 - missing-object reads now fail clearly instead of printing `null`
+
+
+## Vector metadata slice added
+
+- added schema v3 with `vector_index_state`
+- added embedding contract surface without provider execution
+- added stale/missing lifecycle tracking for episodes and semantic nodes

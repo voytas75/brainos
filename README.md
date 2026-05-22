@@ -16,6 +16,7 @@ Current implementation provides:
 - procedural memory as JSON-defined procedures
 - consolidation preview and explicit promotion from episodes into semantic/procedural layers
 - promotion state tracking and duplicate-promotion protection
+- vector metadata lifecycle for native optional embedding support
 - an immutable ledger with chained hashes for provenance/audit
 
 The current repo is a **local storage core**, not a full runtime platform yet.
@@ -407,3 +408,13 @@ To inspect whether a specific episode was already promoted:
 ```bash
 uv run brainos --db ./brain.db episode-promotion-get <episode-id>
 ```
+
+
+## Vector metadata status
+
+Current codebase now includes:
+- vector metadata lifecycle table
+- embedding profile contract surface
+- stale/missing tracking for embeddable objects
+
+It does **not** yet perform live embedding generation or vector retrieval.

@@ -35,8 +35,8 @@ def test_schema_status_and_capabilities(tmp_path):
     store.initialize()
 
     status_after = store.schema_status()
-    assert status_after["current_version"] == 2
-    assert status_after["expected_version"] == 2
+    assert status_after["current_version"] == 3
+    assert status_after["expected_version"] == 3
     assert status_after["is_initialized"] is True
     assert status_after["is_current"] is True
 

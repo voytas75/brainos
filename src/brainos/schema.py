@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """
 PRAGMA journal_mode=WAL;
@@ -74,10 +74,28 @@ CREATE TABLE IF NOT EXISTS episode_promotions (
     FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS vector_index_state (
+    object_type TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    source_text_hash TEXT NOT NULL,
+    source_text_preview TEXT,
+    embedding_profile TEXT NOT NULL,
+    embedding_provider TEXT,
+    embedding_model TEXT,
+    embedding_dimensions INTEGER,
+    vector_status TEXT NOT NULL,
+    last_embedded_at TIMESTAMP,
+    last_error TEXT,
+    last_error_at TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (object_type, object_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_episodes_session ON episodes(session_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON semantic_edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON ledger(timestamp);
 CREATE INDEX IF NOT EXISTS idx_episode_promotions_target ON episode_promotions(target_layer, target_id);
+CREATE INDEX IF NOT EXISTS idx_vector_index_status ON vector_index_state(vector_status, object_type);
 """
 
 VEC_TABLE_SQL = """
@@ -141,6 +159,30 @@ def run_migrations(conn: sqlite3.Connection, current_version: int) -> int:
             """
         )
         version = 2
+
+    if version < 3:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS vector_index_state (
+                object_type TEXT NOT NULL,
+                object_id TEXT NOT NULL,
+                source_text_hash TEXT NOT NULL,
+                source_text_preview TEXT,
+                embedding_profile TEXT NOT NULL,
+                embedding_provider TEXT,
+                embedding_model TEXT,
+                embedding_dimensions INTEGER,
+                vector_status TEXT NOT NULL,
+                last_embedded_at TIMESTAMP,
+                last_error TEXT,
+                last_error_at TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (object_type, object_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_vector_index_status ON vector_index_state(vector_status, object_type);
+            """
+        )
+        version = 3
 
     return version
 

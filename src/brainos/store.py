@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import uuid
 from contextlib import contextmanager
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -27,7 +29,18 @@ class NotFoundError(BrainOSError):
     pass
 
 
+class EmbeddingProviderNotConfiguredError(BrainOSError):
+    pass
+
+
 class BrainOSStore:
+    DEFAULT_EMBEDDING_PROFILE = "brainos-embedding-default"
+    VECTOR_STATUS_MISSING = "missing"
+    VECTOR_STATUS_FRESH = "fresh"
+    VECTOR_STATUS_STALE = "stale"
+    VECTOR_STATUS_ERROR = "error"
+    VECTOR_STATUS_DISABLED = "disabled"
+
     def __init__(self, db_path: str | Path, *, enable_vector: bool = False):
         self.db_path = str(db_path)
         self.enable_vector = enable_vector
@@ -76,6 +89,18 @@ class BrainOSStore:
             raise ValidationError(f"{field_name} must be a JSON array of objects")
         return value
 
+    @staticmethod
+    def _text_hash(text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _text_preview(text: str, limit: int = 160) -> str:
+        return text if len(text) <= limit else text[:limit]
+
+    @staticmethod
+    def _now_iso() -> str:
+        return datetime.now(UTC).replace(microsecond=0).isoformat()
+
     def _last_ledger_hash(self) -> str | None:
         row = self.conn.execute(
             "SELECT crypto_hash FROM ledger ORDER BY timestamp DESC, rowid DESC LIMIT 1"
@@ -109,6 +134,177 @@ class BrainOSStore:
             (event_id, layer, action, payload_json, causal_event_id, previous_hash, crypto_hash),
         )
         return event_id
+
+    def _canonical_episode_embedding_text(self, episode: dict[str, Any]) -> str:
+        return episode["content"]
+
+    def _canonical_semantic_node_embedding_text(self, node: dict[str, Any]) -> str:
+        properties = node.get("properties") or {}
+        properties_json = json.dumps(properties, ensure_ascii=False, sort_keys=True)
+        return f"{node['name']}\nType: {node['type']}\nProperties: {properties_json}"
+
+    def _set_vector_index_state(
+        self,
+        *,
+        object_type: str,
+        object_id: str,
+        source_text: str,
+        embedding_profile: str,
+        vector_status: str,
+        embedding_provider: str | None = None,
+        embedding_model: str | None = None,
+        embedding_dimensions: int | None = None,
+        last_embedded_at: str | None = None,
+        last_error: str | None = None,
+        last_error_at: str | None = None,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO vector_index_state(
+                object_type, object_id, source_text_hash, source_text_preview,
+                embedding_profile, embedding_provider, embedding_model, embedding_dimensions,
+                vector_status, last_embedded_at, last_error, last_error_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(object_type, object_id) DO UPDATE SET
+                source_text_hash=excluded.source_text_hash,
+                source_text_preview=excluded.source_text_preview,
+                embedding_profile=excluded.embedding_profile,
+                embedding_provider=excluded.embedding_provider,
+                embedding_model=excluded.embedding_model,
+                embedding_dimensions=excluded.embedding_dimensions,
+                vector_status=excluded.vector_status,
+                last_embedded_at=excluded.last_embedded_at,
+                last_error=excluded.last_error,
+                last_error_at=excluded.last_error_at,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                object_type,
+                object_id,
+                self._text_hash(source_text),
+                self._text_preview(source_text),
+                embedding_profile,
+                embedding_provider,
+                embedding_model,
+                embedding_dimensions,
+                vector_status,
+                last_embedded_at,
+                last_error,
+                last_error_at,
+            ),
+        )
+
+    def get_vector_index_state(self, object_type: str, object_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT object_type, object_id, source_text_hash, source_text_preview,
+                   embedding_profile, embedding_provider, embedding_model, embedding_dimensions,
+                   vector_status, last_embedded_at, last_error, last_error_at, updated_at
+            FROM vector_index_state
+            WHERE object_type = ? AND object_id = ?
+            """,
+            (object_type, object_id),
+        ).fetchone()
+        return None if row is None else dict(row)
+
+    def list_vector_index_states(
+        self, *, object_type: str | None = None, vector_status: str | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        conditions = []
+        params: list[Any] = []
+        if object_type is not None:
+            conditions.append("object_type = ?")
+            params.append(object_type)
+        if vector_status is not None:
+            conditions.append("vector_status = ?")
+            params.append(vector_status)
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        params.append(limit)
+        rows = self.conn.execute(
+            f"""
+            SELECT object_type, object_id, source_text_hash, source_text_preview,
+                   embedding_profile, embedding_provider, embedding_model, embedding_dimensions,
+                   vector_status, last_embedded_at, last_error, last_error_at, updated_at
+            FROM vector_index_state
+            {where}
+            ORDER BY object_type, object_id
+            LIMIT ?
+            """,
+            tuple(params),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_embedding_profile_contract(self) -> dict[str, Any]:
+        return {
+            "profile": self.DEFAULT_EMBEDDING_PROFILE,
+            "provider_path": "litellm",
+            "operational_provider": "azure",
+            "mode": "contract_only",
+            "text_object_families": ["episode", "semantic_node"],
+        }
+
+    def embed_texts(self, texts: list[str], profile: str | None = None) -> dict[str, Any]:
+        if not isinstance(texts, list) or any(not isinstance(text, str) for text in texts):
+            raise ValidationError("texts must be a list of strings")
+        raise EmbeddingProviderNotConfiguredError(
+            "embedding execution is not implemented yet; use LiteLLM + Azure profile in a later slice"
+        )
+
+    def mark_episode_vector_missing(self, episode_id: str, *, embedding_profile: str | None = None) -> None:
+        episode = self.get_episode(episode_id)
+        if episode is None:
+            raise NotFoundError(f"episode not found: {episode_id}")
+        self._set_vector_index_state(
+            object_type="episode",
+            object_id=episode_id,
+            source_text=self._canonical_episode_embedding_text(episode),
+            embedding_profile=embedding_profile or self.DEFAULT_EMBEDDING_PROFILE,
+            vector_status=self.VECTOR_STATUS_MISSING,
+        )
+
+    def mark_semantic_node_vector_missing(self, node_id: str, *, embedding_profile: str | None = None) -> None:
+        node = self.get_semantic_node(node_id)
+        if node is None:
+            raise NotFoundError(f"semantic node not found: {node_id}")
+        self._set_vector_index_state(
+            object_type="semantic_node",
+            object_id=node_id,
+            source_text=self._canonical_semantic_node_embedding_text(node),
+            embedding_profile=embedding_profile or self.DEFAULT_EMBEDDING_PROFILE,
+            vector_status=self.VECTOR_STATUS_MISSING,
+        )
+
+    def refresh_vector_freshness_for_episode(self, episode_id: str, *, embedding_profile: str | None = None) -> dict[str, Any]:
+        episode = self.get_episode(episode_id)
+        if episode is None:
+            raise NotFoundError(f"episode not found: {episode_id}")
+        source_text = self._canonical_episode_embedding_text(episode)
+        state = self.get_vector_index_state("episode", episode_id)
+        profile = embedding_profile or self.DEFAULT_EMBEDDING_PROFILE
+        if state is None:
+            self._set_vector_index_state(
+                object_type="episode",
+                object_id=episode_id,
+                source_text=source_text,
+                embedding_profile=profile,
+                vector_status=self.VECTOR_STATUS_MISSING,
+            )
+        elif state["source_text_hash"] != self._text_hash(source_text) or state["embedding_profile"] != profile:
+            self._set_vector_index_state(
+                object_type="episode",
+                object_id=episode_id,
+                source_text=source_text,
+                embedding_profile=profile,
+                vector_status=self.VECTOR_STATUS_STALE,
+                embedding_provider=state.get("embedding_provider"),
+                embedding_model=state.get("embedding_model"),
+                embedding_dimensions=state.get("embedding_dimensions"),
+                last_embedded_at=state.get("last_embedded_at"),
+                last_error=state.get("last_error"),
+                last_error_at=state.get("last_error_at"),
+            )
+        return self.get_vector_index_state("episode", episode_id) or {}
 
     def set_working_memory(self, key: str, value: dict[str, Any], *, causal_event_id: str | None = None) -> str:
         payload_json = json.dumps(value, ensure_ascii=False)
@@ -166,6 +362,13 @@ class BrainOSStore:
                 },
                 causal_event_id=causal_event_id,
             )
+            self._set_vector_index_state(
+                object_type="episode",
+                object_id=episode_id,
+                source_text=content,
+                embedding_profile=self.DEFAULT_EMBEDDING_PROFILE,
+                vector_status=self.VECTOR_STATUS_MISSING,
+            )
         return episode_id
 
     def get_episode(self, episode_id: str) -> dict[str, Any] | None:
@@ -180,6 +383,9 @@ class BrainOSStore:
         promotion = self.get_episode_promotion(episode_id)
         if promotion is not None:
             item["promotion"] = promotion
+        vector_state = self.get_vector_index_state("episode", episode_id)
+        if vector_state is not None:
+            item["vector_state"] = vector_state
         return item
 
     def get_episode_promotion(self, episode_id: str) -> dict[str, Any] | None:
@@ -218,6 +424,9 @@ class BrainOSStore:
             promotion = self.get_episode_promotion(item["id"])
             if promotion is not None:
                 item["promotion"] = promotion
+            vector_state = self.get_vector_index_state("episode", item["id"])
+            if vector_state is not None:
+                item["vector_state"] = vector_state
             result.append(item)
         return result
 
@@ -255,6 +464,9 @@ class BrainOSStore:
             promotion = self.get_episode_promotion(item["id"])
             if promotion is not None:
                 item["promotion"] = promotion
+            vector_state = self.get_vector_index_state("episode", item["id"])
+            if vector_state is not None:
+                item["vector_state"] = vector_state
             result.append(item)
         return result
 
@@ -446,12 +658,37 @@ class BrainOSStore:
                 """,
                 (node_id, name, node_type, json.dumps(properties, ensure_ascii=False)),
             )
-            return self._append_ledger(
+            event_id = self._append_ledger(
                 layer="semantic",
                 action="UPDATE",
                 payload={"id": node_id, "name": name, "type": node_type, "properties": properties},
                 causal_event_id=causal_event_id,
             )
+            node = {"id": node_id, "name": name, "type": node_type, "properties": properties}
+            existing_state = self.get_vector_index_state("semantic_node", node_id)
+            if existing_state is None:
+                self._set_vector_index_state(
+                    object_type="semantic_node",
+                    object_id=node_id,
+                    source_text=self._canonical_semantic_node_embedding_text(node),
+                    embedding_profile=self.DEFAULT_EMBEDDING_PROFILE,
+                    vector_status=self.VECTOR_STATUS_MISSING,
+                )
+            else:
+                self._set_vector_index_state(
+                    object_type="semantic_node",
+                    object_id=node_id,
+                    source_text=self._canonical_semantic_node_embedding_text(node),
+                    embedding_profile=existing_state["embedding_profile"],
+                    vector_status=self.VECTOR_STATUS_STALE,
+                    embedding_provider=existing_state.get("embedding_provider"),
+                    embedding_model=existing_state.get("embedding_model"),
+                    embedding_dimensions=existing_state.get("embedding_dimensions"),
+                    last_embedded_at=existing_state.get("last_embedded_at"),
+                    last_error=existing_state.get("last_error"),
+                    last_error_at=existing_state.get("last_error_at"),
+                )
+            return event_id
 
     def get_semantic_node(self, node_id: str) -> dict[str, Any] | None:
         row = self.conn.execute(
@@ -462,6 +699,9 @@ class BrainOSStore:
             return None
         item = dict(row)
         item["properties"] = self._decode_json_field(item, "properties") or {}
+        vector_state = self.get_vector_index_state("semantic_node", node_id)
+        if vector_state is not None:
+            item["vector_state"] = vector_state
         return item
 
     def upsert_semantic_edge(
