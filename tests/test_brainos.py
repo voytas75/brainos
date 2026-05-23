@@ -177,7 +177,7 @@ def test_recall_returns_vector_episodes_when_vec_path_available(monkeypatch, tmp
 
     monkeypatch.setattr(
         store,
-        "_sqlite_vec_capability",
+        "sqlite_vec_capability",
         lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
     )
     monkeypatch.setattr(
@@ -195,7 +195,7 @@ def test_recall_returns_vector_episodes_when_vec_path_available(monkeypatch, tmp
     )
     monkeypatch.setattr(
         store,
-        "_vector_search_episodes",
+        "vector_search_episodes",
         lambda query_vector, session_id=None, limit=10: [
             {
                 "id": episode_id,
@@ -227,7 +227,7 @@ def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_pa
 
     monkeypatch.setattr(
         store,
-        "_sqlite_vec_capability",
+        "sqlite_vec_capability",
         lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
     )
     monkeypatch.setattr(
@@ -245,7 +245,7 @@ def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_pa
     )
     monkeypatch.setattr(
         store,
-        "_vector_search_episodes",
+        "vector_search_episodes",
         lambda query_vector, session_id=None, limit=10: [
             {
                 "id": episode_id,
@@ -278,7 +278,7 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         store,
-        "_sqlite_vec_capability",
+        "sqlite_vec_capability",
         lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
     )
     monkeypatch.setattr(
@@ -294,10 +294,10 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
             "returned_count": 1,
         },
     )
-    monkeypatch.setattr(store, "_vector_search_episodes", lambda query_vector, session_id=None, limit=10: [])
+    monkeypatch.setattr(store, "vector_search_episodes", lambda query_vector, session_id=None, limit=10: [])
     monkeypatch.setattr(
         store,
-        "_vector_search_semantic_nodes",
+        "vector_search_semantic_nodes",
         lambda query_vector, limit=10: [
             {
                 "id": "n1",
@@ -328,7 +328,7 @@ def test_recall_filters_weak_vector_only_hits(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         store,
-        "_sqlite_vec_capability",
+        "sqlite_vec_capability",
         lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
     )
     monkeypatch.setattr(
@@ -346,7 +346,7 @@ def test_recall_filters_weak_vector_only_hits(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         store,
-        "_vector_search_episodes",
+        "vector_search_episodes",
         lambda query_vector, session_id=None, limit=10: [
             {
                 "id": "ghost-1",
@@ -358,7 +358,7 @@ def test_recall_filters_weak_vector_only_hits(monkeypatch, tmp_path):
             }
         ],
     )
-    monkeypatch.setattr(store, "_vector_search_semantic_nodes", lambda query_vector, limit=10: [])
+    monkeypatch.setattr(store, "vector_search_semantic_nodes", lambda query_vector, limit=10: [])
 
     recall = store.recall("unrelated", session_id="s1", limit=5)
     assert recall["vector_count"] == 1
@@ -460,4 +460,14 @@ def test_semantic_queries_and_procedures(tmp_path):
     assert isinstance(update_event, str)
     updated_node = store.get_semantic_node("n1")
     assert updated_node["properties"]["tier"] == "core"
+    store.close()
+
+def test_search_episodes_text_handles_hyphenated_tokens(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    episode_id = store.add_episode(session_id="s1", content="explicit sqlite-vec runtime loading works", metadata={})
+    results = store.search_episodes_text("sqlite-vec", session_id="s1", limit=5)
+    assert len(results) == 1
+    assert results[0]["id"] == episode_id
     store.close()

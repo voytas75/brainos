@@ -287,6 +287,13 @@ class BrainOSStore:
     def _ensure_semantic_node_vec_table(self, dimensions: int) -> None:
         self._ensure_vec_table_contract("semantic_nodes_vec", dimensions)
 
+    def _vec_table_exists(self, table_name: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (table_name,),
+        ).fetchone()
+        return row is not None
+
     def _upsert_episode_vector(self, episode_id: str, vector: list[float], dimensions: int) -> None:
         self._ensure_episode_vec_table(dimensions)
         vector_json = json.dumps(vector, ensure_ascii=False)
@@ -308,6 +315,8 @@ class BrainOSStore:
     def vector_search_episodes(
         self, query_vector: list[float], *, session_id: str | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
+        if not self._vec_table_exists("episodes_vec"):
+            return []
         vector_json = json.dumps(query_vector, ensure_ascii=False)
         if session_id:
             rows = self.conn.execute(
@@ -315,11 +324,10 @@ class BrainOSStore:
                 SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata, v.distance
                 FROM episodes_vec v
                 JOIN episodes e ON e.id = v.id
-                WHERE v.embedding MATCH ? AND e.session_id = ?
+                WHERE v.embedding MATCH ? AND k = ? AND e.session_id = ?
                 ORDER BY v.distance ASC
-                LIMIT ?
                 """,
-                (vector_json, session_id, limit),
+                (vector_json, limit, session_id),
             ).fetchall()
         else:
             rows = self.conn.execute(
@@ -327,9 +335,8 @@ class BrainOSStore:
                 SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata, v.distance
                 FROM episodes_vec v
                 JOIN episodes e ON e.id = v.id
-                WHERE v.embedding MATCH ?
+                WHERE v.embedding MATCH ? AND k = ?
                 ORDER BY v.distance ASC
-                LIMIT ?
                 """,
                 (vector_json, limit),
             ).fetchall()
@@ -352,15 +359,16 @@ class BrainOSStore:
         return self.vector_search_episodes(query_vector, session_id=session_id, limit=limit)
 
     def vector_search_semantic_nodes(self, query_vector: list[float], *, limit: int = 10) -> list[dict[str, Any]]:
+        if not self._vec_table_exists("semantic_nodes_vec"):
+            return []
         vector_json = json.dumps(query_vector, ensure_ascii=False)
         rows = self.conn.execute(
             """
             SELECT n.id, n.name, n.type, n.properties, v.distance
             FROM semantic_nodes_vec v
             JOIN semantic_nodes n ON n.id = v.id
-            WHERE v.embedding MATCH ?
+            WHERE v.embedding MATCH ? AND k = ?
             ORDER BY v.distance ASC
-            LIMIT ?
             """,
             (vector_json, limit),
         ).fetchall()
@@ -642,8 +650,11 @@ class BrainOSStore:
                 self.VECTOR_STATUS_ERROR,
                 self.VECTOR_STATUS_DISABLED,
             }:
-                return self.generate_episode_embedding(object_id, embedding_profile=embedding_profile)
-            return {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": state.get("vector_status"), "mode": "noop"}
+                result = self.generate_episode_embedding(object_id, embedding_profile=embedding_profile)
+                if isinstance(result, dict) and "action_hint" not in result:
+                    result["action_hint"] = "reindex"
+                return result
+            return {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": state.get("vector_status"), "mode": "noop", "action_hint": "noop", "reason": "already_fresh"}
 
         if object_type == "semantic_node":
             state = self.refresh_vector_freshness_for_semantic_node(object_id, embedding_profile=embedding_profile)
@@ -653,8 +664,11 @@ class BrainOSStore:
                 self.VECTOR_STATUS_ERROR,
                 self.VECTOR_STATUS_DISABLED,
             }:
-                return self.generate_semantic_node_embedding(object_id, embedding_profile=embedding_profile)
-            return {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": state.get("vector_status"), "mode": "noop"}
+                result = self.generate_semantic_node_embedding(object_id, embedding_profile=embedding_profile)
+                if isinstance(result, dict) and "action_hint" not in result:
+                    result["action_hint"] = "reindex"
+                return result
+            return {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": state.get("vector_status"), "mode": "noop", "action_hint": "noop", "reason": "already_fresh"}
 
         raise ValidationError("object_type must be one of: episode, semantic_node")
 
@@ -820,9 +834,22 @@ class BrainOSStore:
             result.append(item)
         return result
 
+    def _normalize_fts_query(self, query: str) -> str:
+        normalized = []
+        for token in query.split():
+            token = token.strip()
+            if not token:
+                continue
+            if any(ch in token for ch in ('-', ':')):
+                normalized.append(f'"{token}"')
+            else:
+                normalized.append(token)
+        return " ".join(normalized) if normalized else query
+
     def search_episodes_text(
         self, query: str, *, session_id: str | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
+        query = self._normalize_fts_query(query)
         if session_id:
             rows = self.conn.execute(
                 """
@@ -830,7 +857,7 @@ class BrainOSStore:
                 FROM episodes_fts f
                 JOIN episodes e ON e.id = f.content_id
                 WHERE episodes_fts MATCH ? AND e.session_id = ?
-                ORDER BY rank
+                ORDER BY bm25(episodes_fts)
                 LIMIT ?
                 """,
                 (query, session_id, limit),
@@ -842,7 +869,7 @@ class BrainOSStore:
                 FROM episodes_fts f
                 JOIN episodes e ON e.id = f.content_id
                 WHERE episodes_fts MATCH ?
-                ORDER BY rank
+                ORDER BY bm25(episodes_fts)
                 LIMIT ?
                 """,
                 (query, limit),

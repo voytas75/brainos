@@ -83,3 +83,50 @@ def test_sync_vector_index_batch_filters_states(monkeypatch, tmp_path):
     assert e1 in [item[1] for item in called]
     assert e2 in [item[1] for item in called]
     store.close()
+
+
+def test_sync_vector_index_returns_noop_for_fresh_state(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    episode_id = store.add_episode(session_id="s1", content="Already fresh", metadata={})
+
+    monkeypatch.setattr(
+        store,
+        "refresh_vector_freshness_for_episode",
+        lambda object_id, embedding_profile=None: {"vector_status": "fresh"},
+    )
+
+    called = {"generate": False}
+    def fake_generate(object_id, embedding_profile=None):
+        called["generate"] = True
+        return {"ok": True, "object_type": "episode", "object_id": object_id, "vector_status": "fresh"}
+
+    monkeypatch.setattr(store, "generate_episode_embedding", fake_generate)
+
+    result = store.sync_vector_index(object_type="episode", object_id=episode_id)
+    assert result["ok"] is True
+    assert result["mode"] == "noop"
+    assert result["action_hint"] == "noop"
+    assert result["reason"] == "already_fresh"
+    assert result["vector_status"] == "fresh"
+    assert called["generate"] is False
+    store.close()
+
+
+def test_vector_search_episodes_returns_empty_when_vec_table_absent(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    results = store.vector_search_episodes([0.1, 0.2, 0.3], session_id="s1", limit=5)
+    assert results == []
+    store.close()
+
+
+def test_vector_search_semantic_nodes_returns_empty_when_vec_table_absent(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    results = store.vector_search_semantic_nodes([0.1, 0.2, 0.3], limit=5)
+    assert results == []
+    store.close()
