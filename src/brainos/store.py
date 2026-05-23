@@ -684,7 +684,12 @@ class BrainOSStore:
         states = self.list_vector_index_states(object_type=object_type, vector_status=vector_status, limit=limit)
         results = []
         errors = []
+        seen: set[tuple[str, str]] = set()
         for state in states:
+            key = (state["object_type"], state["object_id"])
+            if key in seen:
+                continue
+            seen.add(key)
             try:
                 results.append(
                     self.sync_vector_index(

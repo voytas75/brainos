@@ -130,3 +130,36 @@ def test_vector_search_semantic_nodes_returns_empty_when_vec_table_absent(tmp_pa
     results = store.vector_search_semantic_nodes([0.1, 0.2, 0.3], limit=5)
     assert results == []
     store.close()
+
+def test_sync_vector_index_batch_dedupes_duplicate_source_text_states(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    e1 = store.add_episode(session_id="s1", content="Duplicate text", metadata={})
+    e2 = store.add_episode(session_id="s1", content="Duplicate text", metadata={})
+
+    monkeypatch.setattr(
+        store,
+        "list_vector_index_states",
+        lambda object_type=None, vector_status=None, limit=100: [
+            {"object_type": "episode", "object_id": e1, "vector_status": "missing"},
+            {"object_type": "episode", "object_id": e1, "vector_status": "missing"},
+            {"object_type": "episode", "object_id": e2, "vector_status": "missing"},
+        ],
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        store,
+        "sync_vector_index",
+        lambda object_type, object_id, embedding_profile=None, force=False: calls.append((object_type, object_id)) or {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": "fresh"},
+    )
+
+    result = store.sync_vector_index_batch(object_type="episode", vector_status="missing", limit=20)
+    assert result["ok"] is True
+    assert result["requested"] == 3
+    assert result["synced"] == 2
+    ids = {item["object_id"] for item in result["results"]}
+    assert ids == {e1, e2}
+    assert calls == [("episode", e1), ("episode", e2)]
+    store.close()
