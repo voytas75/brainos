@@ -7,6 +7,11 @@
 - Azure embedding config validation now accepts real Azure API version shapes.
 - vector sync now persists `vector_index_state` correctly under transaction.
 - benchmark seeded DB now syncs vector state before scoring, so benchmark green/red reflects the seeded retrieval path instead of an unseeded fixture artifact.
+- retrieval scoring constants are now grouped under an explicit `retrieval-scoring-v1` policy surface.
+- retrieval/explain output now reports the active scoring policy version and bounded diagnostic/debug hints.
+- retrieval quality/reporting now separates runtime, freshness, and quality planes more explicitly.
+- sqlite-vec readiness/runtime semantics are documented more honestly, including explicit-path vs ambient capability posture and bounded action hints.
+- a small real-corpus probe surface now exists for read-only local quality checks, without overstating it as broad corpus evidence.
 - current verified operator state on local `brain.db`: vector freshness `fresh:30`, retrieval benchmark `5/5`, retrieval-health `status: ok`.
 
 ## Scope
@@ -29,6 +34,9 @@ Deterministic regression fixtures for unified retrieval quality.
 - Future tuning should preserve or intentionally revise these expectations.
 - Benchmark interpretation now distinguishes `vector-ready` from `degraded-non-vector` runs so degraded-path output is not read as the same class of signal as a vector-ready pass/fail.
 - Retrieval quality interpretation SSOT: `docs/retrieval-quality-contract-v1.md`.
+- Retrieval contract SSOT: `docs/retrieval-contract-v1.md`.
+- Runtime posture SSOT: `docs/runtime-posture-contract-v1.md`.
+- Vector-state / maintenance semantics SSOT: `docs/vector-state-contract-v1.md`.
 
 ## gate_reason
 Expanded eval fixture baseline must stay green before scoring changes are trusted.
