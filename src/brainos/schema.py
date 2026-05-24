@@ -147,6 +147,7 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
         "sqlite_vec_error": vec_error,
         "sqlite_vec_path": vec_path,
         "sqlite_vec_loaded": vec_loaded,
+        "sqlite_vec_probe_mode": "explicit_path" if vec_path else "ambient",
     }
 
 

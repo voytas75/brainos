@@ -30,5 +30,7 @@ def test_retrieval_explain_cli_runs(tmp_path):
     )
     payload = json.loads(proc.stdout)
     assert payload["query"] == "Azure embeddings"
+    assert payload["scoring_policy_version"] == "retrieval-scoring-v1"
+    assert payload["diagnostic_hint"] in {"inspect_vector_participation", "dual_source_agreement", "lexical_grounded_top_hit", "vector_led_top_hit", "inspect_score_components"}
     assert "top_ranked_episodes" in payload
     assert "top_ranked_semantic_hits" in payload

@@ -1,5 +1,9 @@
+import json
+import os
 import sqlite3
+import subprocess
 
+from brainos.errors import SqliteVecReadinessError
 from brainos.schema import detect_capabilities
 from brainos.sqlite_vec import ENV_SQLITE_VEC_PATH, configured_sqlite_vec_path, sqlite_vec_readiness
 
@@ -36,5 +40,59 @@ def test_sqlite_vec_readiness_with_real_extension(monkeypatch):
         assert ready["path"] == vec_path
         assert ready["rows"][0][0] == 1
         assert ready["rows"][0][1] == 0.0
+        assert ready["action_hint"] == "noop"
     finally:
         conn.close()
+
+
+def test_sqlite_vec_readiness_classifies_missing_path(monkeypatch):
+    monkeypatch.delenv(ENV_SQLITE_VEC_PATH, raising=False)
+    conn = sqlite3.connect(":memory:")
+    try:
+        try:
+            sqlite_vec_readiness(conn)
+            assert False, "expected readiness classification error"
+        except SqliteVecReadinessError as exc:
+            assert exc.error_kind == "path_not_configured"
+            assert ENV_SQLITE_VEC_PATH in str(exc)
+    finally:
+        conn.close()
+
+
+def test_sqlite_vec_readiness_cli_returns_json_payload(tmp_path, monkeypatch):
+    monkeypatch.delenv(ENV_SQLITE_VEC_PATH, raising=False)
+    db = tmp_path / "brain.db"
+    env = dict(os.environ)
+    env.pop(ENV_SQLITE_VEC_PATH, None)
+    proc = subprocess.run(
+        ["uv", "run", "brainos", "--db", str(db), "sqlite-vec-readiness"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    payload_text = proc.stderr if proc.stderr.strip() else proc.stdout
+    payload = json.loads(payload_text)
+    assert isinstance(payload, dict)
+    assert "action_hint" in payload
+    if proc.returncode == 2:
+        assert payload["ok"] is False
+        assert payload["error_kind"] == "path_not_configured"
+        assert "detail" in payload
+        assert payload["action_hint"] == "runtime_fix"
+        assert ENV_SQLITE_VEC_PATH in payload["error"]
+    else:
+        assert proc.returncode == 0
+        assert payload["ok"] is True
+        assert payload["action_hint"] == "noop"
+
+
+def test_detect_capabilities_reports_explicit_probe_mode_when_vec_path_configured(monkeypatch):
+    vec_path = "/home/voytas/.bun/install/cache/sqlite-vec-linux-x64@0.1.7-dd4d9ab07e99b7ce@@@1/vec0.so"
+    monkeypatch.setenv(ENV_SQLITE_VEC_PATH, vec_path)
+    conn = sqlite3.connect(":memory:")
+    try:
+        caps = detect_capabilities(conn)
+    finally:
+        conn.close()
+    assert caps["sqlite_vec_path"] == vec_path
+    assert caps["sqlite_vec_probe_mode"] == "explicit_path"

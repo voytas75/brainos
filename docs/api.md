@@ -504,6 +504,11 @@ Current ranking policy is intentionally simple:
 
 This is a bounded productization step, not a final retrieval-science policy.
 
+Current scoring policy surface:
+- active policy version: `retrieval-scoring-v1`
+- current ranking constants are now grouped under an explicit retrieval scoring policy surface
+- this slice does not retune behavior; it only makes the active policy more visible
+
 
 ## semantic-node vector path v0
 
@@ -533,6 +538,12 @@ Intent:
 - reward agreement between lexical and vector retrieval
 - reduce low-signal vector-only clutter in ranked results
 
+Health/reporting alignment:
+- retrieval health is now reported in three explicit planes: `runtime`, `freshness`, `quality`
+- freshness output separates `issues` (alarm-worthy states like `stale`/`error`) from `notes` (operator-relevant but non-alarming states like `missing`/`disabled`)
+- quality output includes benchmark mode/degraded metadata so degraded non-vector runs are not conflated with ordinary vector-ready benchmark failures
+- retrieval/explain output now also reports the active scoring policy version
+
 
 ## retrieval eval / benchmark pass v0
 
@@ -545,3 +556,55 @@ Current intent:
 - protect expected top hits for unified recall
 - validate that ranked episode hits and ranked semantic hits stay useful while scoring evolves
 - give future tuning work a bounded regression baseline
+
+Current benchmark output semantics:
+- `evidence_kind=seeded_fixture` means the suite runs on an internal seeded fixture corpus
+- `truthfulness_note` explicitly warns against reading seeded benchmark output as direct live-corpus evidence
+- `mode=vector-ready` means the suite ran with sqlite-vec capability available
+- `mode=degraded-non-vector` means the suite ran in a legitimate degraded path without sqlite-vec capability
+- `degraded=true` does not mean retrieval is broken; it means quality output should be read as degraded-mode evidence rather than equivalent to a vector-ready pass/fail signal
+- `degraded_reason` identifies the current degraded-path cause
+
+Current retrieval quality contract reference:
+- `docs/retrieval-quality-contract-v1.md`
+- eval fixtures protect bounded behaviors from regression
+- benchmark gives a bounded operator-visible quality snapshot, not a broad relevance proof
+
+Current sqlite-vec readiness failure semantics:
+- `error_kind=path_not_configured` → sqlite-vec path env is missing
+- `error_kind=extension_load_failed` → path is configured but extension load failed
+- `error_kind=readiness_probe_failed` → extension load path may exist, but the readiness temp-table/probe did not complete successfully
+
+Current vector-state contract reference:
+- `docs/vector-state-contract-v1.md`
+- `fresh` means sync may legitimately return `mode=noop`
+- `disabled` is capability-gated, not the same class of signal as `stale` or `error`
+
+Current maintenance/readiness interpretation hints:
+- retrieval health now exposes a compact top-level `summary` plus bounded `action_hint` fields
+- retrieval health quality may now report `status=low_evidence` when the database is too empty for ordinary quality interpretation
+- sqlite-vec readiness success returns `action_hint=noop`
+- sqlite-vec readiness errors now classify likely next action, e.g. `runtime_fix` or `retry_or_runtime_fix`
+- vector sync `mode=noop` now also returns `action_hint=noop` and `reason=already_fresh`
+- benchmark output now includes `failed_cases` with compact `failure_hint` classification
+- retrieval health quality output surfaces the same `failed_cases` drilldown
+- failed benchmark cases now include `next_debug` handoff metadata (`tool`, `query`, `session_id`) for explain-side follow-up
+- retrieval explain output now includes bounded `diagnostic_hint` classification for top-hit interpretation
+
+
+## real-corpus retrieval quality probe v1
+
+Current repo also includes a small read-only probe surface for more realistic local-style retrieval checks.
+
+Current semantics:
+- `probe=real-corpus-retrieval-quality-v1`
+- `evidence_kind=small_real_sample`
+- this is stronger than a pure seeded fixture for realism, but still not a broad corpus-quality guarantee
+
+
+## runtime posture contract v1
+
+Current contract reference:
+- `docs/runtime-posture-contract-v1.md`
+- ambient capability and explicit-path readiness are intentionally different operator signals
+- differing results are not automatically a bug when explicit loading is required

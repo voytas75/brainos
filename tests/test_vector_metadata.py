@@ -143,3 +143,20 @@ def test_embedding_contract_is_declared_but_not_executed(tmp_path):
     except EmbeddingProviderNotConfiguredError:
         pass
     store.close()
+
+
+def test_health_freshness_notes_distinguish_missing_from_warn(tmp_path):
+    from brainos.health import retrieval_health_summary
+
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    episode_id = store.add_episode(session_id="s1", content="Vector candidate episode", metadata={})
+    summary = retrieval_health_summary(store, benchmark_limit=1)
+
+    assert summary["freshness"]["status"] == "ok"
+    assert "missing_vectors_present" in summary["freshness"]["notes"]
+    assert summary["freshness"]["vector_index"]["by_status"]["missing"] >= 1
+    assert episode_id is not None
+    store.close()

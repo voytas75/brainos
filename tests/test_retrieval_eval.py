@@ -33,6 +33,11 @@ def seed_eval_store(store: BrainOSStore) -> dict[str, str]:
         content="Reset runtime data for another isolated session.",
         metadata={"kind": "ops"},
     )
+    ids["ep_policy"] = store.add_episode(
+        session_id="eval",
+        content="Retrieval scoring policy version should be visible in explain output.",
+        metadata={"kind": "policy"},
+    )
 
     store.upsert_semantic_node(
         node_id="sem-memory",
@@ -51,6 +56,18 @@ def seed_eval_store(store: BrainOSStore) -> dict[str, str]:
         name="Runtime Reset",
         node_type="Procedure",
         properties={"area": "ops"},
+    )
+    store.upsert_semantic_node(
+        node_id="sem-policy",
+        name="Retrieval Scoring Policy",
+        node_type="Concept",
+        properties={"area": "retrieval"},
+    )
+    store.upsert_semantic_node(
+        node_id="sem-policy-noise",
+        name="Policy Noise",
+        node_type="Concept",
+        properties={"area": "noise"},
     )
     return ids
 
@@ -118,6 +135,16 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
                 "distance": 0.03,
             },
         ],
+        "policy version": [
+            {
+                "id": ids["ep_policy"],
+                "session_id": "eval",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "Retrieval scoring policy version should be visible in explain output.",
+                "metadata": {"kind": "policy"},
+                "distance": 0.05,
+            }
+        ],
         "nonsense request": [
             {
                 "id": "ghost-weak",
@@ -178,6 +205,24 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
                 "distance": 0.7,
             },
         ],
+        "policy version": [
+            {
+                "id": "sem-policy",
+                "name": "Retrieval Scoring Policy",
+                "type": "Concept",
+                "properties": {"area": "retrieval"},
+                "edges": [],
+                "distance": 0.03,
+            },
+            {
+                "id": "sem-policy-noise",
+                "name": "Policy Noise",
+                "type": "Concept",
+                "properties": {"area": "noise"},
+                "edges": [],
+                "distance": 0.09,
+            }
+        ],
         "nonsense request": [
             {
                 "id": "sem-noise",
@@ -192,7 +237,7 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         store,
-        "_sqlite_vec_capability",
+        "sqlite_vec_capability",
         lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
     )
     monkeypatch.setattr(
@@ -210,14 +255,14 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         store,
-        "_vector_search_episodes",
+        "vector_search_episodes",
         lambda query_vector, session_id=None, limit=10: [
             item for item in vector_episode_map.get(current_query[0], []) if session_id is None or item["session_id"] == session_id
         ],
     )
     monkeypatch.setattr(
         store,
-        "_vector_search_semantic_nodes",
+        "vector_search_semantic_nodes",
         lambda query_vector, limit=10: vector_semantic_map.get(current_query[0], []),
     )
 
@@ -246,6 +291,12 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
             "expected_semantic_id": "sem-runtime-reset",
             "session_id": "eval",
         },
+        {
+            "query": "policy version",
+            "expected_episode_id": ids["ep_policy"],
+            "expected_semantic_id": "sem-policy",
+            "session_id": "eval",
+        },
     ]
 
     current_query = [""]
@@ -266,7 +317,7 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
     assert nonsense["vector_count"] == 1
     assert nonsense["vector_semantic_count"] == 1
 
-    assert len(report) == 4
+    assert len(report) == 5
     store.close()
 
 
@@ -278,7 +329,7 @@ def test_eval_prefers_overlap_when_similar_vector_hits_compete(monkeypatch, tmp_
 
     monkeypatch.setattr(
         store,
-        "_sqlite_vec_capability",
+        "sqlite_vec_capability",
         lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
     )
     monkeypatch.setattr(
@@ -296,7 +347,7 @@ def test_eval_prefers_overlap_when_similar_vector_hits_compete(monkeypatch, tmp_
     )
     monkeypatch.setattr(
         store,
-        "_vector_search_episodes",
+        "vector_search_episodes",
         lambda query_vector, session_id=None, limit=10: [
             {
                 "id": ids["ep_similar_bad"],
@@ -316,9 +367,68 @@ def test_eval_prefers_overlap_when_similar_vector_hits_compete(monkeypatch, tmp_
             },
         ],
     )
-    monkeypatch.setattr(store, "_vector_search_semantic_nodes", lambda query_vector, limit=10: [])
+    monkeypatch.setattr(store, "vector_search_semantic_nodes", lambda query_vector, limit=10: [])
 
     recall = store.recall("reset runtime data", session_id="eval", limit=5)
     assert recall["ranked_episodes"][0]["id"] == ids["ep_similar_good"]
     assert recall["ranked_episodes"][0]["lexical_overlap"] > recall["ranked_episodes"][1]["lexical_overlap"]
+    store.close()
+
+
+def test_eval_distinguishes_disabled_runtime_from_stale_data_wording(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    good_id = store.add_episode(
+        session_id="eval",
+        content="Disabled vector state usually means sqlite-vec runtime is unavailable.",
+        metadata={"kind": "runtime"},
+    )
+    bad_id = store.add_episode(
+        session_id="eval",
+        content="Stale vectors mean source text changed and reindex is needed.",
+        metadata={"kind": "maintenance"},
+    )
+
+    monkeypatch.setattr(store, "sqlite_vec_capability", lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None})
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.55, 0.2, 0.3]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure/UDTEMBED3L",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        store,
+        "vector_search_episodes",
+        lambda query_vector, session_id=None, limit=10: [
+            {
+                "id": bad_id,
+                "session_id": "eval",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "Stale vectors mean source text changed and reindex is needed.",
+                "metadata": {"kind": "maintenance"},
+                "distance": 0.02,
+            },
+            {
+                "id": good_id,
+                "session_id": "eval",
+                "timestamp": "2026-05-22 00:00:00",
+                "content": "Disabled vector state usually means sqlite-vec runtime is unavailable.",
+                "metadata": {"kind": "runtime"},
+                "distance": 0.04,
+            },
+        ],
+    )
+    monkeypatch.setattr(store, "vector_search_semantic_nodes", lambda query_vector, limit=10: [])
+
+    recall = store.recall("disabled vector runtime", session_id="eval", limit=5)
+    assert recall["ranked_episodes"][0]["id"] == good_id
     store.close()
