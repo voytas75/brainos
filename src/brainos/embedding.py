@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from .errors import EmbeddingProviderNotConfiguredError, ValidationError
+from .errors import EmbeddingProviderNotConfiguredError, EmbeddingRuntimeError, ValidationError
+from .litellm_bootstrap import import_litellm_quietly
+from .logging_utils import suppress_litellm_noise
 
 
 DEFAULT_EMBEDDING_PROFILE = "brainos-embedding-default"
@@ -65,16 +67,19 @@ class LiteLLMEmbeddingAdapter:
             raise ValidationError("texts must not be empty")
 
         cfg = self._resolve_config()
+        litellm = import_litellm_quietly()
 
-        import litellm
-
-        response = litellm.embedding(
-            model=cfg["model"],
-            input=texts,
-            api_base=cfg["api_base"],
-            api_key=cfg["api_key"],
-            api_version=cfg["api_version"],
-        )
+        try:
+            with suppress_litellm_noise():
+                response = litellm.embedding(
+                    model=cfg["model"],
+                    input=texts,
+                    api_base=cfg["api_base"],
+                    api_key=cfg["api_key"],
+                    api_version=cfg["api_version"],
+                )
+        except Exception as exc:
+            raise EmbeddingRuntimeError(f"embedding provider call failed: {exc}") from exc
 
         vectors = [item["embedding"] for item in response.data]
         dimensions = len(vectors[0]) if vectors else 0

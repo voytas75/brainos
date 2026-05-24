@@ -142,15 +142,17 @@ Preferred workflow:
 - `uv run ...`
 
 ### `.env`
-No — this repo does **not** require a `.env` file right now.
+Yes — this repo now supports a project-local `.env` file.
 
-Reason:
-- no external APIs
-- no secrets
-- no server runtime config
-- only local SQLite storage
+Current intent:
+- keep BrainOS runtime config project-scoped rather than shell-scoped
+- make operator checks and app runs behave consistently across interactive shells and OpenClaw exec
+- support local Azure embedding and sqlite-vec setup without relying on `~/.bashrc`
 
-Add `.env` only when the project gains real external integrations.
+Rules:
+- keep real secrets only in local `.env`, never in `.env.example`
+- shell env still overrides `.env`
+- `.env` is optional, but recommended for real local runs involving embeddings or sqlite-vec
 
 ## How to run
 
@@ -447,14 +449,20 @@ Required environment variables:
 - `AZURE_API_KEY` - Azure API key
 - `AZURE_API_VERSION` - Azure API version for embeddings
 
-Example:
+Preferred project-local setup:
+- copy `.env.example` to `.env`
+- fill in real local values in `.env`
 
-```bash
-export BRAINOS_EMBEDDING_MODEL="azure/<your-embedding-deployment>"
-export AZURE_API_BASE="https://<your-resource>.openai.azure.com"
-export AZURE_API_KEY="..."
-export AZURE_API_VERSION="2024-10-21"
+Example `.env`:
+
+```dotenv
+BRAINOS_EMBEDDING_MODEL="azure/<your-embedding-deployment>"
+AZURE_API_BASE="https://<your-resource>.openai.azure.com"
+AZURE_API_KEY="..."
+AZURE_API_VERSION="2024-10-21"
 ```
+
+Shell env still overrides `.env` when you need a temporary test override.
 
 Notes:
 - BrainOS keeps provider specifics out of domain logic.
@@ -469,10 +477,10 @@ BrainOS can load `sqlite-vec` explicitly when the runtime does not expose `vec0`
 Required env for runtime enablement:
 - `BRAINOS_SQLITE_VEC_PATH`
 
-Example:
+Example `.env` value:
 
-```bash
-export BRAINOS_SQLITE_VEC_PATH="/home/voytas/.bun/install/cache/sqlite-vec-linux-x64@0.1.7-dd4d9ab07e99b7ce@@@1/vec0.so"
+```dotenv
+BRAINOS_SQLITE_VEC_PATH="/home/openclaw/.npm-global/lib/node_modules/openclaw/node_modules/sqlite-vec-linux-x64/vec0.so"
 ```
 
 Verification commands:
@@ -486,6 +494,17 @@ Expected healthy result:
 - `sqlite_vec: true`
 - `sqlite_vec_loaded: true`
 - readiness `ok: true`
+
+If `sqlite-vec-readiness` fails because `BRAINOS_SQLITE_VEC_PATH` is unset, treat that as a setup failure, not a generic retrieval failure.
+
+Current readiness failure classifications:
+- `path_not_configured`
+- `extension_load_failed`
+- `readiness_probe_failed`
+
+Detailed runbook:
+- `docs/vector-runtime-green-path-and-readiness-v0.md`
+- `docs/vector-state-contract-v1.md`
 
 
 ## Vector index maintenance / sync v0
@@ -520,6 +539,22 @@ Current intent:
 - validate expected top hits for the bounded benchmark suite
 - make later tuning passes easier to judge locally
 
+Current benchmark semantics:
+- `evidence_kind=seeded_fixture` means the benchmark uses an internal seeded fixture corpus
+- `truthfulness_note` reminds operators that seeded benchmark output is implementation-level evidence, not direct evidence about the live database corpus
+- `mode=vector-ready` means sqlite-vec capability is available for the run
+- `mode=degraded-non-vector` means the benchmark ran without sqlite-vec capability
+- `degraded=true` means the result should be interpreted as a degraded-path signal, not the same as a vector-ready ranking pass/fail
+- `degraded_reason` explains the current degraded path classification
+- bounded interpretation contract: `docs/retrieval-quality-contract-v1.md`
+
+Current operator interpretation hints:
+- retrieval health now includes bounded `action_hint` guidance
+- sqlite-vec readiness returns a small `action_hint` classification for success/error paths
+- vector sync `noop` now explicitly means already-fresh state, not silent omission
+- benchmark and retrieval health now expose `failed_cases` drilldown for compact failure triage
+- failed benchmark cases now include `next_debug` handoff metadata for explain-oriented follow-up
+
 
 ## Retrieval explain CLI
 
@@ -532,6 +567,8 @@ uv run brainos --db ./brain.db retrieval-explain "azure embeddings" --session-id
 Current intent:
 - compact operator/debug view over ranked retrieval
 - expose score components and match sources for top hits
+- expose the active scoring policy version
+- expose a small `diagnostic_hint` for faster explain-side triage
 - make scoring changes easier to inspect without reading full raw recall payloads
 
 
@@ -543,8 +580,68 @@ Get a compact health summary for the retrieval/vector subsystem:
 uv run brainos --db ./brain.db retrieval-health
 ```
 
-Current summary includes:
-- sqlite-vec capability state
-- vector index counts by status/type
-- retrieval benchmark pass/fail summary
-- top-level issues list
+Current summary includes three explicit planes:
+- `runtime` — sqlite-vec/runtime capability state
+- `freshness` — vector index counts by status/type, plus non-alarming freshness notes
+- `quality` — retrieval benchmark summary and mode interpretation
+- top-level `status`, `summary`, and `issues` for compact operator scanning
+
+Current health interpretation:
+- `runtime.status=warn` means capability/runtime setup needs attention
+- `runtime.embedding_config` checks required Azure embedding env presence plus light format sanity
+- `runtime.sqlite_vec_env` checks `BRAINOS_SQLITE_VEC_PATH` presence and file existence
+- `runtime.dependencies` checks critical importable runtime dependencies such as `litellm`
+- `runtime.database_runtime` checks SQLite runtime posture such as `journal_mode=wal`
+- `freshness.status=warn` means stale/error vector state is present
+- `freshness.notes` surfaces non-alarming states such as `missing` or `disabled` vectors without treating them as freshness failures on their own
+- `quality.status=low_evidence` means the current database does not yet provide enough retrieval evidence for normal quality interpretation
+- `quality.status=degraded` means the benchmark ran in a degraded non-vector mode
+- `quality.status=warn` means the benchmark was not green in a non-degraded path
+
+## Embedding readiness CLI
+
+Get a narrower prereq-only check for embedding runtime without exposing secret values:
+
+```bash
+uv run brainos --db ./brain.db embedding-readiness
+```
+
+Current intent:
+- validate required embedding env presence/sanity
+- validate `BRAINOS_SQLITE_VEC_PATH` configuration presence
+- validate importability of critical embedding dependency path
+- expose one compact issue list for embedding runtime setup
+
+## Doctor CLI
+
+Get one compact operator summary over the most important BrainOS runtime checks:
+
+```bash
+uv run brainos --db ./brain.db doctor
+```
+
+This is now the **recommended first operator command** for runtime/setup triage.
+
+The command honors the current process environment plus project-local `.env` loaded at CLI startup.
+
+Current intent:
+- aggregate critical runtime checks into one small operator surface
+- expose failed checks for faster triage
+- include nested retrieval health and embedding runtime summaries
+- serve as the runbook entrypoint before deeper checks like `embedding-readiness`, `sqlite-vec-readiness`, or `retrieval-health`
+
+## Real-corpus retrieval quality probe
+
+Current repo now also includes a small read-only real-sample probe surface for retrieval sanity checks under more natural local-style examples.
+
+Current semantics:
+- `probe=real-corpus-retrieval-quality-v1`
+- `evidence_kind=small_real_sample` means this is a tiny real-sample probe, not a broad corpus evaluation
+- `truthfulness_note` explicitly limits interpretation
+
+
+## Runtime posture contract
+
+Current runtime posture contract:
+- ambient capability surfaces (`capabilities`, `retrieval-health.runtime.capabilities`) can differ from explicit-path readiness (`sqlite-vec-readiness`)
+- contract doc: `docs/runtime-posture-contract-v1.md`

@@ -497,47 +497,48 @@ class BrainOSStore:
         try:
             result = self.embed_texts([source_text], profile=profile)
             capabilities = self._sqlite_vec_capability()
-            if not capabilities.get("sqlite_vec"):
+            with self.transaction():
+                if not capabilities.get("sqlite_vec"):
+                    self._set_vector_index_state(
+                        object_type="episode",
+                        object_id=episode_id,
+                        source_text=source_text,
+                        embedding_profile=profile,
+                        vector_status=self.VECTOR_STATUS_DISABLED,
+                        embedding_provider=result["provider"],
+                        embedding_model=result["model"],
+                        embedding_dimensions=result["dimensions"],
+                        last_embedded_at=self._now_iso(),
+                        last_error=capabilities.get("sqlite_vec_error"),
+                        last_error_at=self._now_iso(),
+                    )
+                    return {
+                        "ok": True,
+                        "object_type": "episode",
+                        "object_id": episode_id,
+                        "vector_status": self.VECTOR_STATUS_DISABLED,
+                        "embedding_profile": profile,
+                        "dimensions": result["dimensions"],
+                        "provider": result["provider"],
+                        "model": result["model"],
+                        "storage": "disabled",
+                        "storage_reason": capabilities.get("sqlite_vec_error"),
+                    }
+
+                self._upsert_episode_vector(episode_id, result["vectors"][0], result["dimensions"])
                 self._set_vector_index_state(
                     object_type="episode",
                     object_id=episode_id,
                     source_text=source_text,
                     embedding_profile=profile,
-                    vector_status=self.VECTOR_STATUS_DISABLED,
+                    vector_status=self.VECTOR_STATUS_FRESH,
                     embedding_provider=result["provider"],
                     embedding_model=result["model"],
                     embedding_dimensions=result["dimensions"],
                     last_embedded_at=self._now_iso(),
-                    last_error=capabilities.get("sqlite_vec_error"),
-                    last_error_at=self._now_iso(),
+                    last_error=None,
+                    last_error_at=None,
                 )
-                return {
-                    "ok": True,
-                    "object_type": "episode",
-                    "object_id": episode_id,
-                    "vector_status": self.VECTOR_STATUS_DISABLED,
-                    "embedding_profile": profile,
-                    "dimensions": result["dimensions"],
-                    "provider": result["provider"],
-                    "model": result["model"],
-                    "storage": "disabled",
-                    "storage_reason": capabilities.get("sqlite_vec_error"),
-                }
-
-            self._upsert_episode_vector(episode_id, result["vectors"][0], result["dimensions"])
-            self._set_vector_index_state(
-                object_type="episode",
-                object_id=episode_id,
-                source_text=source_text,
-                embedding_profile=profile,
-                vector_status=self.VECTOR_STATUS_FRESH,
-                embedding_provider=result["provider"],
-                embedding_model=result["model"],
-                embedding_dimensions=result["dimensions"],
-                last_embedded_at=self._now_iso(),
-                last_error=None,
-                last_error_at=None,
-            )
             return {
                 "ok": True,
                 "object_type": "episode",
@@ -550,15 +551,16 @@ class BrainOSStore:
                 "storage": "sqlite-vec",
             }
         except (BrainOSError, sqlite3.Error) as exc:
-            self._set_vector_index_state(
-                object_type="episode",
-                object_id=episode_id,
-                source_text=source_text,
-                embedding_profile=profile,
-                vector_status=self.VECTOR_STATUS_ERROR,
-                last_error=str(exc),
-                last_error_at=self._now_iso(),
-            )
+            with self.transaction():
+                self._set_vector_index_state(
+                    object_type="episode",
+                    object_id=episode_id,
+                    source_text=source_text,
+                    embedding_profile=profile,
+                    vector_status=self.VECTOR_STATUS_ERROR,
+                    last_error=str(exc),
+                    last_error_at=self._now_iso(),
+                )
             raise
 
     def generate_semantic_node_embedding(self, node_id: str, *, embedding_profile: str | None = None) -> dict[str, Any]:
@@ -570,47 +572,48 @@ class BrainOSStore:
         try:
             result = self.embed_texts([source_text], profile=profile)
             capabilities = self._sqlite_vec_capability()
-            if not capabilities.get("sqlite_vec"):
+            with self.transaction():
+                if not capabilities.get("sqlite_vec"):
+                    self._set_vector_index_state(
+                        object_type="semantic_node",
+                        object_id=node_id,
+                        source_text=source_text,
+                        embedding_profile=profile,
+                        vector_status=self.VECTOR_STATUS_DISABLED,
+                        embedding_provider=result["provider"],
+                        embedding_model=result["model"],
+                        embedding_dimensions=result["dimensions"],
+                        last_embedded_at=self._now_iso(),
+                        last_error=capabilities.get("sqlite_vec_error"),
+                        last_error_at=self._now_iso(),
+                    )
+                    return {
+                        "ok": True,
+                        "object_type": "semantic_node",
+                        "object_id": node_id,
+                        "vector_status": self.VECTOR_STATUS_DISABLED,
+                        "embedding_profile": profile,
+                        "dimensions": result["dimensions"],
+                        "provider": result["provider"],
+                        "model": result["model"],
+                        "storage": "disabled",
+                        "storage_reason": capabilities.get("sqlite_vec_error"),
+                    }
+
+                self._upsert_semantic_node_vector(node_id, result["vectors"][0], result["dimensions"])
                 self._set_vector_index_state(
                     object_type="semantic_node",
                     object_id=node_id,
                     source_text=source_text,
                     embedding_profile=profile,
-                    vector_status=self.VECTOR_STATUS_DISABLED,
+                    vector_status=self.VECTOR_STATUS_FRESH,
                     embedding_provider=result["provider"],
                     embedding_model=result["model"],
                     embedding_dimensions=result["dimensions"],
                     last_embedded_at=self._now_iso(),
-                    last_error=capabilities.get("sqlite_vec_error"),
-                    last_error_at=self._now_iso(),
+                    last_error=None,
+                    last_error_at=None,
                 )
-                return {
-                    "ok": True,
-                    "object_type": "semantic_node",
-                    "object_id": node_id,
-                    "vector_status": self.VECTOR_STATUS_DISABLED,
-                    "embedding_profile": profile,
-                    "dimensions": result["dimensions"],
-                    "provider": result["provider"],
-                    "model": result["model"],
-                    "storage": "disabled",
-                    "storage_reason": capabilities.get("sqlite_vec_error"),
-                }
-
-            self._upsert_semantic_node_vector(node_id, result["vectors"][0], result["dimensions"])
-            self._set_vector_index_state(
-                object_type="semantic_node",
-                object_id=node_id,
-                source_text=source_text,
-                embedding_profile=profile,
-                vector_status=self.VECTOR_STATUS_FRESH,
-                embedding_provider=result["provider"],
-                embedding_model=result["model"],
-                embedding_dimensions=result["dimensions"],
-                last_embedded_at=self._now_iso(),
-                last_error=None,
-                last_error_at=None,
-            )
             return {
                 "ok": True,
                 "object_type": "semantic_node",
@@ -623,15 +626,16 @@ class BrainOSStore:
                 "storage": "sqlite-vec",
             }
         except (BrainOSError, sqlite3.Error) as exc:
-            self._set_vector_index_state(
-                object_type="semantic_node",
-                object_id=node_id,
-                source_text=source_text,
-                embedding_profile=profile,
-                vector_status=self.VECTOR_STATUS_ERROR,
-                last_error=str(exc),
-                last_error_at=self._now_iso(),
-            )
+            with self.transaction():
+                self._set_vector_index_state(
+                    object_type="semantic_node",
+                    object_id=node_id,
+                    source_text=source_text,
+                    embedding_profile=profile,
+                    vector_status=self.VECTOR_STATUS_ERROR,
+                    last_error=str(exc),
+                    last_error_at=self._now_iso(),
+                )
             raise
 
     def sync_vector_index(

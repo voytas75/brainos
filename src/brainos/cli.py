@@ -4,10 +4,13 @@ import argparse
 import json
 import sys
 
-from .errors import BrainOSError
+from .env import load_project_env
+from .errors import BrainOSError, SqliteVecReadinessError
 from .benchmark import run_retrieval_benchmark
+from .doctor import doctor_summary, embedding_readiness_summary
 from .explain import explain_recall
 from .health import retrieval_health_summary
+from .real_corpus_probe import run_real_corpus_probe
 from .store import BrainOSStore
 
 
@@ -110,6 +113,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_explain.add_argument("--limit", type=int, default=5)
     p_health = sub.add_parser("retrieval-health", help="Show retrieval/vector subsystem health summary")
     p_health.add_argument("--benchmark-limit", type=int, default=5)
+    p_embed_ready = sub.add_parser("embedding-readiness", help="Check embedding runtime prerequisites without exposing secrets")
+    p_doctor = sub.add_parser("doctor", help="Run a compact operator check for critical BrainOS runtime prerequisites")
+    p_doctor.add_argument("--benchmark-limit", type=int, default=5)
+    p_probe = sub.add_parser("real-corpus-probe", help="Run a small read-only real-corpus retrieval probe")
+    p_probe.add_argument("--limit", type=int, default=5)
     p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
     p_ledger = sub.add_parser("ledger", help="Print ledger entries")
 
@@ -117,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    load_project_env()
     parser = build_parser()
     args = parser.parse_args()
 
@@ -236,6 +245,15 @@ def main() -> None:
         elif args.command == "retrieval-health":
             store.initialize()
             print(json.dumps(retrieval_health_summary(store, benchmark_limit=args.benchmark_limit), ensure_ascii=False, indent=2))
+        elif args.command == "embedding-readiness":
+            store.initialize()
+            print(json.dumps(embedding_readiness_summary(store), ensure_ascii=False, indent=2))
+        elif args.command == "doctor":
+            store.initialize()
+            print(json.dumps(doctor_summary(store, benchmark_limit=args.benchmark_limit), ensure_ascii=False, indent=2))
+        elif args.command == "real-corpus-probe":
+            store.initialize()
+            print(json.dumps(run_real_corpus_probe(store, limit=args.limit), ensure_ascii=False, indent=2))
         elif args.command == "ledger-verify":
             store.initialize()
             print(json.dumps(store.verify_ledger(), ensure_ascii=False, indent=2))
@@ -244,6 +262,26 @@ def main() -> None:
             print(json.dumps(store.list_ledger(), ensure_ascii=False, indent=2))
         else:
             parser.error(f"Unknown command: {args.command}")
+    except SqliteVecReadinessError as exc:
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "error": str(exc),
+                    "error_kind": exc.error_kind,
+                    "detail": exc.detail,
+                    "action_hint": {
+                        "path_not_configured": "runtime_fix",
+                        "extension_load_failed": "runtime_fix",
+                        "readiness_probe_failed": "retry_or_runtime_fix",
+                    }.get(exc.error_kind, "inspect_error"),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     except (BrainOSError, json.JSONDecodeError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2), file=sys.stderr)
         raise SystemExit(2)
