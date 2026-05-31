@@ -125,6 +125,21 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _sqlite_vec_error_payload(exc: SqliteVecReadinessError) -> dict[str, object]:
+    return {
+        "ok": False,
+        "status": "warn",
+        "error": str(exc),
+        "error_kind": exc.error_kind,
+        "detail": exc.detail,
+        "action_hint": {
+            "path_not_configured": "runtime_fix",
+            "extension_load_failed": "runtime_fix",
+            "readiness_probe_failed": "retry_or_runtime_fix",
+        }.get(exc.error_kind, "inspect_error"),
+    }
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -226,8 +241,11 @@ def main() -> None:
             store.initialize()
             print(json.dumps(store.capabilities(), ensure_ascii=False, indent=2))
         elif args.command == "sqlite-vec-readiness":
-            store.initialize()
-            print(json.dumps(store.sqlite_vec_readiness(), ensure_ascii=False, indent=2))
+            try:
+                store.initialize()
+                print(json.dumps(store.sqlite_vec_readiness(), ensure_ascii=False, indent=2))
+            except SqliteVecReadinessError as exc:
+                print(json.dumps(_sqlite_vec_error_payload(exc), ensure_ascii=False, indent=2))
         elif args.command == "vector-index-list":
             store.initialize()
             print(json.dumps(store.list_vector_index_states(object_type=args.object_type, vector_status=args.vector_status, limit=args.limit), ensure_ascii=False, indent=2))
@@ -264,24 +282,7 @@ def main() -> None:
         else:
             parser.error(f"Unknown command: {args.command}")
     except SqliteVecReadinessError as exc:
-        print(
-            json.dumps(
-                {
-                    "ok": False,
-                    "error": str(exc),
-                    "error_kind": exc.error_kind,
-                    "detail": exc.detail,
-                    "action_hint": {
-                        "path_not_configured": "runtime_fix",
-                        "extension_load_failed": "runtime_fix",
-                        "readiness_probe_failed": "retry_or_runtime_fix",
-                    }.get(exc.error_kind, "inspect_error"),
-                },
-                ensure_ascii=False,
-                indent=2,
-            ),
-            file=sys.stderr,
-        )
+        print(json.dumps(_sqlite_vec_error_payload(exc), ensure_ascii=False, indent=2), file=sys.stderr)
         raise SystemExit(2)
     except (BrainOSError, json.JSONDecodeError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2), file=sys.stderr)

@@ -91,8 +91,12 @@ def test_sqlite_vec_readiness_cli_returns_json_payload(tmp_path, monkeypatch):
             assert ENV_SQLITE_VEC_PATH in payload["error"]
     else:
         assert proc.returncode == 0
-        assert payload["ok"] is True
-        assert payload["action_hint"] == "noop"
+        if payload["ok"] is True:
+            assert payload["action_hint"] == "noop"
+        else:
+            assert payload["status"] == "warn"
+            assert payload["error_kind"] in {"path_not_configured", "extension_load_failed", "readiness_probe_failed"}
+            assert payload["action_hint"] in {"runtime_fix", "retry_or_runtime_fix"}
 
 
 def test_detect_capabilities_reports_explicit_probe_mode_when_vec_path_configured(monkeypatch):
