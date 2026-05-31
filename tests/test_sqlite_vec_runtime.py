@@ -33,6 +33,8 @@ def test_detect_capabilities_reports_missing_vec_path(monkeypatch):
     assert caps["fts5"] is True
     assert caps["sqlite_vec"] is False
     assert caps["sqlite_vec_path"] is None
+    assert caps["sqlite_vec_probe_mode"] == "disabled_without_explicit_path"
+    assert caps["sqlite_vec_error"] == f"{ENV_SQLITE_VEC_PATH} not configured; ambient sqlite-vec probe disabled"
 
 
 def test_sqlite_vec_readiness_with_real_extension(monkeypatch):

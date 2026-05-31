@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from .sqlite_vec import configured_sqlite_vec_path, load_sqlite_vec_extension
+from .sqlite_vec import ENV_SQLITE_VEC_PATH, configured_sqlite_vec_path, load_sqlite_vec_extension
 
 SCHEMA_VERSION = 3
 
@@ -124,6 +124,7 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
     vec_error = None
     vec_path = configured_sqlite_vec_path()
     vec_loaded = False
+    vec_probe_mode = "explicit_path" if vec_path else "disabled_without_explicit_path"
 
     try:
         conn.execute("CREATE VIRTUAL TABLE temp.__brainos_fts_probe USING fts5(content);")
@@ -135,8 +136,11 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
         if vec_path:
             load_sqlite_vec_extension(conn, vec_path)
             vec_loaded = True
-        conn.execute(get_vec_table_sql(1536, table_name="temp.__brainos_vec_probe"))
-        conn.execute("DROP TABLE temp.__brainos_vec_probe;")
+            conn.execute(get_vec_table_sql(1536, table_name="temp.__brainos_vec_probe"))
+            conn.execute("DROP TABLE temp.__brainos_vec_probe;")
+        else:
+            vec_available = False
+            vec_error = f"{ENV_SQLITE_VEC_PATH} not configured; ambient sqlite-vec probe disabled"
     except sqlite3.Error as exc:
         vec_available = False
         vec_error = str(exc)
@@ -147,7 +151,7 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
         "sqlite_vec_error": vec_error,
         "sqlite_vec_path": vec_path,
         "sqlite_vec_loaded": vec_loaded,
-        "sqlite_vec_probe_mode": "explicit_path" if vec_path else "ambient",
+        "sqlite_vec_probe_mode": vec_probe_mode,
     }
 
 
