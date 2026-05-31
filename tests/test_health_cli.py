@@ -187,8 +187,8 @@ def test_retrieval_health_cli_surfaces_runtime_prereq_details(tmp_path):
     assert "invalid_env" in embedding
     sqlite_vec = payload["runtime"]["sqlite_vec_env"]
     assert "configured" in sqlite_vec
-    assert "source" in sqlite_vec
-    assert sqlite_vec["source"] in {"explicit_configured", "ambient_detected", "not_configured"}
+    assert "runtime_origin" in sqlite_vec
+    assert sqlite_vec["runtime_origin"] in {"explicit_configured", "ambient_detected", "not_configured"}
     assert "path" in sqlite_vec
     deps = payload["runtime"]["dependencies"]
     assert deps["checks"]["litellm"] is True

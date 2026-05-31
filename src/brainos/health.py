@@ -129,7 +129,7 @@ def _sqlite_vec_env_health() -> dict[str, Any]:
         "notes": notes,
         "action_hint": "configure_sqlite_vec_path" if issues else "noop",
         "configured": bool(path) and source == "explicit_configured",
-        "source": source,
+        "runtime_origin": source,
         "path": path,
     }
 
