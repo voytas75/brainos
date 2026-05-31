@@ -104,7 +104,19 @@ def benchmark_cases(ids: dict[str, str]) -> list[dict[str, str]]:
             "expected_semantic_id": "sem-wal",
         },
         {
+            "query": "what helps BrainOS keep local writes safe?",
+            "expected_episode_id": ids["ep_sqlite_wal"],
+            "expected_episode_hash": _text_hash("SQLite WAL mode helps BrainOS keep local writes safe and concurrent."),
+            "expected_semantic_id": "sem-wal",
+        },
+        {
             "query": "azure embedding model",
+            "expected_episode_id": ids["ep_embedding_azure"],
+            "expected_episode_hash": _text_hash("Azure embeddings are executed through LiteLLM in the current BrainOS path."),
+            "expected_semantic_id": "sem-azure-embed",
+        },
+        {
+            "query": "what is the current BrainOS embedding path?",
             "expected_episode_id": ids["ep_embedding_azure"],
             "expected_episode_hash": _text_hash("Azure embeddings are executed through LiteLLM in the current BrainOS path."),
             "expected_semantic_id": "sem-azure-embed",
@@ -116,13 +128,31 @@ def benchmark_cases(ids: dict[str, str]) -> list[dict[str, str]]:
             "expected_semantic_id": "sem-reindex",
         },
         {
+            "query": "what should I do after runtime changes to vectors?",
+            "expected_episode_id": ids["ep_reindex_runtime"],
+            "expected_episode_hash": _text_hash("Reindex stale vectors after runtime changes or source text updates."),
+            "expected_semantic_id": "sem-reindex",
+        },
+        {
             "query": "disabled vector runtime",
             "expected_episode_id": ids["ep_disabled_runtime"],
             "expected_episode_hash": _text_hash("Disabled vector state usually points to sqlite-vec runtime unavailability, not stale data."),
             "expected_semantic_id": "sem-disabled-runtime",
         },
         {
+            "query": "what does disabled vector state usually point to?",
+            "expected_episode_id": ids["ep_disabled_runtime"],
+            "expected_episode_hash": _text_hash("Disabled vector state usually points to sqlite-vec runtime unavailability, not stale data."),
+            "expected_semantic_id": "sem-disabled-runtime",
+        },
+        {
             "query": "policy version explain",
+            "expected_episode_id": ids["ep_policy_version"],
+            "expected_episode_hash": _text_hash("Retrieval explain output should show the active scoring policy version."),
+            "expected_semantic_id": "sem-policy-version",
+        },
+        {
+            "query": "what should retrieval explain show?",
             "expected_episode_id": ids["ep_policy_version"],
             "expected_episode_hash": _text_hash("Retrieval explain output should show the active scoring policy version."),
             "expected_semantic_id": "sem-policy-version",

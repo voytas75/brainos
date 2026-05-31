@@ -17,9 +17,9 @@ def test_retrieval_benchmark_cli_runs(tmp_path):
     assert payload["mode"] in {"vector-ready", "degraded-non-vector"}
     assert "degraded" in payload
     assert "degraded_reason" in payload
-    assert payload["case_count"] == 5
+    assert payload["case_count"] == 10
     assert "results" in payload
-    assert len(payload["results"]) == 5
+    assert len(payload["results"]) == 10
 
 
 def test_retrieval_benchmark_cli_exposes_failed_case_drilldown(tmp_path):
