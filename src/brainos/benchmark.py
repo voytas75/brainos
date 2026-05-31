@@ -176,7 +176,9 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
             )
         cases = benchmark_cases(ids)
         results = []
-        passed = 0
+        overall_passed = 0
+        episode_passed = 0
+        semantic_passed = 0
 
         benchmark_runtime_error = None
         for case in cases:
@@ -190,13 +192,20 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                     top_episode == case["expected_episode_id"]
                     or top_episode_hash == case["expected_episode_hash"]
                 )
-                ok = episode_ok and top_semantic == case["expected_semantic_id"]
+                semantic_ok = top_semantic == case["expected_semantic_id"]
+                ok = episode_ok and semantic_ok
+                if episode_ok:
+                    episode_passed += 1
+                if semantic_ok:
+                    semantic_passed += 1
                 if ok:
-                    passed += 1
+                    overall_passed += 1
                 results.append(
                     {
                         "query": case["query"],
                         "ok": ok,
+                        "episode_ok": episode_ok,
+                        "semantic_ok": semantic_ok,
                         "expected_episode_id": case["expected_episode_id"],
                         "top_episode_id": top_episode,
                         "expected_semantic_id": case["expected_semantic_id"],
@@ -214,6 +223,8 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                     {
                         "query": case["query"],
                         "ok": False,
+                        "episode_ok": False,
+                        "semantic_ok": False,
                         "expected_episode_id": case["expected_episode_id"],
                         "top_episode_id": None,
                         "expected_semantic_id": case["expected_semantic_id"],
@@ -235,6 +246,8 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                     {
                         "query": result["query"],
                         "failure_hint": _classify_benchmark_failure(mode=mode, result=result),
+                        "episode_ok": result["episode_ok"],
+                        "semantic_ok": result["semantic_ok"],
                         "expected_episode_id": result["expected_episode_id"],
                         "top_episode_id": result["top_episode_id"],
                         "expected_semantic_id": result["expected_semantic_id"],
@@ -247,7 +260,7 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                 )
 
         return {
-            "ok": passed == len(cases),
+            "ok": overall_passed == len(cases),
             "suite": "retrieval-benchmark-v0",
             "evidence_kind": "seeded_fixture",
             "truthfulness_note": "This benchmark uses an internal seeded fixture corpus and should be read as implementation-level evidence, not direct evidence about the current live database corpus.",
@@ -255,8 +268,12 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
             "degraded": degraded,
             "degraded_reason": degraded_reason,
             "case_count": len(cases),
-            "passed": passed,
-            "failed": len(cases) - passed,
+            "passed": overall_passed,
+            "failed": len(cases) - overall_passed,
+            "episode_passed": episode_passed,
+            "episode_failed": len(cases) - episode_passed,
+            "semantic_passed": semantic_passed,
+            "semantic_failed": len(cases) - semantic_passed,
             "failed_cases": failed_cases,
             "results": results,
             "runtime_error": benchmark_runtime_error,

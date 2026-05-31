@@ -18,6 +18,9 @@ def test_retrieval_benchmark_cli_runs(tmp_path):
     assert "degraded" in payload
     assert "degraded_reason" in payload
     assert payload["case_count"] == 10
+    assert payload["passed"] + payload["failed"] == 10
+    assert payload["episode_passed"] + payload["episode_failed"] == 10
+    assert payload["semantic_passed"] + payload["semantic_failed"] == 10
     assert "results" in payload
     assert len(payload["results"]) == 10
 
@@ -33,6 +36,9 @@ def test_retrieval_benchmark_cli_exposes_failed_case_drilldown(tmp_path):
     payload = json.loads(proc.stdout)
     assert "failed_cases" in payload
     assert isinstance(payload["failed_cases"], list)
+    for item in payload["failed_cases"]:
+        assert "episode_ok" in item
+        assert "semantic_ok" in item
 
 
 def test_retrieval_benchmark_failed_cases_expose_next_debug_handoff(tmp_path):
