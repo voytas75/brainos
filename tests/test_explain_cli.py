@@ -64,8 +64,8 @@ def test_retrieval_explain_cli_accepts_question_query(tmp_path):
     )
     payload = json.loads(proc.stdout)
     assert payload["query"] == "What is the BrainOS testing posture?"
-    assert payload["summary"] in {"no_hits", "episodes:1", "vector_episodes:1", "episodes:1, vector_episodes:1", "episodes:1, vector_episodes:1, ranked_episodes:1", "vector_episodes:1, ranked_episodes:1"} or "top_ranked_episodes" in payload
-    assert "top_ranked_episodes" in payload
+    assert payload["summary"] in {"episodes:1", "vector_episodes:1", "episodes:1, ranked_episodes:1", "episodes:1, vector_episodes:1", "episodes:1, vector_episodes:1, ranked_episodes:1", "vector_episodes:1, ranked_episodes:1"}
+    assert len(payload["top_ranked_episodes"]) >= 1
 
 
 def test_retrieval_explain_cli_accepts_slash_query(tmp_path):

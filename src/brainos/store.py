@@ -845,7 +845,13 @@ class BrainOSStore:
         return result
 
     def _normalize_fts_query(self, query: str) -> str:
+        question_fillers = {
+            "what", "is", "the", "current", "how", "do", "does", "can", "should", "could",
+            "would", "why", "when", "where", "which", "who", "whats", "please", "tell", "me",
+            "about",
+        }
         normalized = []
+        cleaned_tokens: list[str] = []
         for token in query.split():
             token = token.strip()
             if not token:
@@ -853,6 +859,10 @@ class BrainOSStore:
             cleaned = re.sub(r"^[^\w]+|[^\w]+$", "", token, flags=re.UNICODE)
             if not cleaned:
                 continue
+            cleaned_tokens.append(cleaned)
+        filtered_tokens = [token for token in cleaned_tokens if token.lower() not in question_fillers]
+        tokens_to_use = filtered_tokens or cleaned_tokens
+        for cleaned in tokens_to_use:
             if any(ch in cleaned for ch in ('-', ':', '/')):
                 normalized.append(f'"{cleaned}"')
             else:
