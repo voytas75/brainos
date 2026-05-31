@@ -6,7 +6,7 @@ from .store import BrainOSStore
 
 
 def _diagnostic_hint(*, payload: dict[str, Any]) -> str:
-    if payload.get("episode_vector_mode") != "vector" or payload.get("semantic_vector_mode") != "vector":
+    if payload.get("episode_vector_mode") != "sqlite_vec_episode_similarity" or payload.get("semantic_vector_mode") != "sqlite_vec_semantic_similarity":
         return "inspect_vector_participation"
     ranked = payload.get("ranked_episodes", [])
     if ranked:

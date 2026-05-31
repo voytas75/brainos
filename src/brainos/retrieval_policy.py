@@ -13,10 +13,12 @@ class RetrievalScoringPolicy:
     semantic_name_match_bonus: float
     episode_vector_base: float
     semantic_vector_base: float
+    anchor_term_bonus: float
+    weak_anchor_penalty: float
 
 
 RETRIEVAL_SCORING_POLICY_V1 = RetrievalScoringPolicy(
-    version="retrieval-scoring-v1",
+    version="retrieval-scoring-v1a",
     vector_distance_cutoff=1.2,
     dual_source_bonus=150.0,
     lexical_vector_overlap_bonus=80.0,
@@ -24,4 +26,6 @@ RETRIEVAL_SCORING_POLICY_V1 = RetrievalScoringPolicy(
     semantic_name_match_bonus=40.0,
     episode_vector_base=460.0,
     semantic_vector_base=420.0,
+    anchor_term_bonus=90.0,
+    weak_anchor_penalty=140.0,
 )

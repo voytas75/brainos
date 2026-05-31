@@ -471,3 +471,17 @@ def test_search_episodes_text_handles_hyphenated_tokens(tmp_path):
     assert len(results) == 1
     assert results[0]["id"] == episode_id
     store.close()
+
+
+def test_search_episodes_text_handles_question_punctuation(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    store.add_episode(
+        session_id="s1",
+        content="BrainOS testing posture should prefer bounded usage validation before deeper consistency work.",
+        metadata={},
+    )
+    results = store.search_episodes_text("What is the BrainOS testing posture?", session_id="s1", limit=5)
+    assert results == []
+    store.close()

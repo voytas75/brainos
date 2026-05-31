@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -849,40 +850,45 @@ class BrainOSStore:
             token = token.strip()
             if not token:
                 continue
-            if any(ch in token for ch in ('-', ':')):
-                normalized.append(f'"{token}"')
+            cleaned = re.sub(r"^[^\w]+|[^\w]+$", "", token, flags=re.UNICODE)
+            if not cleaned:
+                continue
+            if any(ch in cleaned for ch in ('-', ':', '/')):
+                normalized.append(f'"{cleaned}"')
             else:
-                normalized.append(token)
+                normalized.append(cleaned)
         return " ".join(normalized) if normalized else query
 
     def search_episodes_text(
         self, query: str, *, session_id: str | None = None, limit: int = 10
     ) -> list[dict[str, Any]]:
-        query = self._normalize_fts_query(query)
-        if session_id:
-            rows = self.conn.execute(
-                """
-                SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata
-                FROM episodes_fts f
-                JOIN episodes e ON e.id = f.content_id
-                WHERE episodes_fts MATCH ? AND e.session_id = ?
-                ORDER BY bm25(episodes_fts)
-                LIMIT ?
-                """,
-                (query, session_id, limit),
-            ).fetchall()
-        else:
-            rows = self.conn.execute(
-                """
+        normalized_query = self._normalize_fts_query(query)
+        sql = """
                 SELECT e.id, e.session_id, e.timestamp, e.content, e.metadata
                 FROM episodes_fts f
                 JOIN episodes e ON e.id = f.content_id
                 WHERE episodes_fts MATCH ?
+            """
+        params: list[Any] = [normalized_query]
+        if session_id:
+            sql += " AND e.session_id = ?"
+            params.append(session_id)
+        sql += """
                 ORDER BY bm25(episodes_fts)
                 LIMIT ?
-                """,
-                (query, limit),
-            ).fetchall()
+                """
+        params.append(limit)
+        try:
+            rows = self.conn.execute(sql, tuple(params)).fetchall()
+        except sqlite3.OperationalError:
+            fallback_query = " ".join(part for part in re.findall(r"[\w]+", query, flags=re.UNICODE) if part)
+            if not fallback_query or fallback_query == normalized_query:
+                raise
+            fallback_params = [fallback_query]
+            if session_id:
+                fallback_params.append(session_id)
+            fallback_params.append(limit)
+            rows = self.conn.execute(sql, tuple(fallback_params)).fetchall()
         result = []
         for row in rows:
             item = dict(row)

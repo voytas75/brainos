@@ -28,6 +28,14 @@ class RetrievalService:
         normalized = "".join(ch.lower() if ch.isalnum() else " " for ch in text)
         return {token for token in normalized.split() if len(token) >= 3}
 
+    @staticmethod
+    def _anchor_terms(query_tokens: set[str]) -> set[str]:
+        anchors = {
+            'posture', 'ssot', 'restart', 'anchors', 'anchor', 'memory', 'maintenance', 'heartbeat',
+            'brainos', 'openclaw', 'gwork', 'google', 'workspace', 'collaboration', 'testing'
+        }
+        return query_tokens & anchors
+
     def _rank_episode_hits(
         self,
         *,
@@ -37,11 +45,21 @@ class RetrievalService:
         limit: int,
     ) -> list[dict[str, Any]]:
         ranked_map: dict[str, dict[str, Any]] = {}
+        anchor_terms = self._anchor_terms(query_tokens)
         for idx, item in enumerate(episodes):
             merged = dict(item)
+            item_tokens = self.tokenize_for_overlap(item.get("content", ""))
+            anchor_overlap = len(anchor_terms & item_tokens)
+            weak_anchor_penalty = self.scoring_policy.weak_anchor_penalty if anchor_terms and anchor_overlap == 0 else 0.0
+            anchor_bonus = float(anchor_overlap) * self.scoring_policy.anchor_term_bonus
             merged["match_sources"] = ["fts"]
-            merged["rank_score"] = 1000.0 - float(idx)
-            merged["score_components"] = {"fts_rank": 1000.0 - float(idx)}
+            merged["rank_score"] = (1000.0 - float(idx)) + anchor_bonus - weak_anchor_penalty
+            merged["lexical_overlap"] = len(query_tokens & item_tokens)
+            merged["score_components"] = {
+                "fts_rank": 1000.0 - float(idx),
+                "anchor_term_bonus": anchor_bonus,
+                "weak_anchor_penalty": weak_anchor_penalty,
+            }
             ranked_map[item["id"]] = merged
 
         for idx, item in enumerate(vector_episodes):
@@ -49,11 +67,13 @@ class RetrievalService:
             distance = float(item.get("distance", 999999.0))
             item_tokens = self.tokenize_for_overlap(item.get("content", ""))
             overlap = len(query_tokens & item_tokens)
+            anchor_overlap = len(anchor_terms & item_tokens)
             if distance > self.scoring_policy.vector_distance_cutoff and item_id not in ranked_map:
                 continue
             score = max(0.0, self.scoring_policy.episode_vector_base - (distance * 100.0) - (idx * 5.0))
             overlap_bonus = min(float(overlap), 3.0) * self.scoring_policy.lexical_vector_overlap_bonus
-            score += overlap_bonus
+            anchor_bonus = float(anchor_overlap) * self.scoring_policy.anchor_term_bonus
+            score += overlap_bonus + anchor_bonus
             if item_id in ranked_map:
                 ranked_map[item_id]["match_sources"].append("vector")
                 ranked_map[item_id]["rank_score"] += score + self.scoring_policy.dual_source_bonus
@@ -65,10 +85,12 @@ class RetrievalService:
                         "episode_vector": score,
                         "dual_source_bonus": self.scoring_policy.dual_source_bonus,
                         "lexical_overlap_bonus": overlap_bonus,
+                        "anchor_term_bonus": anchor_bonus,
                     }
                 )
             else:
                 score -= self.scoring_policy.low_overlap_vector_only_penalty if overlap == 0 else 0.0
+                score -= self.scoring_policy.weak_anchor_penalty if anchor_terms and anchor_overlap == 0 else 0.0
                 if score <= 0.0:
                     continue
                 merged = dict(item)
@@ -79,6 +101,7 @@ class RetrievalService:
                 merged["score_components"] = {
                     "episode_vector": score,
                     "lexical_overlap_bonus": overlap_bonus,
+                    "anchor_term_bonus": anchor_bonus,
                 }
                 ranked_map[item_id] = merged
 
