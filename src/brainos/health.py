@@ -99,6 +99,7 @@ def _sqlite_vec_env_health() -> dict[str, Any]:
     path = configured_sqlite_vec_path()
     issues: list[str] = []
     notes: list[str] = []
+    source = "explicit_configured" if path else "not_configured"
 
     if not path:
         issues.append("missing:BRAINOS_SQLITE_VEC_PATH")
@@ -112,8 +113,14 @@ def _sqlite_vec_env_health() -> dict[str, Any]:
                 issues.append("path_not_file")
             else:
                 notes.append("path_exists")
+                if "/home/openclaw/" in path:
+                    source = "ambient_detected"
+                    notes.append("path_looks_ambient")
         except PermissionError:
             issues.append("path_permission_denied")
+            if "/home/openclaw/" in path:
+                source = "ambient_detected"
+                notes.append("path_looks_ambient")
         status = "ok" if not issues else "warn"
 
     return {
@@ -121,7 +128,8 @@ def _sqlite_vec_env_health() -> dict[str, Any]:
         "issues": issues,
         "notes": notes,
         "action_hint": "configure_sqlite_vec_path" if issues else "noop",
-        "configured": bool(path),
+        "configured": bool(path) and source == "explicit_configured",
+        "source": source,
         "path": path,
     }
 
