@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from .env import load_project_env
 from .errors import BrainOSError, SqliteVecReadinessError
@@ -125,9 +126,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    load_project_env()
     parser = build_parser()
     args = parser.parse_args()
+    load_project_env(cwd=str(Path(args.db).resolve().parent), override=False)
 
     store = BrainOSStore(args.db, enable_vector=getattr(args, "enable_vector", False))
     try:

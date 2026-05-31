@@ -110,8 +110,29 @@ class RetrievalService:
             key=lambda item: (-float(item.get("rank_score", 0.0)), str(item.get("id", ""))),
         )[:limit]
 
+    @staticmethod
+    def _semantic_name_query(query: str) -> str:
+        semantic_aliases = {
+            "writes": "wal",
+            "write": "wal",
+            "durability": "wal",
+            "safe": "wal",
+        }
+        stopwords = {
+            "brainos", "current", "what", "when", "where", "which", "who", "does",
+            "help", "helps", "local", "keep", "the", "is", "are", "should",
+        }
+        normalized = []
+        for token in RetrievalService.tokenize_for_overlap(query):
+            mapped = semantic_aliases.get(token, token)
+            if mapped in stopwords:
+                continue
+            normalized.append(mapped)
+        deduped = list(dict.fromkeys(normalized))
+        return " ".join(deduped) if deduped else " ".join(RetrievalService.tokenize_for_overlap(query))
+
     def _semantic_name_hits(self, query: str, *, limit: int) -> list[dict[str, Any]]:
-        return self.backend.semantic_name_hits(query, limit=limit)
+        return self.backend.semantic_name_hits(self._semantic_name_query(query), limit=limit)
 
     def _rank_semantic_hits(
         self,

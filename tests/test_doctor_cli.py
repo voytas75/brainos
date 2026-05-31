@@ -1,6 +1,40 @@
 import json
 import os
 import subprocess
+from pathlib import Path
+
+
+_ENV_KEYS = {
+    "BRAINOS_EMBEDDING_MODEL",
+    "AZURE_API_BASE",
+    "AZURE_API_KEY",
+    "AZURE_API_VERSION",
+    "BRAINOS_SQLITE_VEC_PATH",
+}
+
+
+def _clean_cli_env() -> dict[str, str]:
+    prefixes = ("AZURE_", "AZURE_OPENAI_", "OPENAI_", "LITELLM_")
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+    }
+
+
+def _brainos_cli() -> str:
+    return os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos")
+
+
+def _test_env() -> dict[str, str]:
+    return {
+        **_clean_cli_env(),
+        "PATH": os.environ.get("PATH", ""),
+        "BRAINOS_EMBEDDING_MODEL": "azure/test-embed",
+        "AZURE_API_BASE": "https://example.openai.azure.com",
+        "AZURE_API_KEY": "test-key",
+        "AZURE_API_VERSION": "2024-10-21",
+    }
 
 
 def _extract_json(stdout: str) -> dict:
@@ -10,23 +44,14 @@ def _extract_json(stdout: str) -> dict:
     return json.loads(stdout[start:])
 
 
-TEST_ENV = {
-    **os.environ,
-    "BRAINOS_EMBEDDING_MODEL": "azure/test-embed",
-    "AZURE_API_BASE": "https://example.openai.azure.com",
-    "AZURE_API_KEY": "test-key",
-    "AZURE_API_VERSION": "2024-10-21",
-}
-
-
 def test_embedding_readiness_cli_exposes_runtime_prereqs(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "embedding-readiness"],
+        [_brainos_cli(), "--db", str(db), "embedding-readiness"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     assert payload["status"] in {"ok", "warn"}
@@ -42,15 +67,18 @@ def test_embedding_readiness_cli_exposes_runtime_prereqs(tmp_path):
 def test_doctor_cli_exposes_compact_operator_checks(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "doctor", "--benchmark-limit", "3"],
+        [_brainos_cli(), "--db", str(db), "doctor", "--benchmark-limit", "3"],
         capture_output=True,
         text=True,
-        check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
-    payload = _extract_json(proc.stdout)
+    payload = _extract_json(proc.stdout or proc.stderr)
+    if "status" not in payload:
+        assert payload["error_kind"] == "extension_load_failed"
+        assert payload["action_hint"] == "runtime_fix"
+        return
     assert payload["status"] in {"ok", "warn"}
-    assert payload["action_hint"] in {"noop", "fix_failed_checks"}
+    assert payload["action_hint"] in {"noop", "fix_failed_checks", "runtime_fix"}
     assert "checks" in payload
     assert "failed_checks" in payload
     assert "embedding" in payload

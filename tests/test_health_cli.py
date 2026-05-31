@@ -1,6 +1,40 @@
 import json
 import os
 import subprocess
+from pathlib import Path
+
+
+_ENV_KEYS = {
+    "BRAINOS_EMBEDDING_MODEL",
+    "AZURE_API_BASE",
+    "AZURE_API_KEY",
+    "AZURE_API_VERSION",
+    "BRAINOS_SQLITE_VEC_PATH",
+}
+
+
+def _clean_cli_env() -> dict[str, str]:
+    prefixes = ("AZURE_", "AZURE_OPENAI_", "OPENAI_", "LITELLM_")
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+    }
+
+
+def _brainos_cli() -> str:
+    return os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos")
+
+
+def _test_env() -> dict[str, str]:
+    return {
+        **_clean_cli_env(),
+        "PATH": os.environ.get("PATH", ""),
+        "BRAINOS_EMBEDDING_MODEL": "azure/test-embed",
+        "AZURE_API_BASE": "https://example.openai.azure.com",
+        "AZURE_API_KEY": "test-key",
+        "AZURE_API_VERSION": "2024-10-21",
+    }
 
 
 def _extract_json(stdout: str) -> dict:
@@ -10,23 +44,14 @@ def _extract_json(stdout: str) -> dict:
     return json.loads(stdout[start:])
 
 
-TEST_ENV = {
-    **os.environ,
-    "BRAINOS_EMBEDDING_MODEL": "azure/test-embed",
-    "AZURE_API_BASE": "https://example.openai.azure.com",
-    "AZURE_API_KEY": "test-key",
-    "AZURE_API_VERSION": "2024-10-21",
-}
-
-
 def test_retrieval_health_cli_runs(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     assert "status" in payload
@@ -51,11 +76,11 @@ def test_retrieval_health_cli_runs(tmp_path):
 def test_retrieval_health_cli_exposes_action_hints(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     assert "action_hint" in payload
@@ -71,11 +96,11 @@ def test_retrieval_health_cli_exposes_action_hints(tmp_path):
 def test_retrieval_health_cli_exposes_benchmark_failed_case_drilldown(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     assert "failed_cases" in payload["quality"]["benchmark"]
@@ -85,11 +110,11 @@ def test_retrieval_health_cli_exposes_benchmark_failed_case_drilldown(tmp_path):
 def test_retrieval_health_failed_cases_expose_next_debug_handoff(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     for item in payload["quality"]["benchmark"]["failed_cases"]:
@@ -101,11 +126,11 @@ def test_retrieval_health_failed_cases_expose_next_debug_handoff(tmp_path):
 def test_retrieval_health_cli_summary_is_compact_string(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     assert isinstance(payload["summary"], str)
@@ -115,11 +140,11 @@ def test_retrieval_health_cli_summary_is_compact_string(tmp_path):
 def test_retrieval_health_cli_marks_empty_db_as_low_evidence(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     assert payload["quality"]["status"] == "low_evidence"
@@ -130,11 +155,11 @@ def test_retrieval_health_cli_marks_empty_db_as_low_evidence(tmp_path):
 def test_retrieval_health_cli_surfaces_benchmark_truthfulness_metadata(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     assert payload["quality"]["benchmark"]["evidence_kind"] == "seeded_fixture"
@@ -144,11 +169,11 @@ def test_retrieval_health_cli_surfaces_benchmark_truthfulness_metadata(tmp_path)
 def test_retrieval_health_cli_surfaces_runtime_prereq_details(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
         capture_output=True,
         text=True,
         check=True,
-        env=TEST_ENV,
+        env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
     embedding = payload["runtime"]["embedding_config"]
