@@ -1,7 +1,26 @@
 import os
 import subprocess
+from pathlib import Path
 
 from brainos.env import load_project_env
+
+
+_ENV_KEYS = {
+    "BRAINOS_EMBEDDING_MODEL",
+    "AZURE_API_BASE",
+    "AZURE_API_KEY",
+    "AZURE_API_VERSION",
+    "BRAINOS_SQLITE_VEC_PATH",
+}
+
+
+def _clean_cli_env() -> dict[str, str]:
+    prefixes = ("AZURE_", "AZURE_OPENAI_", "OPENAI_", "LITELLM_")
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+    }
 
 
 def test_load_project_env_reads_dotenv_without_overriding_existing_env(tmp_path, monkeypatch):
@@ -10,6 +29,8 @@ def test_load_project_env_reads_dotenv_without_overriding_existing_env(tmp_path,
         "BRAINOS_EMBEDDING_MODEL=azure/from-dotenv\nAZURE_API_BASE=https://example.openai.azure.com\nAZURE_API_KEY=dotenv-key\nAZURE_API_VERSION=2024-10-21\n",
         encoding="utf-8",
     )
+    for key in _ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("AZURE_API_KEY", "already-set")
     result = load_project_env(cwd=str(tmp_path))
     assert result["loaded"] is True
@@ -27,18 +48,12 @@ def test_cli_honors_project_dotenv_for_embedding_readiness(tmp_path):
         encoding="utf-8",
     )
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "embedding-readiness"],
+        [os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"), "--db", str(db), "embedding-readiness"],
         cwd=str(tmp_path),
         capture_output=True,
         text=True,
         check=True,
-        env={k: v for k, v in os.environ.items() if k not in {
-            "BRAINOS_EMBEDDING_MODEL",
-            "AZURE_API_BASE",
-            "AZURE_API_KEY",
-            "AZURE_API_VERSION",
-            "BRAINOS_SQLITE_VEC_PATH",
-        }},
+        env={**_clean_cli_env(), "PATH": os.environ.get("PATH", "")},
     )
     assert '"missing_env": []' in proc.stdout
     assert '"BRAINOS_EMBEDDING_MODEL"' in proc.stdout

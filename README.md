@@ -480,7 +480,7 @@ Required env for runtime enablement:
 Example `.env` value:
 
 ```dotenv
-BRAINOS_SQLITE_VEC_PATH="/home/openclaw/.npm-global/lib/node_modules/openclaw/node_modules/sqlite-vec-linux-x64/vec0.so"
+BRAINOS_SQLITE_VEC_PATH="/absolute/path/to/sqlite-vec/vec0.so"
 ```
 
 Verification commands:
@@ -589,7 +589,7 @@ Current summary includes three explicit planes:
 Current health interpretation:
 - `runtime.status=warn` means capability/runtime setup needs attention
 - `runtime.embedding_config` checks required Azure embedding env presence plus light format sanity
-- `runtime.sqlite_vec_env` checks `BRAINOS_SQLITE_VEC_PATH` presence and file existence
+- `runtime.sqlite_vec_env` checks `BRAINOS_SQLITE_VEC_PATH` presence plus basic path accessibility (`path_missing`, `path_not_file`, `path_permission_denied`)
 - `runtime.dependencies` checks critical importable runtime dependencies such as `litellm`
 - `runtime.database_runtime` checks SQLite runtime posture such as `journal_mode=wal`
 - `freshness.status=warn` means stale/error vector state is present
@@ -608,9 +608,10 @@ uv run brainos --db ./brain.db embedding-readiness
 
 Current intent:
 - validate required embedding env presence/sanity
-- validate `BRAINOS_SQLITE_VEC_PATH` configuration presence
+- validate `BRAINOS_SQLITE_VEC_PATH` configuration presence and path accessibility
 - validate importability of critical embedding dependency path
 - expose one compact issue list for embedding runtime setup
+- return structured warn/runtime-fix output instead of crashing on invalid or inaccessible sqlite-vec path configuration
 
 ## Doctor CLI
 
@@ -629,6 +630,7 @@ Current intent:
 - expose failed checks for faster triage
 - include nested retrieval health and embedding runtime summaries
 - serve as the runbook entrypoint before deeper checks like `embedding-readiness`, `sqlite-vec-readiness`, or `retrieval-health`
+- degrade to structured `warn` output when sqlite-vec path configuration is missing, wrong, or inaccessible, instead of surfacing a raw traceback
 
 ## Real-corpus retrieval quality probe
 

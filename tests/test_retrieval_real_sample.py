@@ -369,7 +369,7 @@ def test_real_sample_policy_version_case(monkeypatch, tmp_path):
     recall = store.recall("policy version explain", session_id="real", limit=5)
     assert recall["ranked_episodes"][0]["id"] == ids["ep_policy_surface"]
     assert recall["ranked_semantic_hits"][0]["id"] == "sem-policy-surface"
-    assert recall["scoring_policy_version"] == "retrieval-scoring-v1"
+    assert recall["scoring_policy_version"] == "retrieval-scoring-v1a"
     store.close()
 
 

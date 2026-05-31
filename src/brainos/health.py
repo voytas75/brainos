@@ -104,12 +104,15 @@ def _sqlite_vec_env_health() -> dict[str, Any]:
         status = "warn"
     else:
         p = Path(path)
-        if not p.exists():
-            issues.append("path_missing")
-        elif not p.is_file():
-            issues.append("path_not_file")
-        else:
-            notes.append("path_exists")
+        try:
+            if not p.exists():
+                issues.append("path_missing")
+            elif not p.is_file():
+                issues.append("path_not_file")
+            else:
+                notes.append("path_exists")
+        except PermissionError:
+            issues.append("path_permission_denied")
         status = "ok" if not issues else "warn"
 
     return {

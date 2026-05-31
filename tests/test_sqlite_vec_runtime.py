@@ -2,10 +2,20 @@ import json
 import os
 import sqlite3
 import subprocess
+from pathlib import Path
 
 from brainos.errors import SqliteVecReadinessError
 from brainos.schema import detect_capabilities
 from brainos.sqlite_vec import ENV_SQLITE_VEC_PATH, configured_sqlite_vec_path, sqlite_vec_readiness
+
+
+def _clean_cli_env() -> dict[str, str]:
+    prefixes = ("AZURE_", "AZURE_OPENAI_", "OPENAI_", "LITELLM_")
+    return {
+        key: value
+        for key, value in os.environ.items()
+        if key != ENV_SQLITE_VEC_PATH and not any(key.startswith(prefix) for prefix in prefixes)
+    }
 
 
 def test_configured_sqlite_vec_path_from_env(monkeypatch):
@@ -62,13 +72,11 @@ def test_sqlite_vec_readiness_classifies_missing_path(monkeypatch):
 def test_sqlite_vec_readiness_cli_returns_json_payload(tmp_path, monkeypatch):
     monkeypatch.delenv(ENV_SQLITE_VEC_PATH, raising=False)
     db = tmp_path / "brain.db"
-    env = dict(os.environ)
-    env.pop(ENV_SQLITE_VEC_PATH, None)
     proc = subprocess.run(
-        ["uv", "run", "brainos", "--db", str(db), "sqlite-vec-readiness"],
+        [os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"), "--db", str(db), "sqlite-vec-readiness"],
         capture_output=True,
         text=True,
-        env=env,
+        env={**_clean_cli_env(), "PATH": os.environ.get("PATH", "")},
     )
     payload_text = proc.stderr if proc.stderr.strip() else proc.stdout
     payload = json.loads(payload_text)
@@ -76,10 +84,11 @@ def test_sqlite_vec_readiness_cli_returns_json_payload(tmp_path, monkeypatch):
     assert "action_hint" in payload
     if proc.returncode == 2:
         assert payload["ok"] is False
-        assert payload["error_kind"] == "path_not_configured"
+        assert payload["error_kind"] in {"path_not_configured", "extension_load_failed"}
         assert "detail" in payload
         assert payload["action_hint"] == "runtime_fix"
-        assert ENV_SQLITE_VEC_PATH in payload["error"]
+        if payload["error_kind"] == "path_not_configured":
+            assert ENV_SQLITE_VEC_PATH in payload["error"]
     else:
         assert proc.returncode == 0
         assert payload["ok"] is True

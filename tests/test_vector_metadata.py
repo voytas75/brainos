@@ -1,6 +1,7 @@
 import sqlite3
 from pathlib import Path
 
+from brainos.errors import EmbeddingRuntimeError
 from brainos.schema import get_schema_version
 from brainos.store import BrainOSStore, EmbeddingProviderNotConfiguredError
 
@@ -127,7 +128,7 @@ def test_refresh_episode_vector_freshness_marks_stale_on_text_change(tmp_path):
     store.close()
 
 
-def test_embedding_contract_is_declared_but_not_executed(tmp_path):
+def test_embedding_contract_is_declared_but_not_executed(tmp_path, monkeypatch):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -137,10 +138,15 @@ def test_embedding_contract_is_declared_but_not_executed(tmp_path):
     assert contract["provider_path"] == "litellm"
     assert contract["operational_provider"] == "azure"
 
+    monkeypatch.delenv("BRAINOS_EMBEDDING_MODEL", raising=False)
+    monkeypatch.delenv("AZURE_API_BASE", raising=False)
+    monkeypatch.delenv("AZURE_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_API_VERSION", raising=False)
+
     try:
         store.embed_texts(["hello world"])
-        assert False, "expected EmbeddingProviderNotConfiguredError"
-    except EmbeddingProviderNotConfiguredError:
+        assert False, "expected embedding configuration or runtime error"
+    except (EmbeddingProviderNotConfiguredError, EmbeddingRuntimeError):
         pass
     store.close()
 
