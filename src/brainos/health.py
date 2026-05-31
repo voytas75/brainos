@@ -7,6 +7,7 @@ from typing import Any
 
 from .benchmark import run_retrieval_benchmark
 from .embedding import LiteLLMEmbeddingAdapter
+from .errors import SqliteVecReadinessError
 from .sqlite_vec import configured_sqlite_vec_path
 from .store import BrainOSStore
 
@@ -152,9 +153,73 @@ def _database_runtime_health(store: BrainOSStore) -> dict[str, Any]:
     }
 
 
+def _runtime_failure_summary(*, store: BrainOSStore, error_kind: str, detail: str) -> dict[str, Any]:
+    sqlite_vec_env = _sqlite_vec_env_health()
+    sqlite_vec_env = {
+        **sqlite_vec_env,
+        "issues": list(dict.fromkeys([*sqlite_vec_env["issues"], error_kind])),
+        "action_hint": "configure_sqlite_vec_path",
+    }
+    runtime_issue = f"sqlite_vec_runtime:{error_kind}"
+    benchmark = {
+        "suite": "retrieval-benchmark-v0",
+        "evidence_kind": "seeded_fixture",
+        "truthfulness_note": "This benchmark could not complete because sqlite-vec runtime failed before execution.",
+        "ok": False,
+        "mode": "runtime_error",
+        "degraded": True,
+        "degraded_reason": error_kind,
+        "case_count": 0,
+        "passed": 0,
+        "failed": 0,
+        "failed_cases": [],
+        "runtime_error": detail,
+    }
+    return {
+        "status": "warn",
+        "summary": "runtime fix needed before vector-quality interpretation",
+        "action_hint": "runtime_fix",
+        "runtime": {
+            "status": "warn",
+            "issues": [runtime_issue],
+            "action_hint": "runtime_fix",
+            "capabilities": {"sqlite_vec": False},
+            "embedding_config": _embedding_config_health(),
+            "sqlite_vec_env": sqlite_vec_env,
+            "dependencies": _dependency_health(),
+            "database_runtime": {
+                "status": "warn",
+                "issues": [runtime_issue],
+                "action_hint": "runtime_fix",
+                "journal_mode": None,
+                "expected_journal_mode": SQLITE_WAL_REQUIRED_VALUE,
+                "db_path": store.db_path,
+            },
+        },
+        "freshness": {
+            "status": "warn",
+            "issues": [],
+            "notes": ["runtime_probe_incomplete"],
+            "action_hint": "inspect_notes",
+            "vector_index": {"total": 0, "by_status": {}, "by_type": {}},
+        },
+        "quality": {
+            "status": "degraded",
+            "issues": ["benchmark_runtime_error"],
+            "notes": [],
+            "action_hint": "accept_degraded_or_fix_runtime",
+            "benchmark": benchmark,
+        },
+        "issues": [runtime_issue, "benchmark_runtime_error"],
+    }
+
+
 def retrieval_health_summary(store: BrainOSStore, *, benchmark_limit: int = 5) -> dict[str, Any]:
-    capabilities = store.capabilities()
-    states = store.list_vector_index_states(limit=1000)
+    try:
+        capabilities = store.capabilities()
+        states = store.list_vector_index_states(limit=1000)
+    except SqliteVecReadinessError as exc:
+        return _runtime_failure_summary(store=store, error_kind=exc.error_kind, detail=exc.detail or str(exc))
 
     counts_by_status: dict[str, int] = {}
     counts_by_type: dict[str, int] = {}
