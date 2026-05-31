@@ -255,6 +255,10 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                         "top_episode_hash": result.get("top_episode_hash"),
                         "top_semantic_id": result["top_semantic_id"],
                         "next_debug": _failed_case_next_debug(query=result["query"]),
+                        "recommended_fix": {
+                            "action_hint": "configure_sqlite_vec_path" if result.get("runtime_error") else "inspect_retrieval_explain",
+                            "target": "BRAINOS_SQLITE_VEC_PATH" if result.get("runtime_error") else "retrieval-explain",
+                        },
                         "runtime_error": result.get("runtime_error"),
                     }
                 )
