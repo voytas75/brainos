@@ -59,4 +59,8 @@ def explain_recall(store: BrainOSStore, query: str, *, session_id: str | None = 
             payload.get("ranked_semantic_hits", []),
             fields=["id", "name", "type", "rank_score"],
         ),
+        "top_decisions": compact_hits(
+            payload.get("decisions", []),
+            fields=["decision_id", "question", "status", "recommended_option_id", "operator_call_required"],
+        ),
     }

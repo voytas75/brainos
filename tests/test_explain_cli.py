@@ -62,6 +62,7 @@ def test_retrieval_explain_cli_runs(tmp_path):
     assert payload["diagnostic_hint"] in {"dual_source_agreement", "lexical_grounded_top_hit", "vector_led_top_hit", "inspect_score_components", "inspect_vector_participation"}
     assert "top_ranked_episodes" in payload
     assert "top_ranked_semantic_hits" in payload
+    assert "top_decisions" in payload
 
 
 def test_retrieval_explain_cli_accepts_question_query(tmp_path):

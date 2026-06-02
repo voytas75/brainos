@@ -52,11 +52,12 @@ This repo uses `uv` for local development because it keeps the workflow small an
 - clean command execution with `uv run ...`
 
 ## Suggested next slice
-1. optional embedding provider abstraction
-2. vector table integration with runtime capability detection
-3. retrieval API combining FTS + vector + graph neighborhood
-4. explicit cognitive loop orchestration
-5. migration/versioning support
+1. bounded docs closeout when repo-facing product surface changes materially
+2. optional embedding provider abstraction
+3. vector table integration with runtime capability detection
+4. retrieval API combining FTS + vector + graph neighborhood
+5. explicit cognitive loop orchestration
+6. migration/versioning support
 
 
 ## Hardening added after first e2e pass
@@ -72,6 +73,7 @@ This repo uses `uv` for local development because it keeps the workflow small an
 - added explicit migration coverage for v1 -> v2
 - CLI now returns compact JSON errors for expected user-facing failures
 - missing-object reads now fail clearly instead of printing `null`
+- schema is now at v4 after adding first-class `decisions`
 
 
 ## Vector metadata slice added
@@ -101,3 +103,20 @@ Azure configuration path:
 - BrainOS logical embedding profile: `brainos-embedding-default`
 - LiteLLM execution adapter reads Azure config from env
 - recommended model naming for current path: `azure/<deployment-name>`
+
+
+## Decision-support operational layer v1
+
+Added across the recent bounded slices:
+- first-class `decisions` table and schema v4
+- `decision-log`, `decision-list`, `decision-get`
+- decision payload validation and explicit operator boundary via `operator_call_required`
+- decision retrieval surface through `recall` / `retrieval-explain`
+- provenance drill-down through `inspect decision <id>`
+- bounded rule-based conflict checking through `decision-check <id>`
+
+Intentional constraints:
+- no autonomous final choice
+- no hidden ranking engine as the public contract
+- no LLM-generated decision briefs in v1
+- no broad workflow coupling yet (`focus`, `wrap`, entities/plans still deferred)

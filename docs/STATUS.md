@@ -12,10 +12,16 @@
 - retrieval quality/reporting now separates runtime, freshness, and quality planes more explicitly.
 - sqlite-vec readiness/runtime semantics are documented more honestly, including explicit-path vs ambient capability posture and bounded action hints.
 - a small real-corpus probe surface now exists for read-only local quality checks, without overstating it as broad corpus evidence.
+- decision-support object v1 now exists as a first-class local surface (`decision-log`, `decision-list`, `decision-get`).
+- recall/explain now surface stored decision briefs in bounded form.
+- inspect/provenance drill-down now supports `decision` and `episode` objects.
+- decision conflict checking now exists as a structured-signal-first `decision-check` surface with `clear` / `caution` / `conflict` outcomes.
+- decision revision/history inspection now exists through `decision-history` with `current`, `previous`, `changed_fields`, and revision timeline output.
+- decision recall quality improved through a canonical decision retrieval projection and bounded natural-query regression coverage.
 - current verified operator state on local `brain.db`: vector freshness `fresh:30`, retrieval benchmark `5/5`, retrieval-health `status: ok`.
 
 ## Scope
-Deterministic regression fixtures for unified retrieval quality.
+Deterministic regression fixtures for unified retrieval quality, plus the first bounded decision-support operational layer.
 
 ## Current protected case classes
 - lexical semantic graph query
@@ -33,10 +39,16 @@ Deterministic regression fixtures for unified retrieval quality.
 - Current fixtures are deterministic and monkeypatched by design.
 - Future tuning should preserve or intentionally revise these expectations.
 - Benchmark interpretation now distinguishes `vector-ready` from `degraded-non-vector` runs so degraded-path output is not read as the same class of signal as a vector-ready pass/fail.
+- Decision support is intentionally scoped as operator-facing recommendation support, not autonomous choice.
 - Retrieval quality interpretation SSOT: `docs/retrieval-quality-contract-v1.md`.
 - Retrieval contract SSOT: `docs/retrieval-contract-v1.md`.
 - Runtime posture SSOT: `docs/runtime-posture-contract-v1.md`.
 - Vector-state / maintenance semantics SSOT: `docs/vector-state-contract-v1.md`.
+- Decision-support SSOT: `docs/decision-support-contract-v1.md`.
+- Review closeout note: `docs/decision-support-v1-review.md`.
+- Usage review note: `docs/decision-support-v1-usage-review.md`.
+- Decision-check v2 direction brief: `docs/decision-check-v2-structured-signal-brief.md`.
+- Decision recall quality brief: `docs/decision-recall-quality-slice-v1-brief.md`.
 
 ## gate_reason
 Expanded eval fixture baseline must stay green before scoring changes are trusted.

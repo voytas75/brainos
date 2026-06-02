@@ -114,13 +114,11 @@ def _sqlite_vec_env_health() -> dict[str, Any]:
             else:
                 notes.append("path_exists")
                 if "/home/openclaw/" in path:
-                    source = "ambient_detected"
-                    notes.append("path_looks_ambient")
+                    notes.append("path_under_shared_runtime_prefix")
         except PermissionError:
             issues.append("path_permission_denied")
             if "/home/openclaw/" in path:
-                source = "ambient_detected"
-                notes.append("path_looks_ambient")
+                notes.append("path_under_shared_runtime_prefix")
         status = "ok" if not issues else "warn"
 
     return {
@@ -128,7 +126,7 @@ def _sqlite_vec_env_health() -> dict[str, Any]:
         "issues": issues,
         "notes": notes,
         "action_hint": "configure_sqlite_vec_path" if issues else "noop",
-        "configured": bool(path) and source == "explicit_configured",
+        "configured": bool(path),
         "runtime_origin": source,
         "path": path,
     }

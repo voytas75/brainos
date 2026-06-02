@@ -141,6 +141,24 @@ Read current retrieval quality in this order:
 4. eval/benchmark pass-fail
 5. explain output for hit-level diagnosis
 
+## Action priority / current plan
+Current priority is to **close retrieval-layer credibility**, not to expand the “brain” surface.
+
+Current plan:
+1. establish a reliable green path for `sqlite-vec` on this machine,
+2. keep health interpretation explicitly split into:
+   - environment/runtime health
+   - retrieval freshness/maintenance health
+   - retrieval quality health
+3. maintain one small persistent eval set as the ranking SSOT,
+4. treat further brain/decision-surface expansion as secondary until retrieval credibility is calmer.
+
+Current persistent eval-set SSOT:
+- `docs/persistent-retrieval-eval-set-v1.md`
+
+This plan is intentionally conservative.
+It favors trustworthiness of the retrieval layer over broader product breadth.
+
 ## Stability note
 This contract should stay small and explicit.
 If the corpus meaning changes materially, revise this document instead of letting interpretation drift through commit history.

@@ -19,6 +19,7 @@ def test_initialize_and_core_tables(tmp_path):
     assert "semantic_nodes" in tables
     assert "semantic_edges" in tables
     assert "procedures" in tables
+    assert "decisions" in tables
     assert "ledger" in tables
     assert "episode_promotions" in tables
     store.close()
@@ -36,8 +37,8 @@ def test_schema_status_and_capabilities(tmp_path):
     store.initialize()
 
     status_after = store.schema_status()
-    assert status_after["current_version"] == 3
-    assert status_after["expected_version"] == 3
+    assert status_after["current_version"] == 4
+    assert status_after["expected_version"] == 4
     assert status_after["is_initialized"] is True
     assert status_after["is_current"] is True
 
@@ -114,7 +115,7 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     store.upsert_semantic_node(node_id="semantic-1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
 
     recall = store.recall("semantic", session_id="s1", limit=5)
-    assert recall["mode"] == "fts_plus_vector_episode_similarity_plus_semantic_name_match"
+    assert recall["mode"] == "fts_plus_vector_episode_similarity_plus_semantic_name_match_plus_decision_text"
     assert recall["count"] == 1
     assert recall["semantic_count"] == 1
     assert recall["vector_count"] == 0
@@ -128,6 +129,7 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     assert recall["ranked_semantic_hits"][0]["id"] == "semantic-1"
     assert recall["ranked_semantic_hits"][0]["match_sources"] == ["name_match"]
     assert recall["summary"] == "episodes:1, ranked_episodes:1, semantic_hits:1, ranked_semantic_hits:1"
+    assert recall["decision_count"] == 0
 
     semantic_preview = store.preview_consolidation(semantic_episode_id)
     assert semantic_preview["promotion_type"] == "semantic"

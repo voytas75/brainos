@@ -10,6 +10,8 @@ from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any, Iterator
 
+from .decision_checks import decision_conflict_check
+from .decisions import validate_decision_payload
 from .embedding import DEFAULT_EMBEDDING_PROFILE, LiteLLMEmbeddingAdapter
 from .errors import (
     BrainOSError,
@@ -253,6 +255,77 @@ class BrainOSStore:
                 if len(semantic_hits) >= limit:
                     break
         return semantic_hits
+
+    @staticmethod
+    def _decision_retrieval_projection(decision: dict[str, Any]) -> str:
+        parts: list[str] = []
+        if decision.get("question"):
+            parts.append(str(decision["question"]))
+        if decision.get("recommended_option_id"):
+            parts.append(f"recommended option {decision['recommended_option_id']}")
+        for option in decision.get("options", []):
+            if option.get("option_id"):
+                parts.append(f"option {option['option_id']}")
+            if option.get("label"):
+                parts.append(str(option["label"]))
+            if option.get("summary"):
+                parts.append(str(option["summary"]))
+        for field in (
+            "arguments",
+            "counterarguments",
+            "risks",
+            "missing_information",
+            "uncertainty_notes",
+        ):
+            for item in decision.get(field, []):
+                if isinstance(item, dict):
+                    for key in ("text", "kind", "option_id"):
+                        value = item.get(key)
+                        if isinstance(value, str) and value.strip():
+                            parts.append(value.strip())
+                elif isinstance(item, str) and item.strip():
+                    parts.append(item.strip())
+        metadata = decision.get("metadata") or {}
+        for key in ("entity_id", "source_case"):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                parts.append(value.strip())
+        return "\n".join(parts)
+
+    def search_decisions_text(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]:
+        query_tokens = RetrievalService.tokenize_for_overlap(query)
+        query_lower = query.lower()
+        rows = self.conn.execute(
+            """
+            SELECT decision_id, question, status, recommended_option_id, operator_call_required,
+                   options_json, arguments_json, counterarguments_json, risks_json,
+                   missing_information_json, uncertainty_notes_json, review_after,
+                   metadata_json, created_at, updated_at
+            FROM decisions
+            ORDER BY updated_at DESC, rowid DESC
+            """
+        ).fetchall()
+        ranked: list[tuple[float, dict[str, Any]]] = []
+        for row in rows:
+            item = self._decode_decision_row(row)
+            projection = self._decision_retrieval_projection(item)
+            projection_lower = projection.lower()
+            projection_tokens = RetrievalService.tokenize_for_overlap(projection)
+            token_overlap = query_tokens & projection_tokens
+            score = float(len(token_overlap))
+            if query_lower in projection_lower:
+                score += 5.0
+            if item.get("question") and query_lower in str(item["question"]).lower():
+                score += 2.0
+            if score <= 0:
+                continue
+            enriched = dict(item)
+            enriched["match_score"] = score
+            enriched["match_terms"] = sorted(token_overlap)
+            enriched["retrieval_projection"] = projection
+            ranked.append((score, enriched))
+        ranked.sort(key=lambda pair: (pair[0], pair[1].get("updated_at", "")), reverse=True)
+        return [item for _, item in ranked[:limit]]
 
     def sqlite_vec_readiness(self) -> dict[str, Any]:
         return sqlite_vec_readiness(self.conn)
@@ -719,6 +792,184 @@ class BrainOSStore:
             "errors": errors,
             "results": results,
         }
+
+    @staticmethod
+    def _decode_decision_row(row: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
+        item = dict(row)
+        item["operator_call_required"] = bool(item["operator_call_required"])
+        for field in (
+            "options_json",
+            "arguments_json",
+            "counterarguments_json",
+            "risks_json",
+            "missing_information_json",
+            "uncertainty_notes_json",
+            "metadata_json",
+        ):
+            value = item.pop(field)
+            item[field.removesuffix("_json")] = json.loads(value)
+        return item
+
+    def log_decision(
+        self,
+        *,
+        question: str,
+        status: str,
+        options: list[dict[str, Any]],
+        arguments: list[Any],
+        counterarguments: list[Any],
+        risks: list[Any],
+        missing_information: list[Any],
+        uncertainty_notes: list[Any],
+        metadata: dict[str, Any] | None = None,
+        recommended_option_id: str | None = None,
+        operator_call_required: bool = True,
+        review_after: str | None = None,
+        decision_id: str | None = None,
+        causal_event_id: str | None = None,
+    ) -> dict[str, Any]:
+        metadata = metadata or {}
+        decision_id = decision_id or str(uuid.uuid4())
+        normalized = validate_decision_payload(
+            question=question,
+            status=status,
+            options=options,
+            arguments=arguments,
+            counterarguments=counterarguments,
+            risks=risks,
+            missing_information=missing_information,
+            uncertainty_notes=uncertainty_notes,
+            metadata=metadata,
+            recommended_option_id=recommended_option_id,
+            operator_call_required=operator_call_required,
+        )
+        existed = self.get_decision(decision_id) is not None
+        with self.transaction():
+            self.conn.execute(
+                """
+                INSERT INTO decisions(
+                    decision_id, question, status, recommended_option_id, operator_call_required,
+                    options_json, arguments_json, counterarguments_json, risks_json,
+                    missing_information_json, uncertainty_notes_json, review_after,
+                    metadata_json, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(decision_id) DO UPDATE SET
+                    question=excluded.question,
+                    status=excluded.status,
+                    recommended_option_id=excluded.recommended_option_id,
+                    operator_call_required=excluded.operator_call_required,
+                    options_json=excluded.options_json,
+                    arguments_json=excluded.arguments_json,
+                    counterarguments_json=excluded.counterarguments_json,
+                    risks_json=excluded.risks_json,
+                    missing_information_json=excluded.missing_information_json,
+                    uncertainty_notes_json=excluded.uncertainty_notes_json,
+                    review_after=excluded.review_after,
+                    metadata_json=excluded.metadata_json,
+                    updated_at=CURRENT_TIMESTAMP
+                """,
+                (
+                    decision_id,
+                    normalized["question"],
+                    normalized["status"],
+                    normalized["recommended_option_id"],
+                    1 if normalized["operator_call_required"] else 0,
+                    json.dumps(normalized["options"], ensure_ascii=False),
+                    json.dumps(normalized["arguments"], ensure_ascii=False),
+                    json.dumps(normalized["counterarguments"], ensure_ascii=False),
+                    json.dumps(normalized["risks"], ensure_ascii=False),
+                    json.dumps(normalized["missing_information"], ensure_ascii=False),
+                    json.dumps(normalized["uncertainty_notes"], ensure_ascii=False),
+                    review_after,
+                    json.dumps(normalized["metadata"], ensure_ascii=False),
+                ),
+            )
+            self._append_ledger(
+                layer="decision",
+                action="UPDATE" if existed else "CREATE",
+                payload={
+                    "decision_id": decision_id,
+                    "question": normalized["question"],
+                    "status": normalized["status"],
+                    "recommended_option_id": normalized["recommended_option_id"],
+                    "operator_call_required": normalized["operator_call_required"],
+                    "options": normalized["options"],
+                    "arguments": normalized["arguments"],
+                    "counterarguments": normalized["counterarguments"],
+                    "risks": normalized["risks"],
+                    "missing_information": normalized["missing_information"],
+                    "uncertainty_notes": normalized["uncertainty_notes"],
+                    "review_after": review_after,
+                    "metadata": normalized["metadata"],
+                },
+                causal_event_id=causal_event_id,
+            )
+        decision = self.get_decision(decision_id)
+        if decision is None:
+            raise NotFoundError(f"decision not found after write: {decision_id}")
+        return decision
+
+    def get_decision(self, decision_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            SELECT decision_id, question, status, recommended_option_id, operator_call_required,
+                   options_json, arguments_json, counterarguments_json, risks_json,
+                   missing_information_json, uncertainty_notes_json, review_after,
+                   metadata_json, created_at, updated_at
+            FROM decisions
+            WHERE decision_id = ?
+            """,
+            (decision_id,),
+        ).fetchone()
+        return None if row is None else self._decode_decision_row(row)
+
+    def list_decisions(self, *, limit: int = 50, status: str | None = None) -> list[dict[str, Any]]:
+        if status is not None:
+            rows = self.conn.execute(
+                """
+                SELECT decision_id, question, status, recommended_option_id, operator_call_required,
+                       options_json, arguments_json, counterarguments_json, risks_json,
+                       missing_information_json, uncertainty_notes_json, review_after,
+                       metadata_json, created_at, updated_at
+                FROM decisions
+                WHERE status = ?
+                ORDER BY updated_at DESC, rowid DESC
+                LIMIT ?
+                """,
+                (status, limit),
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """
+                SELECT decision_id, question, status, recommended_option_id, operator_call_required,
+                       options_json, arguments_json, counterarguments_json, risks_json,
+                       missing_information_json, uncertainty_notes_json, review_after,
+                       metadata_json, created_at, updated_at
+                FROM decisions
+                ORDER BY updated_at DESC, rowid DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        result = []
+        for row in rows:
+            item = self._decode_decision_row(row)
+            result.append(
+                {
+                    "decision_id": item["decision_id"],
+                    "question": item["question"],
+                    "status": item["status"],
+                    "recommended_option_id": item["recommended_option_id"],
+                    "operator_call_required": item["operator_call_required"],
+                    "metadata": item["metadata"],
+                    "options": item["options"],
+                    "review_after": item["review_after"],
+                    "created_at": item["created_at"],
+                    "updated_at": item["updated_at"],
+                }
+            )
+        return result
 
     def set_working_memory(self, key: str, value: dict[str, Any], *, causal_event_id: str | None = None) -> str:
         payload_json = json.dumps(value, ensure_ascii=False)
@@ -1236,6 +1487,143 @@ class BrainOSStore:
             "SELECT event_id, timestamp, layer, action, payload, causal_event_id, previous_hash, crypto_hash FROM ledger ORDER BY timestamp, rowid"
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def ledger_events_for_object(self, *, layer: str, object_id_field: str, object_id: str) -> list[dict[str, Any]]:
+        events = []
+        for entry in self.list_ledger():
+            if entry.get("layer") != layer:
+                continue
+            payload = json.loads(entry["payload"])
+            if payload.get(object_id_field) != object_id:
+                continue
+            enriched = dict(entry)
+            enriched["payload"] = payload
+            events.append(enriched)
+        return events
+
+    @staticmethod
+    def _decision_history_changed_fields(current: dict[str, Any], previous: dict[str, Any]) -> list[str]:
+        changed = []
+        for field in (
+            "question",
+            "status",
+            "recommended_option_id",
+            "operator_call_required",
+            "options",
+            "arguments",
+            "counterarguments",
+            "risks",
+            "missing_information",
+            "uncertainty_notes",
+            "review_after",
+            "metadata",
+        ):
+            if current.get(field) != previous.get(field):
+                changed.append(field)
+        return changed
+
+    def decision_history(self, decision_id: str) -> dict[str, Any]:
+        current = self.get_decision(decision_id)
+        if current is None:
+            raise NotFoundError(f"decision not found: {decision_id}")
+
+        events = self.ledger_events_for_object(
+            layer="decision",
+            object_id_field="decision_id",
+            object_id=decision_id,
+        )
+        revisions = []
+        snapshots = []
+        for event in events:
+            payload = event["payload"]
+            snapshot = {
+                "decision_id": payload.get("decision_id"),
+                "question": payload.get("question"),
+                "status": payload.get("status"),
+                "recommended_option_id": payload.get("recommended_option_id"),
+                "operator_call_required": payload.get("operator_call_required"),
+                "options": payload.get("options", []),
+                "arguments": payload.get("arguments", []),
+                "counterarguments": payload.get("counterarguments", []),
+                "risks": payload.get("risks", []),
+                "missing_information": payload.get("missing_information", []),
+                "uncertainty_notes": payload.get("uncertainty_notes", []),
+                "review_after": payload.get("review_after"),
+                "metadata": payload.get("metadata", {}),
+            }
+            snapshots.append(snapshot)
+            revisions.append(
+                {
+                    "event_id": event["event_id"],
+                    "timestamp": event["timestamp"],
+                    "action": event["action"],
+                    "status": snapshot["status"],
+                    "recommended_option_id": snapshot["recommended_option_id"],
+                }
+            )
+
+        previous = snapshots[-2] if len(snapshots) >= 2 else None
+        changed_fields = [] if previous is None else self._decision_history_changed_fields(current, previous)
+
+        return {
+            "decision_id": decision_id,
+            "current": current,
+            "previous": previous,
+            "changed_fields": changed_fields,
+            "revision_count": len(revisions),
+            "revisions": revisions,
+        }
+
+    def inspect_object(self, object_type: str, object_id: str) -> dict[str, Any]:
+        if object_type == "decision":
+            decision = self.get_decision(object_id)
+            if decision is None:
+                raise NotFoundError(f"decision not found: {object_id}")
+            return {
+                "object_type": "decision",
+                "object_id": object_id,
+                "record": decision,
+                "related_ledger_events": self.ledger_events_for_object(
+                    layer="decision",
+                    object_id_field="decision_id",
+                    object_id=object_id,
+                ),
+                "related_refs": {
+                    "metadata": decision.get("metadata", {}),
+                    "recommended_option_id": decision.get("recommended_option_id"),
+                    "review_after": decision.get("review_after"),
+                },
+            }
+
+        if object_type == "episode":
+            episode = self.get_episode(object_id)
+            if episode is None:
+                raise NotFoundError(f"episode not found: {object_id}")
+            return {
+                "object_type": "episode",
+                "object_id": object_id,
+                "record": episode,
+                "related_ledger_events": self.ledger_events_for_object(
+                    layer="episodic",
+                    object_id_field="id",
+                    object_id=object_id,
+                ),
+                "related_refs": {
+                    "promotion": episode.get("promotion"),
+                    "vector_state": episode.get("vector_state"),
+                },
+            }
+
+        raise ValidationError("object_type must be one of: decision, episode")
+
+    def decision_check(self, decision_id: str) -> dict[str, Any]:
+        current = self.get_decision(decision_id)
+        if current is None:
+            raise NotFoundError(f"decision not found: {decision_id}")
+        others = self.list_decisions(limit=1000)
+        result = decision_conflict_check(current, others)
+        result["checked_at"] = self._now_iso()
+        return result
 
     def verify_ledger(self) -> dict[str, Any]:
         entries = self.list_ledger()

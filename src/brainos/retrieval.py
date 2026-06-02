@@ -16,6 +16,7 @@ class RetrievalBackend(Protocol):
     ) -> list[dict[str, Any]]: ...
     def semantic_name_hits(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]: ...
     def vector_search_semantic_nodes(self, query_vector: list[float], *, limit: int = 10) -> list[dict[str, Any]]: ...
+    def search_decisions_text(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]: ...
 
 
 class RetrievalService:
@@ -205,6 +206,7 @@ class RetrievalService:
         semantic_hits: list[dict[str, Any]],
         vector_semantic_hits: list[dict[str, Any]],
         ranked_semantic_hits: list[dict[str, Any]],
+        decisions: list[dict[str, Any]],
     ) -> str:
         summary_parts = []
         if episodes:
@@ -219,6 +221,8 @@ class RetrievalService:
             summary_parts.append(f"vector_semantic_hits:{len(vector_semantic_hits)}")
         if ranked_semantic_hits:
             summary_parts.append(f"ranked_semantic_hits:{len(ranked_semantic_hits)}")
+        if decisions:
+            summary_parts.append(f"decisions:{len(decisions)}")
         return ", ".join(summary_parts) if summary_parts else "no_hits"
 
     def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
@@ -271,6 +275,7 @@ class RetrievalService:
             query_tokens=query_tokens,
             limit=limit,
         )
+        decisions = self.backend.search_decisions_text(query, limit=limit)
 
         return {
             "query": query,
@@ -281,13 +286,15 @@ class RetrievalService:
             "semantic_hits": semantic_hits,
             "vector_semantic_hits": vector_semantic_hits,
             "ranked_semantic_hits": ranked_semantic_hits,
+            "decisions": decisions,
             "count": len(episodes),
             "vector_count": len(vector_episodes),
             "ranked_count": len(ranked_episodes),
             "semantic_count": len(semantic_hits),
             "vector_semantic_count": len(vector_semantic_hits),
             "ranked_semantic_count": len(ranked_semantic_hits),
-            "mode": "fts_plus_vector_episode_similarity_plus_semantic_name_match",
+            "decision_count": len(decisions),
+            "mode": "fts_plus_vector_episode_similarity_plus_semantic_name_match_plus_decision_text",
             "scoring_policy_version": self.scoring_policy.version,
             "vector_mode": vector_mode,
             "vector_error": vector_error,
@@ -302,5 +309,6 @@ class RetrievalService:
                 semantic_hits=semantic_hits,
                 vector_semantic_hits=vector_semantic_hits,
                 ranked_semantic_hits=ranked_semantic_hits,
+                decisions=decisions,
             ),
         }

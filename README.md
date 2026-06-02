@@ -14,6 +14,8 @@ Current implementation provides:
 - full-text search over episodes with FTS5
 - semantic memory as nodes and edges
 - procedural memory as JSON-defined procedures
+- first-class decision-support objects for operator-facing decision briefs
+- decision recall / explain / inspect / conflict-check / history surfaces
 - consolidation preview and explicit promotion from episodes into semantic/procedural layers
 - promotion state tracking and duplicate-promotion protection
 - vector metadata lifecycle for native optional embedding support
@@ -44,14 +46,15 @@ Implemented now:
 - `semantic_nodes`
 - `semantic_edges`
 - `procedures`
+- `decisions`
 - `ledger`
 - Python API
 - CLI
 - tests and smoke checks
 
 Not implemented yet:
-- vector storage/runtime integration beyond capability detection
-- hybrid retrieval orchestration (`FTS + vector + graph`)
+- vector storage/runtime integration beyond the current bounded capability/runtime path
+- full hybrid retrieval platform coverage beyond the current bounded recall/explain/ranking slices
 - full cognitive execution loop from the PDF
 - schema migrations beyond current hardening baseline
 - HTTP API
@@ -109,7 +112,21 @@ Use cases:
 - reusable agent routines
 - DAG-like step definitions
 
-### 5. Provenance / ledger
+### 5. Decision support
+Operator-facing decision briefs stored as first-class records.
+
+Table:
+- `decisions`
+
+Use cases:
+- decision questions
+- candidate options
+- recommendation + uncertainty
+- supporting and counter arguments
+- risks and missing information
+- conflict checking and provenance inspection
+
+### 6. Provenance / ledger
 Every meaningful write creates an auditable event.
 
 Table:
@@ -228,25 +245,66 @@ uv run brainos --db ./brain.db semantic-edge-upsert n1 n2 RELATES_TO --weight 1.
 uv run brainos --db ./brain.db procedure-create bootstrap '[{"step":"init-db"},{"step":"load-state"}]' --description 'Initialize BrainOS'
 ```
 
-### 13. Check schema status
+### 13. Log a decision-support brief
+
+```bash
+uv run brainos --db ./brain.db decision-log \
+  'Which next slice should we choose?' \
+  --decision-id dec-1 \
+  --recommended-option-id A \
+  --options-json '[{"option_id":"A","label":"Fix retrieval credibility first"},{"option_id":"B","label":"Build dashboard first"}]' \
+  --arguments-json '[{"option_id":"A","kind":"support","text":"Direct trust impact"}]'
+```
+
+### 14. List decision-support briefs
+
+```bash
+uv run brainos --db ./brain.db decision-list
+```
+
+### 15. Get one decision-support brief
+
+```bash
+uv run brainos --db ./brain.db decision-get dec-1
+```
+
+### 16. Check one decision for caution/conflict signals
+
+```bash
+uv run brainos --db ./brain.db decision-check dec-1
+```
+
+### 17. Inspect one object with provenance drill-down
+
+```bash
+uv run brainos --db ./brain.db inspect decision dec-1
+```
+
+### 18. Show decision revision/history view
+
+```bash
+uv run brainos --db ./brain.db decision-history dec-1
+```
+
+### 19. Check schema status
 
 ```bash
 uv run brainos --db ./brain.db schema-status
 ```
 
-### 14. Check runtime capabilities
+### 20. Check runtime capabilities
 
 ```bash
 uv run brainos --db ./brain.db capabilities
 ```
 
-### 15. Verify ledger integrity
+### 21. Verify ledger integrity
 
 ```bash
 uv run brainos --db ./brain.db ledger-verify
 ```
 
-### 16. Inspect ledger
+### 22. Inspect ledger
 
 ```bash
 uv run brainos --db ./brain.db ledger
@@ -262,6 +320,12 @@ Commands:
 - `embedding-readiness`
 - `sqlite-vec-readiness`
 - `capabilities`
+- `decision-log`
+- `decision-list`
+- `decision-get`
+- `decision-check`
+- `decision-history`
+- `inspect`
 
 ### What to expect
 

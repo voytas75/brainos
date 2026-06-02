@@ -5,7 +5,7 @@ from typing import Any
 
 from .sqlite_vec import ENV_SQLITE_VEC_PATH, configured_sqlite_vec_path, load_sqlite_vec_extension
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA_SQL = """
 PRAGMA journal_mode=WAL;
@@ -55,6 +55,24 @@ CREATE TABLE IF NOT EXISTS procedures (
     is_active INTEGER DEFAULT 1
 );
 
+CREATE TABLE IF NOT EXISTS decisions (
+    decision_id TEXT PRIMARY KEY,
+    question TEXT NOT NULL,
+    status TEXT NOT NULL,
+    recommended_option_id TEXT,
+    operator_call_required INTEGER NOT NULL DEFAULT 1,
+    options_json TEXT NOT NULL CHECK(json_valid(options_json)),
+    arguments_json TEXT NOT NULL CHECK(json_valid(arguments_json)),
+    counterarguments_json TEXT NOT NULL CHECK(json_valid(counterarguments_json)),
+    risks_json TEXT NOT NULL CHECK(json_valid(risks_json)),
+    missing_information_json TEXT NOT NULL CHECK(json_valid(missing_information_json)),
+    uncertainty_notes_json TEXT NOT NULL CHECK(json_valid(uncertainty_notes_json)),
+    review_after TEXT,
+    metadata_json TEXT NOT NULL CHECK(json_valid(metadata_json)),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS ledger (
     event_id TEXT PRIMARY KEY,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -94,6 +112,7 @@ CREATE TABLE IF NOT EXISTS vector_index_state (
 );
 
 CREATE INDEX IF NOT EXISTS idx_episodes_session ON episodes(session_id);
+CREATE INDEX IF NOT EXISTS idx_decisions_status ON decisions(status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON semantic_edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON ledger(timestamp);
 CREATE INDEX IF NOT EXISTS idx_episode_promotions_target ON episode_promotions(target_layer, target_id);
@@ -198,6 +217,31 @@ def run_migrations(conn: sqlite3.Connection, current_version: int) -> int:
             """
         )
         version = 3
+
+    if version < 4:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS decisions (
+                decision_id TEXT PRIMARY KEY,
+                question TEXT NOT NULL,
+                status TEXT NOT NULL,
+                recommended_option_id TEXT,
+                operator_call_required INTEGER NOT NULL DEFAULT 1,
+                options_json TEXT NOT NULL CHECK(json_valid(options_json)),
+                arguments_json TEXT NOT NULL CHECK(json_valid(arguments_json)),
+                counterarguments_json TEXT NOT NULL CHECK(json_valid(counterarguments_json)),
+                risks_json TEXT NOT NULL CHECK(json_valid(risks_json)),
+                missing_information_json TEXT NOT NULL CHECK(json_valid(missing_information_json)),
+                uncertainty_notes_json TEXT NOT NULL CHECK(json_valid(uncertainty_notes_json)),
+                review_after TEXT,
+                metadata_json TEXT NOT NULL CHECK(json_valid(metadata_json)),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_decisions_status ON decisions(status, updated_at);
+            """
+        )
+        version = 4
 
     return version
 

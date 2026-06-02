@@ -90,6 +90,38 @@ def build_parser() -> argparse.ArgumentParser:
     p_proc_get = sub.add_parser("procedure-get", help="Get procedure")
     p_proc_get.add_argument("procedure_id")
 
+    p_decision_log = sub.add_parser("decision-log", help="Create or update decision-support object")
+    p_decision_log.add_argument("question")
+    p_decision_log.add_argument("--decision-id")
+    p_decision_log.add_argument("--status", default="draft")
+    p_decision_log.add_argument("--recommended-option-id")
+    p_decision_log.add_argument("--operator-call-required", default="true")
+    p_decision_log.add_argument("--options-json", required=True)
+    p_decision_log.add_argument("--arguments-json", default="[]")
+    p_decision_log.add_argument("--counterarguments-json", default="[]")
+    p_decision_log.add_argument("--risks-json", default="[]")
+    p_decision_log.add_argument("--missing-information-json", default="[]")
+    p_decision_log.add_argument("--uncertainty-notes-json", default="[]")
+    p_decision_log.add_argument("--metadata-json", default="{}")
+    p_decision_log.add_argument("--review-after")
+
+    p_decision_list = sub.add_parser("decision-list", help="List decision-support objects")
+    p_decision_list.add_argument("--status")
+    p_decision_list.add_argument("--limit", type=int, default=50)
+
+    p_decision_get = sub.add_parser("decision-get", help="Get decision-support object")
+    p_decision_get.add_argument("decision_id")
+
+    p_inspect = sub.add_parser("inspect", help="Inspect one stored object with related provenance")
+    p_inspect.add_argument("object_type", choices=["decision", "episode"])
+    p_inspect.add_argument("object_id")
+
+    p_decision_check = sub.add_parser("decision-check", help="Check one decision for caution/conflict signals")
+    p_decision_check.add_argument("decision_id")
+
+    p_decision_history = sub.add_parser("decision-history", help="Show decision revision/history view")
+    p_decision_history.add_argument("decision_id")
+
     p_schema_status = sub.add_parser("schema-status", help="Show schema version status")
     p_capabilities = sub.add_parser("capabilities", help="Show runtime capabilities")
     p_vec_ready = sub.add_parser("sqlite-vec-readiness", help="Run sqlite-vec loader and readiness check")
@@ -138,6 +170,15 @@ def _sqlite_vec_error_payload(exc: SqliteVecReadinessError) -> dict[str, object]
             "readiness_probe_failed": "retry_or_runtime_fix",
         }.get(exc.error_kind, "inspect_error"),
     }
+
+
+def _parse_bool_arg(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise BrainOSError("operator-call-required must be a boolean-like value")
 
 
 def main() -> None:
@@ -234,6 +275,42 @@ def main() -> None:
             if procedure is None:
                 raise BrainOSError(f"procedure not found: {args.procedure_id}")
             print(json.dumps(procedure, ensure_ascii=False, indent=2))
+        elif args.command == "decision-log":
+            store.initialize()
+            decision = store.log_decision(
+                decision_id=args.decision_id,
+                question=args.question,
+                status=args.status,
+                recommended_option_id=args.recommended_option_id,
+                operator_call_required=_parse_bool_arg(args.operator_call_required),
+                options=json.loads(args.options_json),
+                arguments=json.loads(args.arguments_json),
+                counterarguments=json.loads(args.counterarguments_json),
+                risks=json.loads(args.risks_json),
+                missing_information=json.loads(args.missing_information_json),
+                uncertainty_notes=json.loads(args.uncertainty_notes_json),
+                metadata=json.loads(args.metadata_json),
+                review_after=args.review_after,
+            )
+            print(json.dumps(decision, ensure_ascii=False, indent=2))
+        elif args.command == "decision-list":
+            store.initialize()
+            print(json.dumps(store.list_decisions(status=args.status, limit=args.limit), ensure_ascii=False, indent=2))
+        elif args.command == "decision-get":
+            store.initialize()
+            decision = store.get_decision(args.decision_id)
+            if decision is None:
+                raise BrainOSError(f"decision not found: {args.decision_id}")
+            print(json.dumps(decision, ensure_ascii=False, indent=2))
+        elif args.command == "inspect":
+            store.initialize()
+            print(json.dumps(store.inspect_object(args.object_type, args.object_id), ensure_ascii=False, indent=2))
+        elif args.command == "decision-check":
+            store.initialize()
+            print(json.dumps(store.decision_check(args.decision_id), ensure_ascii=False, indent=2))
+        elif args.command == "decision-history":
+            store.initialize()
+            print(json.dumps(store.decision_history(args.decision_id), ensure_ascii=False, indent=2))
         elif args.command == "schema-status":
             store.initialize()
             print(json.dumps(store.schema_status(), ensure_ascii=False, indent=2))
