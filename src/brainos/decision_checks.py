@@ -6,6 +6,7 @@ from .retrieval import RetrievalService
 
 
 _ACTIVE_STATUSES = {"draft", "active"}
+_GENERIC_OPTION_IDS = {chr(code) for code in range(ord("A"), ord("Z") + 1)}
 
 
 def _tokenize(text: str) -> set[str]:
@@ -44,6 +45,16 @@ def _active_enough(status: Any) -> bool:
     return status in _ACTIVE_STATUSES
 
 
+def _meaningful_shared_option_ids(shared_option_ids: list[str]) -> list[str]:
+    meaningful: list[str] = []
+    for option_id in shared_option_ids:
+        normalized = option_id.strip()
+        if normalized.upper() in _GENERIC_OPTION_IDS:
+            continue
+        meaningful.append(option_id)
+    return meaningful
+
+
 def decision_conflict_check(
     current: dict[str, Any],
     others: list[dict[str, Any]],
@@ -64,12 +75,17 @@ def decision_conflict_check(
         other_option_ids = _option_ids(other)
         same_entity = current_entity_id is not None and other_entity_id is not None and current_entity_id == other_entity_id
         active_pair = _active_enough(current_status) and _active_enough(other.get("status"))
-        different_recommendation = (
-            current.get("recommended_option_id")
-            and other.get("recommended_option_id")
-            and current.get("recommended_option_id") != other.get("recommended_option_id")
-        )
         shared_option_ids = sorted(current_option_ids & other_option_ids)
+        meaningful_shared_option_ids = _meaningful_shared_option_ids(shared_option_ids)
+        current_recommendation = current.get("recommended_option_id")
+        other_recommendation = other.get("recommended_option_id")
+        comparable_recommendations = (
+            current_recommendation in current_option_ids
+            and other_recommendation in other_option_ids
+            and current_recommendation in shared_option_ids
+            and other_recommendation in shared_option_ids
+        )
+        different_recommendation = comparable_recommendations and current_recommendation != other_recommendation
         question_overlap = _question_overlap_tokens(current, other)
         option_overlap = _option_overlap_tokens(current, other)
 
@@ -84,7 +100,7 @@ def decision_conflict_check(
         if same_entity and different_recommendation:
             strong_signals.append("different_recommendations")
 
-        if same_entity and shared_option_ids:
+        if same_entity and meaningful_shared_option_ids:
             medium_signals.append("option_id_overlap")
         if same_entity and current.get("review_after") and other.get("review_after"):
             if current.get("review_after") == other.get("review_after"):
@@ -98,9 +114,7 @@ def decision_conflict_check(
         severity = "clear"
         if {"shared_entity_id", "active_pair", "different_recommendations"}.issubset(set(strong_signals)):
             severity = "conflict"
-        elif same_entity and (medium_signals or weak_signals):
-            severity = "caution"
-        elif same_entity:
+        elif same_entity and active_pair and medium_signals:
             severity = "caution"
 
         if severity == "clear":
@@ -119,6 +133,7 @@ def decision_conflict_check(
                 "question_overlap_tokens": question_overlap,
                 "option_overlap_tokens": option_overlap,
                 "shared_option_ids": shared_option_ids,
+                "meaningful_shared_option_ids": meaningful_shared_option_ids,
                 "recommended_option_id": other.get("recommended_option_id"),
                 "entity_id": other_entity_id,
             }

@@ -94,15 +94,15 @@ def test_decision_check_conflict_for_shared_entity_and_different_recommendation(
     assert "different_recommendations" in finding["strong_signals"]
 
 
-def test_decision_check_caution_for_same_scope_and_option_overlap(tmp_path):
+def test_decision_check_caution_for_same_scope_and_meaningful_option_overlap(tmp_path):
     log_decision(
         tmp_path,
         "dec-1",
         "Should we stabilize retrieval credibility before polishing the dashboard?",
-        "A",
+        "retrieval_first",
         [
-            {"option_id": "A", "label": "Fix retrieval credibility first"},
-            {"option_id": "B", "label": "Polish dashboard first"},
+            {"option_id": "retrieval_first", "label": "Fix retrieval credibility first"},
+            {"option_id": "ui_first", "label": "Polish dashboard first"},
         ],
         metadata={"entity_id": "brainos"},
         status="active",
@@ -111,10 +111,10 @@ def test_decision_check_caution_for_same_scope_and_option_overlap(tmp_path):
         tmp_path,
         "dec-2",
         "Should we revisit the retrieval roadmap before UI work?",
-        "A",
+        "retrieval_first",
         [
-            {"option_id": "A", "label": "Fix retrieval ranking first"},
-            {"option_id": "C", "label": "Pause UI work"},
+            {"option_id": "retrieval_first", "label": "Fix retrieval ranking first"},
+            {"option_id": "pause_ui", "label": "Pause UI work"},
         ],
         metadata={"entity_id": "brainos"},
         status="active",
@@ -129,6 +129,40 @@ def test_decision_check_caution_for_same_scope_and_option_overlap(tmp_path):
     assert finding["severity"] == "caution"
     assert "shared_entity_id" in finding["strong_signals"]
     assert "option_id_overlap" in finding["medium_signals"]
+    assert finding["meaningful_shared_option_ids"] == ["retrieval_first"]
+
+
+def test_decision_check_clear_for_same_scope_without_divergence_or_medium_signals(tmp_path):
+    log_decision(
+        tmp_path,
+        "dec-1",
+        "Should BrainOS prioritize retrieval credibility?",
+        "A",
+        [
+            {"option_id": "A", "label": "Improve retrieval credibility"},
+            {"option_id": "B", "label": "Delay UI polish"},
+        ],
+        metadata={"entity_id": "brainos"},
+        status="active",
+    )
+    log_decision(
+        tmp_path,
+        "dec-2",
+        "Should BrainOS improve operator documentation?",
+        "C",
+        [
+            {"option_id": "C", "label": "Improve operator docs"},
+            {"option_id": "D", "label": "Postpone template cleanup"},
+        ],
+        metadata={"entity_id": "brainos"},
+        status="active",
+    )
+
+    result = run_cli(tmp_path, "decision-check", "dec-1")
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "clear"
+    assert payload["finding_count"] == 0
 
 
 def test_decision_check_ignores_weak_lexical_overlap_without_shared_scope(tmp_path):
@@ -154,6 +188,73 @@ def test_decision_check_ignores_weak_lexical_overlap_without_shared_scope(tmp_pa
     payload = json.loads(result.stdout)
     assert payload["verdict"] == "clear"
     assert payload["finding_count"] == 0
+
+
+def test_decision_check_ignores_weak_lexical_overlap_with_shared_scope(tmp_path):
+    log_decision(
+        tmp_path,
+        "dec-1",
+        "What should we do next this week for BrainOS?",
+        "A",
+        [
+            {"option_id": "A", "label": "Fix retrieval credibility first"},
+            {"option_id": "B", "label": "Delay dashboard polish"},
+        ],
+        metadata={"entity_id": "brainos"},
+        status="active",
+    )
+    log_decision(
+        tmp_path,
+        "dec-2",
+        "What should we choose next this week for BrainOS?",
+        "C",
+        [
+            {"option_id": "C", "label": "Document operator workflow first"},
+            {"option_id": "D", "label": "Pause analytics cleanup"},
+        ],
+        metadata={"entity_id": "brainos"},
+        status="active",
+    )
+
+    result = run_cli(tmp_path, "decision-check", "dec-1")
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "clear"
+    assert payload["finding_count"] == 0
+
+
+def test_decision_check_ignores_generic_option_id_overlap_for_caution(tmp_path):
+    log_decision(
+        tmp_path,
+        "dec-1",
+        "What should we do next this week for BrainOS?",
+        "A",
+        [
+            {"option_id": "A", "label": "Fix retrieval credibility first"},
+            {"option_id": "B", "label": "Delay dashboard polish"},
+        ],
+        metadata={"entity_id": "brainos"},
+        status="active",
+    )
+    log_decision(
+        tmp_path,
+        "dec-2",
+        "What should we choose next this week for BrainOS?",
+        "A",
+        [
+            {"option_id": "A", "label": "Document operator workflow first"},
+            {"option_id": "C", "label": "Pause analytics cleanup"},
+        ],
+        metadata={"entity_id": "brainos"},
+        status="active",
+    )
+
+    result = run_cli(tmp_path, "decision-check", "dec-1")
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "clear"
+    assert payload["finding_count"] == 0
+
 
 
 def test_decision_check_uses_review_after_as_medium_signal_with_shared_scope(tmp_path):

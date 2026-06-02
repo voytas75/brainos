@@ -19,9 +19,12 @@ Reason:
 - especially around `caution` calibration and the usefulness of medium signals.
 
 What to look for:
+- whether `different_recommendations` is only treated as structured divergence when the decisions share a comparable option space,
+- whether bare shared scope is opening `caution` before there is enough structured evidence,
 - false `caution` cases
 - missing `caution`/`conflict` cases
 - whether `review_after` meaningfully helps
+- whether medium signals like `option_id_overlap` are actually helping after the caution gate is tightened
 - whether signal buckets remain interpretable
 
 ### 2. decision-history readability improvements
