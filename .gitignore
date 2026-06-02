@@ -7,3 +7,11 @@ __pycache__/
 .env
 .env.*
 brain.db
+
+# Local test/runtime artifacts
+.hermes-local/
+artifacts/
+brain_e2e.db*
+
+# Generated local decision-test reports
+/docs/brainos-decision-test-*.md
