@@ -7,6 +7,7 @@ from typing import Any
 
 from .benchmark import run_retrieval_benchmark
 from .embedding import LiteLLMEmbeddingAdapter
+from .embedding_config import resolve_embedding_config
 from .errors import SqliteVecReadinessError
 from .sqlite_vec import configured_sqlite_vec_path
 from .store import BrainOSStore
@@ -53,33 +54,42 @@ def _is_valid_azure_api_version(value: str) -> bool:
 
 
 def _embedding_config_health() -> dict[str, Any]:
-    contract = LiteLLMEmbeddingAdapter().contract()
-    missing: list[str] = []
+    import os
+
     invalid: list[str] = []
-    present: list[str] = []
-    values: dict[str, str] = {}
+    try:
+        contract = resolve_embedding_config()
+        missing: list[str] = []
+        present = list(contract.get("present_env", []))
+    except Exception:
+        base_model = os.getenv("BRAINOS_EMBEDDING_MODEL", "").strip()
+        provider = base_model.split("/", 1)[0].lower() if "/" in base_model else "unknown"
+        required_env = ["BRAINOS_EMBEDDING_MODEL"]
+        if provider == "azure":
+            required_env += ["AZURE_API_BASE", "AZURE_API_KEY", "AZURE_API_VERSION"]
+        elif provider == "openai":
+            required_env += ["OPENAI_API_KEY"]
+        contract = {
+            "profile": LiteLLMEmbeddingAdapter().profile,
+            "provider_path": "litellm",
+            "operational_provider": provider,
+            "required_env": required_env,
+        }
+        present = [name for name in required_env if os.getenv(name, "").strip()]
+        missing = [name for name in required_env if not os.getenv(name, "").strip()]
 
-    for name in contract["required_env"]:
-        import os
-
-        value = os.getenv(name, "").strip()
-        if not value:
-            missing.append(name)
-            continue
-        present.append(name)
-        values[name] = value
-
-    api_base = values.get("AZURE_API_BASE")
-    if api_base and not api_base.startswith(("https://", "http://")):
-        invalid.append("AZURE_API_BASE")
-
-    api_version = values.get("AZURE_API_VERSION")
-    if api_version and not _is_valid_azure_api_version(api_version):
-        invalid.append("AZURE_API_VERSION")
-
+    values = {name: os.getenv(name, "").strip() for name in contract["required_env"]}
     model = values.get("BRAINOS_EMBEDDING_MODEL")
     if model and "/" not in model:
         invalid.append("BRAINOS_EMBEDDING_MODEL")
+
+    if contract.get("operational_provider") == "azure":
+        api_base = values.get("AZURE_API_BASE")
+        if api_base and not api_base.startswith(("https://", "http://")):
+            invalid.append("AZURE_API_BASE")
+        api_version = values.get("AZURE_API_VERSION")
+        if api_version and not _is_valid_azure_api_version(api_version):
+            invalid.append("AZURE_API_VERSION")
 
     status = "ok" if not missing and not invalid else "warn"
     issues = [f"missing:{name}" for name in missing] + [f"invalid:{name}" for name in invalid]

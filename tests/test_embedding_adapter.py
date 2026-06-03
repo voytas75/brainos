@@ -2,15 +2,30 @@ import os
 import sqlite3
 from pathlib import Path
 
-from brainos.embedding import (
+from brainos.embedding import LiteLLMEmbeddingAdapter
+from brainos.embedding_config import (
     ENV_AZURE_API_BASE,
     ENV_AZURE_API_KEY,
     ENV_AZURE_API_VERSION,
     ENV_EMBEDDING_MODEL,
-    LiteLLMEmbeddingAdapter,
+    ENV_OPENAI_API_KEY,
 )
 from brainos.errors import EmbeddingProviderNotConfiguredError, VectorIndexContractError
 from brainos.store import BrainOSStore
+
+
+class _DummyEmbeddingResponse:
+    def __init__(self, vectors):
+        self.data = [{"embedding": v} for v in vectors]
+
+
+class _CaptureLiteLLM:
+    last_kwargs = None
+
+    @staticmethod
+    def embedding(**kwargs):
+        _CaptureLiteLLM.last_kwargs = kwargs
+        return _DummyEmbeddingResponse([[0.1, 0.2, 0.3]])
 
 
 def test_embedding_contract_exposes_required_env():
@@ -18,15 +33,12 @@ def test_embedding_contract_exposes_required_env():
     contract = adapter.contract()
     assert contract["profile"] == "brainos-embedding-default"
     assert contract["provider_path"] == "litellm"
-    assert contract["operational_provider"] == "azure"
-    assert ENV_EMBEDDING_MODEL in contract["required_env"]
-    assert ENV_AZURE_API_BASE in contract["required_env"]
-    assert ENV_AZURE_API_KEY in contract["required_env"]
-    assert ENV_AZURE_API_VERSION in contract["required_env"]
+    assert contract["operational_provider"] == "unknown"
+    assert contract["required_env"] == [ENV_EMBEDDING_MODEL]
 
 
 def test_embedding_adapter_requires_env(monkeypatch):
-    for name in [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION]:
+    for name in [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION, ENV_OPENAI_API_KEY]:
         monkeypatch.delenv(name, raising=False)
 
     adapter = LiteLLMEmbeddingAdapter()
@@ -35,6 +47,24 @@ def test_embedding_adapter_requires_env(monkeypatch):
         assert False, "expected EmbeddingProviderNotConfiguredError"
     except EmbeddingProviderNotConfiguredError as exc:
         assert "missing embedding environment variables" in str(exc)
+
+
+def test_embedding_adapter_openai_path_uses_openai_key_without_azure_env(monkeypatch):
+    for name in [ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION]:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(ENV_EMBEDDING_MODEL, "openai/text-embedding-3-small")
+    monkeypatch.setenv(ENV_OPENAI_API_KEY, "openai-key")
+    monkeypatch.setitem(__import__("sys").modules, "litellm", _CaptureLiteLLM)
+
+    adapter = LiteLLMEmbeddingAdapter()
+    result = adapter.embed_texts(["hello"])
+
+    assert result["provider"] == "openai"
+    assert result["model"] == "openai/text-embedding-3-small"
+    assert _CaptureLiteLLM.last_kwargs["model"] == "openai/text-embedding-3-small"
+    assert _CaptureLiteLLM.last_kwargs["api_key"] == "openai-key"
+    assert "api_base" not in _CaptureLiteLLM.last_kwargs
+    assert "api_version" not in _CaptureLiteLLM.last_kwargs
 
 
 def create_v3_database(path: Path) -> None:
@@ -119,7 +149,7 @@ def test_generate_episode_embedding_records_error_state(monkeypatch, tmp_path):
     store.initialize()
     episode_id = store.add_episode(session_id="s1", content="Needs embedding", metadata={})
 
-    for name in [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION]:
+    for name in [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION, ENV_OPENAI_API_KEY]:
         monkeypatch.delenv(name, raising=False)
 
     try:

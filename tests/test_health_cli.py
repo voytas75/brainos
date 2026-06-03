@@ -37,6 +37,15 @@ def _test_env() -> dict[str, str]:
     }
 
 
+def _test_env_openai() -> dict[str, str]:
+    return {
+        **_clean_cli_env(),
+        "PATH": os.environ.get("PATH", ""),
+        "BRAINOS_EMBEDDING_MODEL": "openai/text-embedding-3-small",
+        "OPENAI_API_KEY": "test-openai-key",
+    }
+
+
 def _extract_json(stdout: str) -> dict:
     start = stdout.find("{")
     if start == -1:
@@ -186,6 +195,7 @@ def test_retrieval_health_cli_surfaces_runtime_prereq_details(tmp_path):
         "AZURE_API_KEY",
         "AZURE_API_VERSION",
     ]
+    assert embedding["contract"]["operational_provider"] == "azure"
     assert "missing_env" in embedding
     assert "invalid_env" in embedding
     sqlite_vec = payload["runtime"]["sqlite_vec_env"]
@@ -198,3 +208,20 @@ def test_retrieval_health_cli_surfaces_runtime_prereq_details(tmp_path):
     db_runtime = payload["runtime"]["database_runtime"]
     assert db_runtime["expected_journal_mode"] == "wal"
     assert db_runtime["journal_mode"] == "wal"
+
+
+def test_retrieval_health_cli_openai_path_reports_openai_contract(tmp_path):
+    db = tmp_path / "brain.db"
+    proc = subprocess.run(
+        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=_test_env_openai(),
+    )
+    payload = _extract_json(proc.stdout)
+    embedding = payload["runtime"]["embedding_config"]
+    assert embedding["contract"]["operational_provider"] == "openai"
+    assert embedding["required_env"] == ["BRAINOS_EMBEDDING_MODEL", "OPENAI_API_KEY"]
+    assert embedding["missing_env"] == []
+    assert embedding["invalid_env"] == []

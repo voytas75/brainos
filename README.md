@@ -569,20 +569,25 @@ What is still not implemented:
 - `sqlite-vec` retrieval integration
 
 
-## Azure embedding provider configuration
+## LiteLLM embedding provider configuration
 
 BrainOS uses LiteLLM as the execution adapter for embeddings.
-Current operational target: Azure embeddings.
+Current default/tested operational target: Azure embeddings.
 
-Required environment variables:
-- `BRAINOS_EMBEDDING_MODEL` - model/deployment name passed to LiteLLM
-- `AZURE_API_BASE` - Azure OpenAI endpoint base URL
-- `AZURE_API_KEY` - Azure API key
-- `AZURE_API_VERSION` - Azure API version for embeddings
+Primary BrainOS config entry:
+- `BRAINOS_EMBEDDING_MODEL` - provider-prefixed model/deployment name passed to LiteLLM
 
-Preferred project-local setup:
-- copy `.env.example` to `.env`
-- fill in real local values in `.env`
+Provider is resolved from the model prefix, for example:
+- `azure/<your-embedding-deployment>`
+- `openai/text-embedding-3-small`
+
+### Azure compatibility path
+
+Required environment variables for Azure:
+- `BRAINOS_EMBEDDING_MODEL`
+- `AZURE_API_BASE`
+- `AZURE_API_KEY`
+- `AZURE_API_VERSION`
 
 Example `.env`:
 
@@ -593,11 +598,25 @@ AZURE_API_KEY="..."
 AZURE_API_VERSION="2024-10-21"
 ```
 
+### OpenAI path
+
+Required environment variables for OpenAI:
+- `BRAINOS_EMBEDDING_MODEL`
+- `OPENAI_API_KEY`
+
+Example `.env`:
+
+```dotenv
+BRAINOS_EMBEDDING_MODEL="openai/text-embedding-3-small"
+OPENAI_API_KEY="..."
+```
+
 Shell env still overrides `.env` when you need a temporary test override.
 
 Notes:
-- BrainOS keeps provider specifics out of domain logic.
-- `brainos-embedding-default` is the logical profile currently resolved through LiteLLM + Azure env config.
+- BrainOS keeps provider specifics out of store/domain logic.
+- `brainos-embedding-default` is the logical profile resolved through LiteLLM.
+- Azure env names remain supported as the current backward-compatible path.
 - If `sqlite-vec` is unavailable, embedding execution may still succeed but vector storage is marked `disabled`.
 
 
