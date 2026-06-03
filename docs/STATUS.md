@@ -16,8 +16,11 @@
 - recall/explain now surface stored decision briefs in bounded form.
 - inspect/provenance drill-down now supports `decision` and `episode` objects.
 - decision conflict checking now exists as a structured-signal-first `decision-check` surface with `clear` / `caution` / `conflict` outcomes.
+- the latest bounded `decision-check` closeout is complete: structural conflict correction plus generic `option_id_overlap` calibration are documented and ready for real-data validation pressure.
+- the first bounded real-data rerun after the comparability-gate fix passed: the previous false-`conflict` cluster now returns `clear`, so the current posture is bounded real usage with observation rather than immediate retuning.
 - decision revision/history inspection now exists through `decision-history` with `current`, `previous`, `changed_fields`, and revision timeline output.
-- decision recall quality improved through a canonical decision retrieval projection and bounded natural-query regression coverage.
+- decision recall quality improved through a canonical decision retrieval projection, bounded natural-query regression coverage, and a validated continuity/current-direction ranking fix for decision recall.
+- repeated bounded real-usage runs now support treating the continuity/current-direction slice as operationally stable for normal usage, pending only new friction evidence.
 - current verified operator state on local `brain.db`: vector freshness `fresh:30`, retrieval benchmark `5/5`, retrieval-health `status: ok`.
 
 ## Scope
@@ -48,7 +51,11 @@ Deterministic regression fixtures for unified retrieval quality, plus the first 
 - Review closeout note: `docs/decision-support-v1-review.md`.
 - Usage review note: `docs/decision-support-v1-usage-review.md`.
 - Decision-check v2 direction brief: `docs/decision-check-v2-structured-signal-brief.md`.
+- Decision-check v2 closeout note: `docs/decision-check-v2-closeout-2026-06-03.md`.
+- Bounded real-data rerun note: `docs/brainos-realdata-bounded-rerun-2026-06-03-140404.md`.
 - Decision recall quality brief: `docs/decision-recall-quality-slice-v1-brief.md`.
+- Continuity-ranking friction note (closed/fixed): `docs/friction/2026-06-03-recall-continuity-ranking-weakness.md`.
+- Real-usage validation reports: `docs/brainos-real-usage-20260603-194037.md`, `docs/brainos-real-usage-20260603-194509.md`, `docs/brainos-real-usage-20260603-195948.md`.
 
 ## gate_reason
 Expanded eval fixture baseline must stay green before scoring changes are trusted.

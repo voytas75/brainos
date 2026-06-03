@@ -12,20 +12,26 @@ After the current usage/review block, only a small set of follow-up items should
 Those items should be driven by observed friction and credibility needs, not by product breadth.
 
 ## Return-to-queue order
-### 1. decision-check calibration from real usage
+### 1. continue bounded real usage and collect friction notes
 Reason:
-- `decision-check` is in a healthier direction after v2 slice 1,
-- but it still needs validation pressure from real cases,
-- especially around `caution` calibration and the usefulness of medium signals.
+- the key real-data false-`conflict` blocker was removed in the rerun,
+- the continuity/current-direction recall slice has now also held up across repeated bounded real-usage runs,
+- the next uncertainty is now broader real-case coverage rather than immediate checker redesign,
+- the right next pressure is more usage, not another speculative tuning pass.
 
 What to look for:
-- whether `different_recommendations` is only treated as structured divergence when the decisions share a comparable option space,
-- whether bare shared scope is opening `caution` before there is enough structured evidence,
-- false `caution` cases
-- missing `caution`/`conflict` cases
-- whether `review_after` meaningfully helps
-- whether medium signals like `option_id_overlap` are actually helping after the caution gate is tightened
-- whether signal buckets remain interpretable
+- missed true `caution`/`conflict` cases,
+- repeated false `caution` cases,
+- whether `review_after` meaningfully helps,
+- whether medium signals still add value after the comparability-gate fix,
+- whether signal buckets remain interpretable under more than one workstream.
+
+References:
+- `docs/decision-check-v2-closeout-2026-06-03.md`
+- `docs/brainos-realdata-bounded-rerun-2026-06-03-140404.md`
+- `docs/brainos-real-usage-20260603-194037.md`
+- `docs/brainos-real-usage-20260603-194509.md`
+- `docs/brainos-real-usage-20260603-195948.md`
 
 ### 2. decision-history readability improvements
 Reason:
@@ -41,12 +47,14 @@ Candidate improvements:
 ### 3. retrieval credibility maintenance
 Reason:
 - retrieval credibility is still more important than new breadth,
+- the bounded continuity/current-direction ranking weakness is now fixed and validated,
 - persistent eval set and runtime/health alignment now exist and should stay protected.
 
 What to guard:
 - persistent eval set as ranking SSOT
 - health-plane separation
 - sqlite-vec green path integrity
+- continuity/current-direction decision recall behavior after future scoring changes
 
 ### 4. only then consider broader operational objects
 Reason:
@@ -66,8 +74,8 @@ Do not pull these forward unless real usage clearly forces them:
 - aggressive semantic conflict engines
 
 ## Bottom line
-After usage, the queue should reopen in this order:
-1. improve the precision and trust of what already exists,
+After the rerun plus repeated bounded real-usage validation, the queue should reopen in this order:
+1. continue bounded real usage and collect friction notes,
 2. improve readability of decision history,
 3. protect retrieval credibility,
 4. only then widen the operational model.

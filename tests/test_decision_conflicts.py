@@ -60,10 +60,10 @@ def test_decision_check_conflict_for_shared_entity_and_different_recommendation(
         tmp_path,
         "dec-a",
         "Should we improve retrieval credibility before UI work?",
-        "A",
+        "retrieval_first",
         [
-            {"option_id": "A", "label": "Fix retrieval credibility first"},
-            {"option_id": "B", "label": "Build dashboard first"},
+            {"option_id": "retrieval_first", "label": "Fix retrieval credibility first"},
+            {"option_id": "dashboard_first", "label": "Build dashboard first"},
         ],
         metadata={"entity_id": "brainos"},
         status="active",
@@ -72,10 +72,10 @@ def test_decision_check_conflict_for_shared_entity_and_different_recommendation(
         tmp_path,
         "dec-b",
         "Should we improve retrieval credibility before UI work this week?",
-        "B",
+        "dashboard_first",
         [
-            {"option_id": "A", "label": "Fix retrieval credibility first"},
-            {"option_id": "B", "label": "Build dashboard first"},
+            {"option_id": "retrieval_first", "label": "Fix retrieval credibility first"},
+            {"option_id": "dashboard_first", "label": "Build dashboard first"},
         ],
         metadata={"entity_id": "brainos"},
         status="active",
@@ -92,6 +92,40 @@ def test_decision_check_conflict_for_shared_entity_and_different_recommendation(
     assert "shared_entity_id" in finding["strong_signals"]
     assert "active_pair" in finding["strong_signals"]
     assert "different_recommendations" in finding["strong_signals"]
+    assert finding["meaningful_shared_option_ids"] == ["dashboard_first", "retrieval_first"]
+
+
+def test_decision_check_clear_for_different_recommendations_with_only_generic_shared_option_ids(tmp_path):
+    log_decision(
+        tmp_path,
+        "dec-1",
+        "Should we close the documentation task now?",
+        "A",
+        [
+            {"option_id": "A", "label": "Close the documentation task"},
+            {"option_id": "B", "label": "Keep the task open for another pass"},
+        ],
+        metadata={"entity_id": "brainos/decision-check"},
+        status="active",
+    )
+    log_decision(
+        tmp_path,
+        "dec-2",
+        "Should we run the real-data validation task now?",
+        "B",
+        [
+            {"option_id": "A", "label": "Run the real-data validation task now"},
+            {"option_id": "B", "label": "Do not run the validation task yet"},
+        ],
+        metadata={"entity_id": "brainos/decision-check"},
+        status="active",
+    )
+
+    result = run_cli(tmp_path, "decision-check", "dec-1")
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["verdict"] == "clear"
+    assert payload["finding_count"] == 0
 
 
 def test_decision_check_caution_for_same_scope_and_meaningful_option_overlap(tmp_path):

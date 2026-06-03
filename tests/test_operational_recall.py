@@ -2,6 +2,60 @@ from brainos.store import BrainOSStore
 from brainos.explain import explain_recall
 
 
+def seed_decision_continuity_store(store: BrainOSStore) -> None:
+    store.log_decision(
+        decision_id="dec-fix-first",
+        question="What was the first safe step after the false conflict in decision-check?",
+        status="closed",
+        recommended_option_id="A",
+        options=[
+            {"option_id": "A", "label": "Close docs / closeout first"},
+        ],
+        arguments=[
+            {"option_id": "A", "kind": "support", "text": "The safe immediate move is to close the docs / closeout first."},
+        ],
+        counterarguments=[],
+        risks=[],
+        missing_information=[],
+        uncertainty_notes=[],
+        metadata={"entity_id": "brainos", "source_case": "continuity-chain"},
+    )
+    store.log_decision(
+        decision_id="dec-rerun",
+        question="Which bounded follow-up should happen once the docs closeout is done?",
+        status="closed",
+        recommended_option_id="A",
+        options=[
+            {"option_id": "A", "label": "Rerun bounded real-data usage test"},
+        ],
+        arguments=[
+            {"option_id": "A", "kind": "support", "text": "This is the next bounded step after the closeout."},
+        ],
+        counterarguments=[],
+        risks=[],
+        missing_information=[],
+        uncertainty_notes=[],
+        metadata={"entity_id": "brainos", "source_case": "continuity-chain"},
+    )
+    store.log_decision(
+        decision_id="dec-current-direction",
+        question="Should BrainOS continue bounded real usage with observation?",
+        status="active",
+        recommended_option_id="A",
+        options=[
+            {"option_id": "A", "label": "Continue bounded real usage with observation"},
+        ],
+        arguments=[
+            {"option_id": "A", "kind": "support", "text": "Trust has recovered enough to continue the bounded observation loop."},
+        ],
+        counterarguments=[],
+        risks=[],
+        missing_information=[],
+        uncertainty_notes=[],
+        metadata={"entity_id": "brainos", "source_case": "continuity-chain"},
+    )
+
+
 def test_recall_surfaces_decision_objects(tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
@@ -111,4 +165,49 @@ def test_decision_recall_handles_naturalish_backlog_paraphrase(tmp_path):
 
     explain_risk = explain_recall(store, "autonomous decision behavior generated briefs", limit=5)
     assert explain_risk["top_decisions"][0]["decision_id"] == "dec-backlog"
+    store.close()
+
+
+def test_decision_recall_preserves_earlier_step_query_order(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    seed_decision_continuity_store(store)
+
+    recall = store.recall("What was the first safe step after the false conflict in decision-check?", limit=5)
+    assert recall["decisions"][0]["decision_id"] == "dec-fix-first"
+
+    explain = explain_recall(store, "What was the first safe step after the false conflict in decision-check?", limit=5)
+    assert explain["top_decisions"][0]["decision_id"] == "dec-fix-first"
+    store.close()
+
+
+def test_decision_recall_prefers_next_step_after_closeout(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    seed_decision_continuity_store(store)
+
+    query = "After we finished the BrainOS decision-check closeout, what was the next bounded step?"
+    recall = store.recall(query, limit=5)
+    assert recall["decisions"][0]["decision_id"] == "dec-rerun"
+
+    explain = explain_recall(store, query, limit=5)
+    assert explain["top_decisions"][0]["decision_id"] == "dec-rerun"
+    store.close()
+
+
+def test_decision_recall_prefers_current_direction_for_keep_doing_queries(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+    seed_decision_continuity_store(store)
+
+    keep_doing_query = "What should we keep doing now that the rerun passed?"
+    recall_keep_doing = store.recall(keep_doing_query, limit=5)
+    assert recall_keep_doing["decisions"][0]["decision_id"] == "dec-current-direction"
+
+    current_direction_query = "Which decision captured the current BrainOS direction after trust was restored?"
+    explain = explain_recall(store, current_direction_query, limit=5)
+    assert explain["top_decisions"][0]["decision_id"] == "dec-current-direction"
     store.close()

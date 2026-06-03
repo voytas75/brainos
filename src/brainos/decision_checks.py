@@ -80,10 +80,8 @@ def decision_conflict_check(
         current_recommendation = current.get("recommended_option_id")
         other_recommendation = other.get("recommended_option_id")
         comparable_recommendations = (
-            current_recommendation in current_option_ids
-            and other_recommendation in other_option_ids
-            and current_recommendation in shared_option_ids
-            and other_recommendation in shared_option_ids
+            current_recommendation in meaningful_shared_option_ids
+            and other_recommendation in meaningful_shared_option_ids
         )
         different_recommendation = comparable_recommendations and current_recommendation != other_recommendation
         question_overlap = _question_overlap_tokens(current, other)

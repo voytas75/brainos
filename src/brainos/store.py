@@ -26,6 +26,59 @@ from .retrieval import RetrievalService
 from .schema import detect_capabilities, get_schema_status, get_vec_table_sql, initialize_schema
 from .sqlite_vec import sqlite_vec_readiness
 
+DECISION_RETRIEVAL_STOPWORDS = frozenset(
+    {
+        "what",
+        "which",
+        "should",
+        "would",
+        "could",
+        "into",
+        "from",
+        "this",
+        "that",
+        "with",
+        "have",
+        "will",
+        "been",
+        "were",
+        "when",
+        "then",
+        "them",
+        "they",
+        "their",
+        "there",
+        "than",
+        "afterwards",
+        "once",
+        "while",
+        "brainos",
+        "decision",
+        "does",
+        "did",
+        "the",
+        "and",
+        "for",
+        "was",
+    }
+)
+DECISION_QUERY_ALIASES: dict[str, tuple[str, ...]] = {
+    "keep": ("continue", "ongoing"),
+    "doing": ("continue", "ongoing"),
+    "now": ("current", "active", "ongoing"),
+    "current": ("active", "continue", "ongoing"),
+    "direction": ("continue", "ongoing"),
+    "passed": ("successful", "success", "continue"),
+    "restored": ("recovered", "recovery", "current"),
+    "recovery": ("recovered", "restored"),
+    "trust": ("current", "continue"),
+}
+DECISION_EARLIER_STEP_QUERY_CUES = frozenset({"first", "initial", "earliest", "original", "before"})
+DECISION_CURRENT_DIRECTION_QUERY_CUES = frozenset({"current", "now", "keep", "direction", "restored", "recovered", "passed", "successful"})
+DECISION_NEXT_STEP_QUERY_CUES = frozenset({"next", "after", "followup", "following"})
+DECISION_CURRENT_DIRECTION_DECISION_CUES = frozenset({"continue", "current", "active", "ongoing", "observation", "successful", "restored", "recovered"})
+DECISION_NEXT_STEP_DECISION_CUES = frozenset({"next", "after", "followup", "following", "rerun"})
+
 
 class BrainOSStore:
     DEFAULT_EMBEDDING_PROFILE = DEFAULT_EMBEDDING_PROFILE
@@ -292,8 +345,33 @@ class BrainOSStore:
                 parts.append(value.strip())
         return "\n".join(parts)
 
+    @staticmethod
+    def _decision_retrieval_tokens(text: str) -> set[str]:
+        return {
+            token for token in RetrievalService.tokenize_for_overlap(text) if token not in DECISION_RETRIEVAL_STOPWORDS
+        }
+
+    @staticmethod
+    def _decision_query_tokens(query: str) -> tuple[set[str], set[str]]:
+        base_tokens = BrainOSStore._decision_retrieval_tokens(query)
+        expanded_tokens = set(base_tokens)
+        for token in tuple(base_tokens):
+            expanded_tokens.update(DECISION_QUERY_ALIASES.get(token, ()))
+        return base_tokens, expanded_tokens
+
+    @staticmethod
+    def _decision_query_intent(query_tokens: set[str]) -> str:
+        if query_tokens & DECISION_EARLIER_STEP_QUERY_CUES:
+            return "earlier_step"
+        if query_tokens & DECISION_CURRENT_DIRECTION_QUERY_CUES:
+            return "current_direction"
+        if query_tokens & DECISION_NEXT_STEP_QUERY_CUES:
+            return "next_step"
+        return "default"
+
     def search_decisions_text(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]:
-        query_tokens = RetrievalService.tokenize_for_overlap(query)
+        query_tokens, expanded_query_tokens = self._decision_query_tokens(query)
+        query_intent = self._decision_query_intent(query_tokens)
         query_lower = query.lower()
         rows = self.conn.execute(
             """
@@ -310,13 +388,47 @@ class BrainOSStore:
             item = self._decode_decision_row(row)
             projection = self._decision_retrieval_projection(item)
             projection_lower = projection.lower()
-            projection_tokens = RetrievalService.tokenize_for_overlap(projection)
-            token_overlap = query_tokens & projection_tokens
+            projection_tokens = self._decision_retrieval_tokens(projection)
+            question_lower = str(item.get("question") or "").lower()
+            token_overlap = expanded_query_tokens & projection_tokens
             score = float(len(token_overlap))
             if query_lower in projection_lower:
                 score += 5.0
-            if item.get("question") and query_lower in str(item["question"]).lower():
+            if item.get("question") and query_lower in question_lower:
                 score += 2.0
+            if query_intent == "current_direction":
+                current_overlap = len(DECISION_CURRENT_DIRECTION_DECISION_CUES & projection_tokens)
+                if current_overlap > 0:
+                    score += min(float(current_overlap), 3.0) * 1.75
+                if item.get("status") == "active":
+                    score += 2.0
+                if any(phrase in question_lower for phrase in (
+                    "current direction",
+                    "obecny kierunek",
+                    "keep doing",
+                    "kontynuować",
+                    "continue bounded",
+                    "current brainos direction",
+                )):
+                    score += 3.0
+                if "rerun" in expanded_query_tokens and (
+                    "continue" in projection_tokens or "observation" in projection_tokens or "ongoing" in projection_tokens
+                ):
+                    score += 2.0
+                if {"keep", "doing"} & query_tokens and (
+                    "continue" in projection_tokens or "ongoing" in projection_tokens
+                ):
+                    score += 2.0
+                if {"trust", "restored", "recovered"} & expanded_query_tokens and (
+                    "current" in projection_tokens or "continue" in projection_tokens or "active" in projection_tokens
+                ):
+                    score += 2.0
+            elif query_intent == "next_step":
+                next_overlap = len(DECISION_NEXT_STEP_DECISION_CUES & projection_tokens)
+                if next_overlap > 0:
+                    score += min(float(next_overlap), 2.0) * 1.5
+                if any(phrase in question_lower for phrase in ("next step", "następny krok", "po domknięciu", "after the", "follow-up")):
+                    score += 1.5
             if score <= 0:
                 continue
             enriched = dict(item)
