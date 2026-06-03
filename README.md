@@ -580,6 +580,35 @@ Primary BrainOS config entry:
 Provider is resolved from the model prefix, for example:
 - `azure/<your-embedding-deployment>`
 - `openai/text-embedding-3-small`
+- `ollama/nomic-embed-text`
+- `bedrock/<provider-specific-model>`
+- `vertex_ai/<provider-specific-model>`
+
+### Embedding provider matrix
+
+| Provider path | Model example | Required env | Optional env | Current posture | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Azure OpenAI | `azure/<deployment>` | `BRAINOS_EMBEDDING_MODEL`, `AZURE_API_BASE`, `AZURE_API_KEY`, `AZURE_API_VERSION` | `BRAINOS_EMBEDDING_PROVIDER` | tested + backward-compatible | Current default/tested path. Uses Azure compatibility env aliases. |
+| OpenAI | `openai/text-embedding-3-small` | `BRAINOS_EMBEDDING_MODEL`, `OPENAI_API_KEY` | `BRAINOS_EMBEDDING_PROVIDER`, `BRAINOS_EMBEDDING_API_BASE`, `BRAINOS_EMBEDDING_API_VERSION` | tested | Best simple non-Azure path today. |
+| Ollama | `ollama/nomic-embed-text` | `BRAINOS_EMBEDDING_MODEL` | `BRAINOS_EMBEDDING_PROVIDER`, `BRAINOS_EMBEDDING_API_BASE` | documented, not yet verified here | Usually pair with local Ollama endpoint, often `http://localhost:11434`. |
+| OpenAI-compatible endpoint | `openai/<model-name>` | `BRAINOS_EMBEDDING_MODEL` | `BRAINOS_EMBEDDING_API_BASE`, `BRAINOS_EMBEDDING_API_KEY`, `BRAINOS_EMBEDDING_API_VERSION` | best-effort/custom | Use when the backend speaks OpenAI-style embeddings but is not OpenAI itself. |
+| Other LiteLLM provider prefix | `bedrock/...`, `vertex_ai/...`, `gemini/...`, etc. | `BRAINOS_EMBEDDING_MODEL` | provider-specific env and/or generic `BRAINOS_EMBEDDING_*` env | experimental posture | BrainOS passes through the provider-prefixed model and validates only the currently implemented provider families explicitly. |
+
+### Public BrainOS contract
+
+Preferred BrainOS-facing config surface:
+- `BRAINOS_EMBEDDING_MODEL`
+- `BRAINOS_EMBEDDING_PROVIDER` (optional override)
+- `BRAINOS_EMBEDDING_API_BASE` (optional generic endpoint)
+- `BRAINOS_EMBEDDING_API_KEY` (optional generic key)
+- `BRAINOS_EMBEDDING_API_VERSION` (optional, only where relevant)
+- `BRAINOS_EMBEDDING_HEADERS_JSON` (reserved advanced surface)
+
+Compatibility aliases currently preserved:
+- `AZURE_API_BASE`
+- `AZURE_API_KEY`
+- `AZURE_API_VERSION`
+- `OPENAI_API_KEY`
 
 ### Azure compatibility path
 
@@ -594,7 +623,7 @@ Example `.env`:
 ```dotenv
 BRAINOS_EMBEDDING_MODEL="azure/<your-embedding-deployment>"
 AZURE_API_BASE="https://<your-resource>.openai.azure.com"
-AZURE_API_KEY="..."
+AZURE_API_KEY="***"
 AZURE_API_VERSION="2024-10-21"
 ```
 
@@ -608,7 +637,26 @@ Example `.env`:
 
 ```dotenv
 BRAINOS_EMBEDDING_MODEL="openai/text-embedding-3-small"
-OPENAI_API_KEY="..."
+OPENAI_API_KEY="***"
+```
+
+### Ollama path
+
+Minimal local example:
+
+```dotenv
+BRAINOS_EMBEDDING_MODEL="ollama/nomic-embed-text"
+BRAINOS_EMBEDDING_API_BASE="http://localhost:11434"
+```
+
+### OpenAI-compatible endpoint path
+
+Example for a custom endpoint exposing OpenAI-style embeddings:
+
+```dotenv
+BRAINOS_EMBEDDING_MODEL="openai/<your-model-name>"
+BRAINOS_EMBEDDING_API_BASE="https://<your-endpoint>/v1"
+BRAINOS_EMBEDDING_API_KEY="***"
 ```
 
 Shell env still overrides `.env` when you need a temporary test override.
@@ -617,8 +665,9 @@ Notes:
 - BrainOS keeps provider specifics out of store/domain logic.
 - `brainos-embedding-default` is the logical profile resolved through LiteLLM.
 - Azure env names remain supported as the current backward-compatible path.
+- Current explicit health/readiness validation is strongest for Azure and OpenAI.
+- Other provider prefixes are intended to pass through LiteLLM, but should be treated as best-effort until explicitly verified in this repo.
 - If `sqlite-vec` is unavailable, embedding execution may still succeed but vector storage is marked `disabled`.
-
 
 ## sqlite-vec runtime configuration
 
