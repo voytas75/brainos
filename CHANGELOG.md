@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added retrieval smoke coverage via `scripts/retrieval_smoke.sh` and supporting documentation in `docs/retrieval-green-path-smoke-test.md`.
 - Added tests for ingest normalization, retrieval runtime posture, explain evidence clarity, explain signal alignment, typed ingest operational flow, and decision reachability.
 - Added project notes documenting the bounded retrieval/ingest hardening series and related real-usage observations.
+- Added a post-update regression report in `docs/post-aiohttp-update-regression-check-2026-06-05.md` covering smoke, bounded usage flow, and short real-usage validation after the `aiohttp` security update.
 
 ### Changed
 - Changed episode persistence in `src/brainos/store.py` so new episodes are normalized on write.
