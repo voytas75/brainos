@@ -19,3 +19,4 @@ brain_e2e.db*
 # Local-only archived notes and working docs
 /local-docs/
 /docs/_archive_working/
+/.local/

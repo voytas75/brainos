@@ -153,8 +153,9 @@ Current plan:
 3. maintain one small persistent eval set as the ranking SSOT,
 4. treat further brain/decision-surface expansion as secondary until retrieval credibility is calmer.
 
-Current persistent eval-set SSOT:
-- `docs/persistent-retrieval-eval-set-v1.md`
+Current persistent eval-set implementation anchor:
+- `tests/test_retrieval_eval.py`
+- [`docs/evidence-map.md`](./evidence-map.md)
 
 This plan is intentionally conservative.
 It favors trustworthiness of the retrieval layer over broader product breadth.

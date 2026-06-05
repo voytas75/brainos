@@ -2,7 +2,7 @@
 
 BrainOS is a SQLite-first cognitive memory core for LLM agents.
 
-It gives an agent a local, auditable, multi-layer memory system in a single SQLite file: working memory, episodic memory, semantic memory, procedural memory, decision support, and provenance.
+It gives an agent a local, auditable, multi-layer memory system in a single SQLite file: working memory, episodic memory, semantic memory, procedural memory, decision support, provenance, and bounded retrieval diagnostics.
 
 In practice, BrainOS helps you keep agent memory local, inspectable, and portable without standing up a multi-service memory stack.
 
@@ -44,7 +44,7 @@ Good fit:
 BrainOS is not:
 - a full agent runtime
 - a hosted memory platform
-- a finished hybrid retrieval stack
+- a broad retrieval-science platform
 - a workflow engine for autonomous execution
 
 ## Current status
@@ -60,16 +60,18 @@ BrainOS is not:
 - procedural memory (`procedures`)
 - decision support objects (`decisions`)
 - immutable provenance ledger (`ledger`)
+- bounded retrieval/runtime surfaces (`recall`, `retrieval-explain`, `retrieval-health`, `retrieval-benchmark`, `real-corpus-probe`)
+- vector maintenance and readiness surfaces (`vector-index-*`, `capabilities`, `sqlite-vec-readiness`, `embedding-readiness`, `doctor`)
 - Python API
 - CLI
 - tests and smoke checks
 
 ### Not implemented yet
 
-- full hybrid retrieval platform beyond the current bounded recall/explain/ranking slices
+- broad retrieval guarantees beyond the current bounded recall/explain/ranking slices
 - full cognitive execution loop from the source PDF
 - broad migration framework beyond the current hardening baseline
-- HTTP API
+- HTTP/MCP/server APIs
 
 ## Quick start
 
@@ -79,27 +81,32 @@ BrainOS is not:
 uv sync --extra dev
 ```
 
-### 2. Initialize a database
+### 2. Optional local environment
+
+Core storage flows work without a `.env` file.
+If you want retrieval/vector diagnostics that depend on embeddings or `sqlite-vec`, provide local env configuration first.
+
+### 3. Initialize a database
 
 ```bash
 uv run brainos --db ./brain.db init
 ```
 
-### 3. Write and read working memory
+### 4. Write and read working memory
 
 ```bash
 uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
 uv run brainos --db ./brain.db wm-get agent_state
 ```
 
-### 4. Add and search an episode
+### 5. Add and search an episode
 
 ```bash
 uv run brainos --db ./brain.db episode-add session-1 'Agent initialized successfully' --metadata-json '{"source":"manual"}'
 uv run brainos --db ./brain.db episode-search Agent --limit 5
 ```
 
-### 5. Run a minimal test
+### 6. Run a minimal test
 
 ```bash
 uv run pytest tests/test_brainos.py -q
@@ -194,6 +201,32 @@ uv run brainos --db ./brain.db episode-search BrainOS --limit 5
 uv run brainos --db ./brain.db ledger
 ```
 
+## 10-minute evaluation path
+
+If you want one honest repo-local walkthrough, run:
+
+```bash
+./scripts/canonical_e2e_demo.sh
+```
+
+If your shell cannot run the script directly, use:
+
+```bash
+bash ./scripts/canonical_e2e_demo.sh
+```
+
+This produces `./artifacts/canonical-e2e/summary.json` and classifies the result as `PASS`, `DEGRADED`, or `FAIL`.
+
+- `PASS` means the local core path is working and the bounded retrieval/runtime surfaces are green on this machine.
+- `DEGRADED` means the core path worked, but vector-ready evidence was skipped or unavailable in the current environment.
+- `FAIL` means a core storage, retrieval, promotion, or ledger check broke.
+
+If you already have embedding and `sqlite-vec` env configured and want stronger vector-ready evidence, run:
+
+```bash
+BRAINOS_CANONICAL_E2E_ENABLE_VECTOR_SYNC=1 ./scripts/canonical_e2e_demo.sh
+```
+
 ## Design notes
 
 The source BrainOS PDF describes a larger target architecture, but the available excerpt is incomplete in important places, especially around execution flow and `sqlite-vec` operational details.
@@ -208,20 +241,20 @@ One explicit implementation decision:
 
 Use the docs this way:
 - start with `README.md` for project overview and quick start
+- read [`docs/canonical-e2e-demo.md`](docs/canonical-e2e-demo.md) for the fastest honest repo walkthrough
+- read [`docs/evidence-map.md`](docs/evidence-map.md) for what is proven vs only bounded evidence
 - read [`docs/api.md`](docs/api.md) for exact Python API and CLI reference
 - read [`docs/implementation-notes.md`](docs/implementation-notes.md) for design tradeoffs and spec-gap notes
 - read [`docs/README-DEV.md`](docs/README-DEV.md) for runtime, operator, and development details
-- read [`docs/STATUS.md`](docs/STATUS.md) for the current retrieval/runtime slice status
+- read [`docs/STATUS.md`](docs/STATUS.md) for the concise current project status
 - read [`docs/retrieval-contract-v1.md`](docs/retrieval-contract-v1.md) and [`docs/retrieval-quality-contract-v1.md`](docs/retrieval-quality-contract-v1.md) for retrieval semantics and evaluation posture
 - read [`docs/decision-support-contract-v1.md`](docs/decision-support-contract-v1.md) for the current decision-support contract
 - read [`CONTRIBUTING.md`](CONTRIBUTING.md) if you want to contribute changes
 - read [`SECURITY.md`](SECURITY.md) for vulnerability reporting expectations
 
-## Roadmap
+## Current posture
 
-Recommended next slice:
-1. add optional `sqlite-vec` capability detection and vector-table bootstrap
-2. define retrieval that combines FTS, vector similarity, and graph neighborhood
-3. add real schema migrations beyond current hardening baseline
-4. formalize the cognitive execution loop
-5. optionally add a local HTTP API
+Current priority is trustworthiness of the existing local core:
+- keep README/docs aligned with the code that actually exists
+- keep one canonical demo path easy to run and easy to read honestly
+- treat vector-ready retrieval as environment-dependent evidence, not a blanket project claim

@@ -14,6 +14,8 @@ If you want the project overview, quick start, or repo map, go back to `../READM
 
 ## Document map
 
+- [Canonical demo](#canonical-demo)
+- [Evidence map](#evidence-map)
 - [Diagnostic CLI contract](#diagnostic-cli-contract-verified)
 - [Smoke tests](#smoke-tests)
 - [CLI error behavior](#cli-error-behavior)
@@ -22,6 +24,29 @@ If you want the project overview, quick start, or repo map, go back to `../READM
 - [Embedding execution adapter status](#embedding-execution-adapter-status)
 - [LiteLLM embedding provider configuration](#litellm-embedding-provider-configuration)
 - [`sqlite-vec` runtime configuration](#sqlite-vec-runtime-configuration)
+
+## Canonical demo
+
+If you need one honest walkthrough first, run:
+
+```bash
+./scripts/canonical_e2e_demo.sh
+```
+
+This produces one artifact directory under `artifacts/canonical-e2e/` and reports `PASS`, `DEGRADED`, or `FAIL` without pretending vector-ready evidence exists when the local environment is not configured for it.
+
+Optional stronger vector-ready pass:
+
+```bash
+BRAINOS_CANONICAL_E2E_ENABLE_VECTOR_SYNC=1 ./scripts/canonical_e2e_demo.sh
+```
+
+## Evidence map
+
+Use [`docs/evidence-map.md`](./evidence-map.md) when you need the shortest answer to:
+- what is directly proven here
+- what is only bounded evidence
+- what remains intentionally unproven
 
 ## Diagnostic CLI contract (verified)
 
@@ -116,9 +141,21 @@ uv run brainos --db ./brain.db doctor --benchmark-limit 5
 
 ## Smoke tests
 
-### Official smoke test
+### Canonical bounded demo
 
-Run the bounded end-to-end smoke test:
+Run the main evaluation path:
+
+```bash
+./scripts/canonical_e2e_demo.sh
+```
+
+Output artifacts:
+- `artifacts/canonical-e2e/`
+- `artifacts/canonical-e2e/summary.json`
+
+### Storage-core smoke test
+
+Run the original storage-core smoke test:
 
 ```bash
 ./scripts/e2e_smoke.sh
@@ -168,8 +205,14 @@ Current codebase includes:
 - vector metadata lifecycle table
 - embedding profile contract surface
 - stale and missing tracking for embeddable objects
+- episode and semantic-node embedding generation paths
+- vector sync commands for `missing`, `stale`, `error`, and `disabled` states
+- bounded vector participation in retrieval when runtime readiness permits it
 
-It does **not** yet perform live embedding generation or vector retrieval on its own.
+It does **not** claim:
+- always-on vector readiness on every machine
+- broad retrieval quality proof beyond the bounded fixtures/probes
+- background vector maintenance outside the explicit operator commands
 
 ## Embedding execution adapter status
 
@@ -180,13 +223,15 @@ Current code includes a real LiteLLM-based embedding adapter boundary.
 - logical embedding profile contract
 - environment-based Azure and LiteLLM resolution
 - execution path for episode embedding generation
+- execution path for semantic-node embedding generation
 - vector metadata updates to `fresh` or `error`
+- bounded `sqlite-vec` storage when capability is available
 
 ### What is still not implemented
 
 - batch refresh workflows
-- semantic-node embedding generation path
-- `sqlite-vec` retrieval integration
+- hosted embedding services owned by BrainOS
+- background workers for continuous vector maintenance
 
 ## LiteLLM embedding provider configuration
 

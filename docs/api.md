@@ -6,9 +6,9 @@ This document describes the current local API surface for BrainOS.
 
 Current API surface is intentionally local and compact:
 - Python package API via `BrainOSStore`
-- local CLI for bootstrap, querying, promotion, and smoke usage
+- local CLI for bootstrap, querying, promotion, bounded retrieval, diagnostics, and smoke usage
 
-This is a storage-core API, not yet a network service or full hybrid retrieval runtime.
+This is a local library + CLI surface. It does not expose HTTP, MCP, or other server APIs. It does include bounded retrieval/vector/operator surfaces.
 
 ## Environment
 
@@ -20,7 +20,7 @@ uv run pytest
 uv run brainos --db ./brain.db init
 ```
 
-Current version does not require a `.env` file.
+Core storage flows can run without a `.env` file. Retrieval/vector flows usually rely on local env configuration, and the CLI auto-loads a project-local `.env` when present.
 
 Runtime capability probe:
 - `fts5`
@@ -122,6 +122,7 @@ Returns recall results based on:
 
 Current recall mode:
 - `fts_plus_semantic_name_match`
+- optional vector participation for episodes and semantic nodes when runtime readiness permits it
 
 ---
 
@@ -316,6 +317,85 @@ brainos --db ./brain.db episode-search Agent --session-id session-1 --limit 5
 brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
 ```
 
+### Decision support
+
+#### `decision-log`
+```bash
+brainos --db ./brain.db decision-log 'What should we validate next?' --status draft --options-json '[{"option_id":"A","label":"Run the canonical demo"}]'
+```
+
+#### `decision-list`
+```bash
+brainos --db ./brain.db decision-list --limit 20
+```
+
+#### `decision-get`
+```bash
+brainos --db ./brain.db decision-get <decision-id>
+```
+
+#### `decision-check`
+```bash
+brainos --db ./brain.db decision-check <decision-id>
+```
+
+#### `decision-history`
+```bash
+brainos --db ./brain.db decision-history <decision-id>
+```
+
+### Vector / retrieval diagnostics
+
+#### `vector-index-list`
+```bash
+brainos --db ./brain.db vector-index-list --object-type episode --limit 20
+```
+
+#### `vector-index-sync`
+```bash
+brainos --db ./brain.db vector-index-sync episode <episode-id>
+```
+
+#### `vector-index-sync-batch`
+```bash
+brainos --db ./brain.db vector-index-sync-batch --object-type episode --vector-status missing
+```
+
+#### `retrieval-benchmark`
+```bash
+brainos --db ./brain.db retrieval-benchmark --limit 5
+```
+
+#### `retrieval-explain`
+```bash
+brainos --db ./brain.db retrieval-explain 'canonical retrieval demo health' --session-id session-1 --limit 5
+```
+
+#### `retrieval-health`
+```bash
+brainos --db ./brain.db retrieval-health --benchmark-limit 5
+```
+
+#### `real-corpus-probe`
+```bash
+brainos --db ./brain.db real-corpus-probe --limit 5
+```
+
+#### `embedding-readiness`
+```bash
+brainos --db ./brain.db embedding-readiness
+```
+
+#### `sqlite-vec-readiness`
+```bash
+brainos --db ./brain.db sqlite-vec-readiness
+```
+
+#### `doctor`
+```bash
+brainos --db ./brain.db doctor --benchmark-limit 5
+```
+
 ### Consolidation / promotion
 
 #### `consolidation-preview`
@@ -419,11 +499,10 @@ Assumptions:
 Not part of this API yet:
 - remote server mode
 - authentication / authorization
-- embedding generation
-- ranking fusion
 - graph traversal API
 - procedure execution engine
 - background compaction / consolidation workers
+- broad retrieval guarantees outside the bounded local evidence surfaces
 
 
 ## Vector metadata / embedding boundary v0
@@ -435,14 +514,15 @@ Current code includes:
 - `mark_episode_vector_missing(...)`
 - `mark_semantic_node_vector_missing(...)`
 - `refresh_vector_freshness_for_episode(...)`
-- `embed_texts(...)` contract stub
+- `embed_texts(...)` execution surface
 
 Current behavior:
 - episode writes create vector metadata in `missing` state
 - semantic node creation creates vector metadata in `missing` state
 - semantic node updates mark vector metadata `stale`
 - episode content changes can be re-evaluated into `stale` state
-- live embedding execution is intentionally not implemented yet
+- live embedding execution exists through the embedding adapter boundary
+- vector storage is still capability-gated by local runtime readiness
 
 
 ## Embedding execution adapter v0
@@ -451,6 +531,7 @@ Current code includes:
 - `LiteLLMEmbeddingAdapter`
 - `embed_texts(...)` execution path through LiteLLM
 - `generate_episode_embedding(...)` for episode objects
+- `generate_semantic_node_embedding(...)` for semantic-node objects
 
 Required environment variables:
 - `BRAINOS_EMBEDDING_MODEL`
@@ -468,9 +549,10 @@ Current behavior:
 
 Current scope:
 - episode embedding generation may attempt vector storage into `episodes_vec`
+- semantic-node embedding generation may attempt vector storage into `semantic_nodes_vec`
 - storage is capability-gated by runtime `sqlite_vec`
 - when `sqlite_vec=false`, BrainOS records vector state as `disabled`
-- retrieval/search over `episodes_vec` is still intentionally deferred
+- retrieval/search uses vector data only in the current bounded retrieval surfaces
 
 Current `generate_episode_embedding(...)` behavior:
 - embedding failure -> vector state `error`
@@ -488,7 +570,7 @@ Current recall behavior:
 Fallback behavior:
 - if sqlite-vec runtime is unavailable, `vector_episodes` is empty and `vector_mode` is `disabled`
 - if embedding/query execution fails, `vector_mode` is `error`
-- this slice does not yet merge/rerank FTS and vector hits into one unified ranking
+- degraded non-vector retrieval remains a supported bounded mode
 
 
 ## unified recall ranking v0
