@@ -69,7 +69,7 @@ BrainOS is not:
 ### Not implemented yet
 
 - broad retrieval guarantees beyond the current bounded recall/explain/ranking slices
-- full cognitive execution loop from the source PDF
+- full cognitive execution loop
 - broad migration framework beyond the current hardening baseline
 - HTTP/MCP/server APIs
 
@@ -233,12 +233,12 @@ BRAINOS_CANONICAL_E2E_ENABLE_VECTOR_SYNC=1 ./scripts/canonical_e2e_demo.sh
 
 ## Design notes
 
-The source BrainOS PDF describes a larger target architecture, but the available excerpt is incomplete in important places, especially around execution flow and `sqlite-vec` operational details.
+BrainOS aims at a larger target architecture than the current repository implements today, especially around execution flow and some `sqlite-vec` operational details.
 
 This repository therefore implements the durable local storage core first.
 
 One explicit implementation decision:
-- the PDF narrative implies cryptographic chaining, but the shown ledger DDL did not include an explicit link field
+- cryptographic chaining implies an explicit previous-link field for verification
 - this implementation adds `previous_hash` to make the chain explicit and verifiable
 
 ## Documentation map
