@@ -189,30 +189,8 @@ For the full command surface and arguments, see `docs/api.md`.
 
 ## Python usage
 
-```python
-from brainos import BrainOSStore
-
-store = BrainOSStore("brain.db")
-store.initialize()
-
-store.set_working_memory("agent_state", {"mode": "ready"})
-store.add_episode(
-    session_id="session-1",
-    content="Agent initialized successfully",
-    metadata={"source": "bootstrap"},
-)
-store.upsert_semantic_node(
-    node_id="n1",
-    name="SQLite",
-    node_type="Concept",
-    properties={"role": "storage"},
-)
-
-results = store.search_episodes_text("initialized")
-print(results)
-
-store.close()
-```
+BrainOS also exposes a direct Python API through `BrainOSStore`.
+For a runnable walkthrough, see [`examples/python_api_quickstart.py`](examples/python_api_quickstart.py) and the overview in [`examples/README.md`](examples/README.md).
 
 ## Development verification
 

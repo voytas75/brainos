@@ -42,6 +42,16 @@ Run:
 uv run python examples/ledger_inspection.py
 ```
 
+### `python_api_quickstart.py`
+Shows one compact Python API walkthrough.
+It initializes a database, writes working memory and an episode, upserts one semantic node, and prints the stored objects.
+
+Run:
+
+```bash
+uv run python examples/python_api_quickstart.py
+```
+
 ## Notes
 
 - Each example creates its own temporary SQLite database under `examples/tmp/`.
