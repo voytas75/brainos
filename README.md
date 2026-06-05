@@ -122,6 +122,16 @@ uv run brainos --db ./brain.db recall BrainOS --session-id session-1 --limit 5
 uv run brainos --db ./brain.db ledger
 ```
 
+## Examples
+
+If you want small Python walkthroughs instead of raw CLI snippets, see [`examples/README.md`](examples/README.md).
+The examples are intentionally narrow and teach the usage contract of each layer rather than pretending BrainOS is already a full agent runtime.
+
+Start here:
+- `examples/working_memory_flow.py` — working memory as passive operational state
+- `examples/episode_recall_flow.py` — episodic memory as searchable history
+- `examples/ledger_inspection.py` — auditable writes through the ledger
+
 ## Memory model
 
 BrainOS maps multiple memory layers into one SQLite database:
