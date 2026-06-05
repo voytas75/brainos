@@ -20,3 +20,6 @@ brain_e2e.db*
 /local-docs/
 /docs/_archive_working/
 /.local/
+
+# Example runtime artifacts
+examples/tmp/
