@@ -1,177 +1,73 @@
 # BrainOS
 
-BrainOS is a SQLite-first cognitive memory system for LLM agents.
+BrainOS is a SQLite-first cognitive memory core for LLM agents.
 
-This repository contains the first local, production-oriented slice based on the BrainOS technical PDF: a deterministic single-file storage core with working, episodic, semantic, procedural, and provenance layers.
+It gives an agent a local, auditable, multi-layer memory system in a single SQLite file: working memory, episodic memory, semantic memory, procedural memory, decision support, and provenance.
 
-## What this project is
+**Current scope:** BrainOS is a local storage and retrieval core, not a full agent runtime or hosted platform.
 
-BrainOS stores multiple memory layers for an LLM agent inside a single SQLite database file.
+## Why BrainOS is different
 
-Current implementation provides:
-- working memory as JSON key/value state
-- episodic memory as session-scoped events
-- full-text search over episodes with FTS5
-- semantic memory as nodes and edges
-- procedural memory as JSON-defined procedures
-- first-class decision-support objects for operator-facing decision briefs
-- decision recall / explain / inspect / conflict-check / history surfaces
-- consolidation preview and explicit promotion from episodes into semantic/procedural layers
-- promotion state tracking and duplicate-promotion protection
-- vector metadata lifecycle for native optional embedding support
-- an immutable ledger with chained hashes for provenance/audit
+- **One file, not a memory stack zoo** — core agent memory lives in one transactional SQLite database.
+- **Auditability by default** — meaningful writes are tracked through a provenance ledger with chained hashes.
+- **Built for local-first agent work** — simple to run, inspect, test, and carry between environments.
 
-The current repo is a **local storage core**, not a full runtime platform yet.
+## Why this exists
 
-## What problem it solves
-
-Instead of splitting agent memory across multiple services, BrainOS keeps the core memory model in one transactional SQLite file.
+Many agent-memory architectures split state across multiple services and runtime layers. BrainOS takes the opposite approach: keep the core memory model in one transactional SQLite database.
 
 That gives:
-- low infrastructure cost
 - deterministic local behavior
+- low infrastructure cost
 - ACID transactions
 - simple portability
-- easy local development and testing
+- easy local testing and inspection
+
+## Who this is for
+
+BrainOS is for people building local or operator-facing LLM systems who want:
+- one-file memory storage
+- explicit audit and provenance trails
+- a pragmatic storage core before a larger runtime platform
+
+Good fit:
+- local-first experimentation
+- bounded production-style memory slices
+- operator-facing systems that need inspectable state
+
+## What BrainOS is not
+
+BrainOS is not:
+- a full agent runtime
+- a hosted memory platform
+- a finished hybrid retrieval stack
+- a workflow engine for autonomous execution
 
 ## Current status
 
-Implemented now:
+### Implemented now
+
 - single-file SQLite database (`brain.db`)
 - WAL mode and foreign keys
 - JSON validation on JSON-bearing columns
-- `wm`
-- `episodes`
-- `episodes_fts`
-- `semantic_nodes`
-- `semantic_edges`
-- `procedures`
-- `decisions`
-- `ledger`
+- working memory (`wm`)
+- episodic memory (`episodes`, `episodes_fts`)
+- semantic memory (`semantic_nodes`, `semantic_edges`)
+- procedural memory (`procedures`)
+- decision support objects (`decisions`)
+- immutable provenance ledger (`ledger`)
 - Python API
 - CLI
 - tests and smoke checks
 
-Not implemented yet:
-- vector storage/runtime integration beyond the current bounded capability/runtime path
-- full hybrid retrieval platform coverage beyond the current bounded recall/explain/ranking slices
-- full cognitive execution loop from the PDF
-- schema migrations beyond current hardening baseline
+### Not implemented yet
+
+- full hybrid retrieval platform beyond the current bounded recall/explain/ranking slices
+- full cognitive execution loop from the source PDF
+- broad migration framework beyond the current hardening baseline
 - HTTP API
 
-## How it works
-
-BrainOS maps five memory areas into one SQLite database.
-
-### 1. Working memory
-Short-lived, current agent state.
-
-Table:
-- `wm`
-
-Use cases:
-- current mode
-- temporary state
-- active flags
-- local runtime context
-
-### 2. Episodic memory
-Append-style event memory for sessions.
-
-Tables:
-- `episodes`
-- `episodes_fts`
-
-Use cases:
-- interaction history
-- observations
-- logs worth recalling
-- searchable memory fragments
-
-### 3. Semantic memory
-Graph-like knowledge storage.
-
-Tables:
-- `semantic_nodes`
-- `semantic_edges`
-
-Use cases:
-- concepts
-- entities
-- facts
-- relations between concepts
-
-### 4. Procedural memory
-Structured procedures stored as JSON.
-
-Table:
-- `procedures`
-
-Use cases:
-- workflows
-- reusable agent routines
-- DAG-like step definitions
-
-### 5. Decision support
-Operator-facing decision briefs stored as first-class records.
-
-Table:
-- `decisions`
-
-Use cases:
-- decision questions
-- candidate options
-- recommendation + uncertainty
-- supporting and counter arguments
-- risks and missing information
-- conflict checking and provenance inspection
-
-### 6. Provenance / ledger
-Every meaningful write creates an auditable event.
-
-Table:
-- `ledger`
-
-Properties:
-- causal reference support
-- chained hashes
-- immutable event history for inspection
-
-## Architecture notes
-
-The attached PDF describes a strong target architecture, but the provided excerpt is incomplete in two important places:
-- the execution-flow section is cut off
-- `sqlite-vec` is mentioned, but operational details are incomplete in the excerpt
-
-So this repo intentionally implements the durable storage core first.
-
-One explicit implementation decision:
-- the PDF narrative implies cryptographic chaining, but the shown ledger DDL did not include an explicit link field
-- this implementation adds `previous_hash` to make the chain explicit and verifiable
-
-## Environment and tooling
-
-### Virtual environment
-Yes — this repo should use a local virtual environment managed by `uv`.
-
-Preferred workflow:
-- `uv sync --extra dev`
-- `uv run ...`
-
-### `.env`
-Yes — this repo now supports a project-local `.env` file.
-
-Current intent:
-- keep BrainOS runtime config project-scoped rather than shell-scoped
-- make operator checks and app runs behave consistently across interactive shells and OpenClaw exec
-- support local Azure embedding and sqlite-vec setup without relying on `~/.bashrc`
-
-Rules:
-- keep real secrets only in local `.env`, never in `.env.example`
-- shell env still overrides `.env`
-- `.env` is optional, but recommended for real local runs involving embeddings or sqlite-vec
-
-## How to run
+## Quick start
 
 ### 1. Install dependencies
 
@@ -179,224 +75,91 @@ Rules:
 uv sync --extra dev
 ```
 
-### 2. Initialize the database
+### 2. Initialize a database
 
 ```bash
 uv run brainos --db ./brain.db init
 ```
 
-### 3. Write working memory
+### 3. Write and read working memory
 
 ```bash
 uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
-```
-
-### 4. Read working memory
-
-```bash
 uv run brainos --db ./brain.db wm-get agent_state
 ```
 
-### 5. Add episodic memory
+### 4. Add and search an episode
 
 ```bash
 uv run brainos --db ./brain.db episode-add session-1 'Agent initialized successfully' --metadata-json '{"source":"manual"}'
-```
-
-### 6. Search episodic memory
-
-```bash
 uv run brainos --db ./brain.db episode-search Agent --limit 5
 ```
 
-### 7. Preview consolidation candidate from an episode
+### 5. Run a minimal test
 
 ```bash
-uv run brainos --db ./brain.db consolidation-preview <episode-id>
-```
-
-### 8. Promote episode into semantic/procedural layer
-
-```bash
-uv run brainos --db ./brain.db promote-episode <episode-id>
-```
-
-### 9. Recall from episodic memory
-
-```bash
-uv run brainos --db ./brain.db recall Agent --session-id session-1 --limit 5
-```
-
-### 10. Create a semantic node
-
-```bash
-uv run brainos --db ./brain.db semantic-node-upsert n1 SQLite Concept --properties-json '{"kind":"database"}'
-```
-
-### 11. Create a semantic edge
-
-```bash
-uv run brainos --db ./brain.db semantic-edge-upsert n1 n2 RELATES_TO --weight 1.0
-```
-
-### 12. Create a procedure
-
-```bash
-uv run brainos --db ./brain.db procedure-create bootstrap '[{"step":"init-db"},{"step":"load-state"}]' --description 'Initialize BrainOS'
-```
-
-### 13. Log a decision-support brief
-
-```bash
-uv run brainos --db ./brain.db decision-log \
-  'Which next slice should we choose?' \
-  --decision-id dec-1 \
-  --recommended-option-id A \
-  --options-json '[{"option_id":"A","label":"Fix retrieval credibility first"},{"option_id":"B","label":"Build dashboard first"}]' \
-  --arguments-json '[{"option_id":"A","kind":"support","text":"Direct trust impact"}]'
-```
-
-### 14. List decision-support briefs
-
-```bash
-uv run brainos --db ./brain.db decision-list
-```
-
-### 15. Get one decision-support brief
-
-```bash
-uv run brainos --db ./brain.db decision-get dec-1
-```
-
-### 16. Check one decision for caution/conflict signals
-
-```bash
-uv run brainos --db ./brain.db decision-check dec-1
-```
-
-### 17. Inspect one object with provenance drill-down
-
-```bash
-uv run brainos --db ./brain.db inspect decision dec-1
-```
-
-### 18. Show decision revision/history view
-
-```bash
-uv run brainos --db ./brain.db decision-history dec-1
-```
-
-### 19. Check schema status
-
-```bash
-uv run brainos --db ./brain.db schema-status
-```
-
-### 20. Check runtime capabilities
-
-```bash
-uv run brainos --db ./brain.db capabilities
-```
-
-### 21. Verify ledger integrity
-
-```bash
-uv run brainos --db ./brain.db ledger-verify
-```
-
-### 22. Inspect ledger
-
-```bash
-uv run brainos --db ./brain.db ledger
-```
-
-## Diagnostic CLI contract (verified)
-
-BrainOS now exposes operator-oriented diagnostic commands that prefer structured JSON over tracebacks.
-
-Commands:
-- `doctor`
-- `retrieval-health`
-- `embedding-readiness`
-- `sqlite-vec-readiness`
-- `capabilities`
-- `decision-log`
-- `decision-list`
-- `decision-get`
-- `decision-check`
-- `decision-history`
-- `inspect`
-
-### What to expect
-
-- success path:
-  - `status: "ok"` or `ok: true`
-  - `action_hint: "noop"`
-- degraded runtime path:
-  - usually `status: "warn"`
-  - sometimes `ok: false` on readiness-style commands
-  - machine-readable fields such as `error_kind`, `detail`, `action_hint`
-  - no need to parse traceback text for normal operator handling
-
-### sqlite-vec runtime terminology
-
-Two related surfaces are exposed intentionally:
-
-1. Capability probe (`capabilities`)
-- field: `sqlite_vec_runtime_origin`
-- current values:
-  - `explicit_path`
-  - `disabled_without_explicit_path`
-- meaning:
-  - BrainOS capability probing only treats sqlite-vec as active when there is an explicit configured path
-  - without explicit configuration, ambient probing is disabled on purpose
-
-2. Env health (`embedding-readiness`, `doctor`, `retrieval-health`)
-- field: `sqlite_vec_env.runtime_origin`
-- current values:
-  - `explicit_configured`
-  - `ambient_detected`
-  - `not_configured`
-- field: `sqlite_vec_env.configured`
-- meaning:
-  - `configured = true` only for explicit intended configuration
-  - `ambient_detected` means a foreign/runtime-inherited sqlite-vec path was seen, but BrainOS does not treat it as the intended active configuration
-
-### How to read `recommended_fix` and `next_debug`
-
-- `recommended_fix`
-  - the most direct operator next move for the current degraded path
-  - for sqlite-vec runtime issues this now points to:
-    - `action_hint: "configure_sqlite_vec_path"`
-    - `target: "BRAINOS_SQLITE_VEC_PATH"`
-- `next_debug`
-  - the next diagnostic handoff when the system has enough runtime to inspect retrieval quality
-  - current retrieval benchmark failures point to `retrieval-explain`
-
-### Example commands
-
-```bash
-uv run brainos --db ./brain.db capabilities
-uv run brainos --db ./brain.db sqlite-vec-readiness
-uv run brainos --db ./brain.db embedding-readiness
-uv run brainos --db ./brain.db retrieval-health --benchmark-limit 5
-uv run brainos --db ./brain.db doctor --benchmark-limit 5
-```
-
-## Typical local workflow
-
-```bash
-uv sync --extra dev
 uv run pytest tests/test_brainos.py -q
+```
+
+## Example workflow
+
+```bash
 uv run brainos --db ./brain.db init
 uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
 uv run brainos --db ./brain.db episode-add session-1 'BrainOS initialized' --metadata-json '{"source":"smoke"}'
+uv run brainos --db ./brain.db recall BrainOS --session-id session-1 --limit 5
 uv run brainos --db ./brain.db ledger
 ```
 
-## Python usage
+## Memory model
 
-Minimal example:
+BrainOS maps multiple memory layers into one SQLite database:
+
+- **Working memory** — short-lived runtime state
+- **Episodic memory** — session events and searchable history
+- **Semantic memory** — nodes, edges, and durable knowledge structure
+- **Procedural memory** — JSON-defined reusable procedures
+- **Decision support** — operator-facing decision briefs and history
+- **Provenance ledger** — auditable write history with chained hashes
+
+## Project structure
+
+- `src/brainos/` — core package
+- `src/brainos/schema.py` — schema and initialization
+- `src/brainos/store.py` — storage API
+- `src/brainos/cli.py` — CLI entrypoint
+- `src/brainos/ledger.py` — canonical JSON and hash helpers
+- `tests/` — test suite
+- `scripts/` — smoke scripts
+- `docs/api.md` — Python API and CLI reference
+- `docs/implementation-notes.md` — design decisions and spec-gap notes
+- `docs/README-DEV.md` — deeper development and operator notes
+
+## Main commands
+
+### Core lifecycle
+- `init`
+- `schema-status`
+- `capabilities`
+
+### Working and episodic memory
+- `wm-set`, `wm-get`
+- `episode-add`, `episodes-list`, `episode-search`
+- `consolidation-preview`, `promote-episode`, `episode-promotion-get`
+- `recall`
+
+### Semantic and procedural memory
+- `semantic-node-upsert`, `semantic-node-get`
+- `semantic-edge-upsert`, `semantic-edges-list`
+- `procedure-create`, `procedure-list`, `procedure-get`
+
+### Decision support and inspection
+- `decision-log`, `decision-list`, `decision-get`
+- `decision-check`, `decision-history`
+- `inspect`
+- `ledger`, `ledger-verify`
+
+## Python usage
 
 ```python
 from brainos import BrainOSStore
@@ -423,83 +186,12 @@ print(results)
 store.close()
 ```
 
-## Main commands
-
-Available CLI commands:
-- `init`
-- `wm-set`
-- `wm-get`
-- `episode-add`
-- `episodes-list`
-- `consolidation-preview`
-- `episode-promotion-get`
-- `promote-episode`
-- `episode-search`
-- `recall`
-- `semantic-node-upsert`
-- `semantic-node-get`
-- `semantic-edge-upsert`
-- `semantic-edges-list`
-- `procedure-create`
-- `procedure-list`
-- `procedure-get`
-- `schema-status`
-- `capabilities`
-- `ledger-verify`
-- `ledger`
-
-Example:
-
-```bash
-uv run brainos --db ./brain.db init
-```
-
-## Project structure
-
-- `README.md` — main project description, how it works, how to run
-- `docs/api.md` — Python API and CLI reference
-- `docs/implementation-notes.md` — implementation decisions, spec gaps, next slice notes
-- `src/brainos/schema.py` — schema and initialization
-- `src/brainos/store.py` — storage API
-- `src/brainos/ledger.py` — canonical JSON + hash helpers
-- `src/brainos/cli.py` — CLI entrypoint
-- `tests/` — tests
-
-## Docs map
-
-Use docs this way:
-- start with `README.md` if you want to understand the project and run it
-- read `docs/api.md` if you want the exact API surface
-- read `docs/implementation-notes.md` if you want design tradeoffs and spec-gap notes
-
-## Design constraints
-
-What is solid already:
-- deterministic local persistence
-- transactional writes
-- audit-friendly ledger trail
-- simple Python integration
-- local testability
-
-What is intentionally deferred:
-- vector runtime bootstrapping
-- embedding integration
-- ranking fusion
-- graph traversal/retrieval API
-- procedure execution engine
-- network exposure
-
 ## Development verification
 
-Run tests:
+Run a minimal verification path:
 
 ```bash
 uv run pytest tests/test_brainos.py -q
-```
-
-Run a simple smoke path:
-
-```bash
 uv run brainos --db ./brain.db init
 uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
 uv run brainos --db ./brain.db episode-add session-1 'BrainOS initialized with WAL and ledger' --metadata-json '{"source":"smoke"}'
@@ -507,217 +199,29 @@ uv run brainos --db ./brain.db episode-search BrainOS --limit 5
 uv run brainos --db ./brain.db ledger
 ```
 
+## Design notes
+
+The source BrainOS PDF describes a larger target architecture, but the available excerpt is incomplete in important places, especially around execution flow and `sqlite-vec` operational details.
+
+This repository therefore implements the durable local storage core first.
+
+One explicit implementation decision:
+- the PDF narrative implies cryptographic chaining, but the shown ledger DDL did not include an explicit link field
+- this implementation adds `previous_hash` to make the chain explicit and verifiable
+
+## Documentation map
+
+Use the docs this way:
+- start with `README.md` for project overview and quick start
+- read `docs/api.md` for exact Python API and CLI reference
+- read `docs/implementation-notes.md` for design tradeoffs and spec-gap notes
+- read `docs/README-DEV.md` for runtime, operator, and development details
+
 ## Roadmap
 
 Recommended next slice:
 1. add optional `sqlite-vec` capability detection and vector-table bootstrap
 2. define retrieval that combines FTS, vector similarity, and graph neighborhood
-3. add real schema migrations beyond current hardening baseline beyond v1 bootstrap
+3. add real schema migrations beyond current hardening baseline
 4. formalize the cognitive execution loop
 5. optionally add a local HTTP API
-
-
-## Official smoke test
-
-Run the bounded end-to-end smoke test:
-
-```bash
-./scripts/e2e_smoke.sh
-```
-
-It writes a summary artifact to:
-- `artifacts/e2e-summary.json`
-
-## Retrieval green-path smoke test
-
-Run the bounded retrieval/runtime smoke test:
-
-```bash
-source .env
-./scripts/retrieval_smoke.sh
-```
-
-It writes artifacts under:
-- `artifacts/retrieval-smoke/`
-- `artifacts/retrieval-smoke/summary.json`
-
-Purpose:
-- verify retrieval runtime green path on a fresh DB
-- verify vector sync + `recall` + `retrieval-explain` + `retrieval-health`
-- catch env/runtime regressions that can otherwise look like normal retrieval failure
-
-Interpretation:
-- `PASS` = runtime ready and at least one ranked retrieval hit returned
-- `FAIL` = runtime/env broken or no ranked hit on the bounded corpus
-- this is **not** a broad retrieval-quality benchmark
-
-
-## CLI error behavior
-
-For expected user-facing errors (for example not found, invalid promotion metadata, duplicate promotion), CLI exits with code `2` and returns a compact JSON error object on stderr.
-
-
-## Promotion audit
-
-To inspect whether a specific episode was already promoted:
-
-```bash
-uv run brainos --db ./brain.db episode-promotion-get <episode-id>
-```
-
-
-## Vector metadata status
-
-Current codebase now includes:
-- vector metadata lifecycle table
-- embedding profile contract surface
-- stale/missing tracking for embeddable objects
-
-It does **not** yet perform live embedding generation or vector retrieval.
-
-
-## Embedding execution adapter status
-
-Current code now includes a real LiteLLM-based embedding adapter boundary.
-
-What exists now:
-- logical embedding profile contract
-- environment-based Azure/LiteLLM resolution
-- execution path for episode embedding generation
-- vector metadata updates to `fresh` or `error`
-
-What is still not implemented:
-- batch refresh workflows
-- semantic-node embedding generation path
-- `sqlite-vec` retrieval integration
-
-
-## LiteLLM embedding provider configuration
-
-BrainOS uses LiteLLM as the execution adapter for embeddings.
-Current default/tested operational target: Azure embeddings.
-
-Primary BrainOS config entry:
-- `BRAINOS_EMBEDDING_MODEL` - provider-prefixed model/deployment name passed to LiteLLM
-
-Provider is resolved from the model prefix, for example:
-- `azure/<your-embedding-deployment>`
-- `openai/text-embedding-3-small`
-- `ollama/nomic-embed-text`
-- `bedrock/<provider-specific-model>`
-- `vertex_ai/<provider-specific-model>`
-
-### Embedding provider matrix
-
-| Provider path | Model example | Required env | Optional env | Current posture | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Azure OpenAI | `azure/<deployment>` | `BRAINOS_EMBEDDING_MODEL`, `AZURE_API_BASE`, `AZURE_API_KEY`, `AZURE_API_VERSION` | `BRAINOS_EMBEDDING_PROVIDER` | tested + backward-compatible | Current default/tested path. Uses Azure compatibility env aliases. |
-| OpenAI | `openai/text-embedding-3-small` | `BRAINOS_EMBEDDING_MODEL`, `OPENAI_API_KEY` | `BRAINOS_EMBEDDING_PROVIDER`, `BRAINOS_EMBEDDING_API_BASE`, `BRAINOS_EMBEDDING_API_VERSION` | tested | Best simple non-Azure path today. |
-| Ollama | `ollama/nomic-embed-text` | `BRAINOS_EMBEDDING_MODEL` | `BRAINOS_EMBEDDING_PROVIDER`, `BRAINOS_EMBEDDING_API_BASE` | documented, not yet verified here | Usually pair with local Ollama endpoint, often `http://localhost:11434`. |
-| OpenAI-compatible endpoint | `openai/<model-name>` | `BRAINOS_EMBEDDING_MODEL` | `BRAINOS_EMBEDDING_API_BASE`, `BRAINOS_EMBEDDING_API_KEY`, `BRAINOS_EMBEDDING_API_VERSION` | best-effort/custom | Use when the backend speaks OpenAI-style embeddings but is not OpenAI itself. |
-| Other LiteLLM provider prefix | `bedrock/...`, `vertex_ai/...`, `gemini/...`, etc. | `BRAINOS_EMBEDDING_MODEL` | provider-specific env and/or generic `BRAINOS_EMBEDDING_*` env | experimental posture | BrainOS passes through the provider-prefixed model and validates only the currently implemented provider families explicitly. |
-
-### Public BrainOS contract
-
-Preferred BrainOS-facing config surface:
-- `BRAINOS_EMBEDDING_MODEL`
-- `BRAINOS_EMBEDDING_PROVIDER` (optional override)
-- `BRAINOS_EMBEDDING_API_BASE` (optional generic endpoint)
-- `BRAINOS_EMBEDDING_API_KEY` (optional generic key)
-- `BRAINOS_EMBEDDING_API_VERSION` (optional, only where relevant)
-- `BRAINOS_EMBEDDING_HEADERS_JSON` (reserved advanced surface)
-
-Compatibility aliases currently preserved:
-- `AZURE_API_BASE`
-- `AZURE_API_KEY`
-- `AZURE_API_VERSION`
-- `OPENAI_API_KEY`
-
-### Azure compatibility path
-
-Required environment variables for Azure:
-- `BRAINOS_EMBEDDING_MODEL`
-- `AZURE_API_BASE`
-- `AZURE_API_KEY`
-- `AZURE_API_VERSION`
-
-Example `.env`:
-
-```dotenv
-BRAINOS_EMBEDDING_MODEL="azure/<your-embedding-deployment>"
-AZURE_API_BASE="https://<your-resource>.openai.azure.com"
-AZURE_API_KEY="***"
-AZURE_API_VERSION="2024-10-21"
-```
-
-### OpenAI path
-
-Required environment variables for OpenAI:
-- `BRAINOS_EMBEDDING_MODEL`
-- `OPENAI_API_KEY`
-
-Example `.env`:
-
-```dotenv
-BRAINOS_EMBEDDING_MODEL="openai/text-embedding-3-small"
-OPENAI_API_KEY="***"
-```
-
-### Ollama path
-
-Minimal local example:
-
-```dotenv
-BRAINOS_EMBEDDING_MODEL="ollama/nomic-embed-text"
-BRAINOS_EMBEDDING_API_BASE="http://localhost:11434"
-```
-
-### OpenAI-compatible endpoint path
-
-Example for a custom endpoint exposing OpenAI-style embeddings:
-
-```dotenv
-BRAINOS_EMBEDDING_MODEL="openai/<your-model-name>"
-BRAINOS_EMBEDDING_API_BASE="https://<your-endpoint>/v1"
-BRAINOS_EMBEDDING_API_KEY="***"
-```
-
-Shell env still overrides `.env` when you need a temporary test override.
-
-Notes:
-- BrainOS keeps provider specifics out of store/domain logic.
-- `brainos-embedding-default` is the logical profile resolved through LiteLLM.
-- Azure env names remain supported as the current backward-compatible path.
-- Current explicit health/readiness validation is strongest for Azure and OpenAI.
-- Other provider prefixes are intended to pass through LiteLLM, but should be treated as best-effort until explicitly verified in this repo.
-- If `sqlite-vec` is unavailable, embedding execution may still succeed but vector storage is marked `disabled`.
-
-## sqlite-vec runtime configuration
-
-BrainOS can load `sqlite-vec` explicitly when the runtime does not expose `vec0` by default.
-
-Required env for runtime enablement:
-- `BRAINOS_SQLITE_VEC_PATH`
-
-Example `.env` value:
-
-```dotenv
-BRAINOS_SQLITE_VEC_PATH="/absolute/path/to/sqlite-vec/vec0.so"
-```
-
-Verification commands:
-
-```bash
-uv run brainos --db ./brain.db capabilities
-uv run brainos --db ./brain.db sqlite-vec-readiness
-```
-
-Expected healthy result:
-- `sqlite_vec: true`
-- `sqlite_vec_loaded: true`
-- readiness `ok: true`
-
-If `sqlite-vec-readiness` fails because `BRAINOS_SQLITE_VEC_PATH` is unset, treat that as a setup failure, not a generic retrieval failure.
-
-Current readiness failure classifications:
-
