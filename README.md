@@ -6,6 +6,8 @@ It gives an agent a local, auditable, multi-layer memory system in a single SQLi
 
 In practice, BrainOS helps you keep agent memory local, inspectable, and portable without standing up a multi-service memory stack.
 
+**Project stage:** early-stage, experimental, and local-first.
+
 **Current scope:** BrainOS is a local storage and retrieval core, not a full agent runtime or hosted platform.
 
 ## Why BrainOS is different
@@ -212,6 +214,8 @@ Use the docs this way:
 - read [`docs/STATUS.md`](docs/STATUS.md) for the current retrieval/runtime slice status
 - read [`docs/retrieval-contract-v1.md`](docs/retrieval-contract-v1.md) and [`docs/retrieval-quality-contract-v1.md`](docs/retrieval-quality-contract-v1.md) for retrieval semantics and evaluation posture
 - read [`docs/decision-support-contract-v1.md`](docs/decision-support-contract-v1.md) for the current decision-support contract
+- read [`CONTRIBUTING.md`](CONTRIBUTING.md) if you want to contribute changes
+- read [`SECURITY.md`](SECURITY.md) for vulnerability reporting expectations
 
 ## Roadmap
 
