@@ -590,6 +590,7 @@ Current maintenance/readiness interpretation hints:
 - retrieval health quality output surfaces the same `failed_cases` drilldown
 - failed benchmark cases now include `next_debug` handoff metadata (`tool`, `query`, `session_id`) for explain-side follow-up
 - retrieval explain output now includes bounded `diagnostic_hint` classification for top-hit interpretation
+- mixed vector-led wins with lexical support now classify as `vector_primary_with_lexical_support` so explain diagnostics stay aligned with `operator_summary`
 
 
 ## real-corpus retrieval quality probe v1

@@ -5,6 +5,7 @@ from typing import Protocol, Any
 
 from .errors import BrainOSError
 from .retrieval_policy import RETRIEVAL_SCORING_POLICY_V1, RetrievalScoringPolicy
+from .retrieval_runtime import vector_runtime_preflight
 
 
 class RetrievalBackend(Protocol):
@@ -37,6 +38,16 @@ class RetrievalService:
         }
         return query_tokens & anchors
 
+    @staticmethod
+    def _episode_kind_bonus(kind: str | None) -> float:
+        if kind == "decision":
+            return 120.0
+        if kind == "procedure":
+            return 90.0
+        if kind == "fact":
+            return 40.0
+        return 0.0
+
     def _rank_episode_hits(
         self,
         *,
@@ -53,12 +64,14 @@ class RetrievalService:
             anchor_overlap = len(anchor_terms & item_tokens)
             weak_anchor_penalty = self.scoring_policy.weak_anchor_penalty if anchor_terms and anchor_overlap == 0 else 0.0
             anchor_bonus = float(anchor_overlap) * self.scoring_policy.anchor_term_bonus
+            kind_bonus = self._episode_kind_bonus((item.get("metadata") or {}).get("kind"))
             merged["match_sources"] = ["fts"]
-            merged["rank_score"] = (1000.0 - float(idx)) + anchor_bonus - weak_anchor_penalty
+            merged["rank_score"] = (1000.0 - float(idx)) + anchor_bonus + kind_bonus - weak_anchor_penalty
             merged["lexical_overlap"] = len(query_tokens & item_tokens)
             merged["score_components"] = {
                 "fts_rank": 1000.0 - float(idx),
                 "anchor_term_bonus": anchor_bonus,
+                "kind_bonus": kind_bonus,
                 "weak_anchor_penalty": weak_anchor_penalty,
             }
             ranked_map[item["id"]] = merged
@@ -74,7 +87,8 @@ class RetrievalService:
             score = max(0.0, self.scoring_policy.episode_vector_base - (distance * 100.0) - (idx * 5.0))
             overlap_bonus = min(float(overlap), 3.0) * self.scoring_policy.lexical_vector_overlap_bonus
             anchor_bonus = float(anchor_overlap) * self.scoring_policy.anchor_term_bonus
-            score += overlap_bonus + anchor_bonus
+            kind_bonus = self._episode_kind_bonus((item.get("metadata") or {}).get("kind"))
+            score += overlap_bonus + anchor_bonus + kind_bonus
             if item_id in ranked_map:
                 ranked_map[item_id]["match_sources"].append("vector")
                 ranked_map[item_id]["rank_score"] += score + self.scoring_policy.dual_source_bonus
@@ -87,6 +101,7 @@ class RetrievalService:
                         "dual_source_bonus": self.scoring_policy.dual_source_bonus,
                         "lexical_overlap_bonus": overlap_bonus,
                         "anchor_term_bonus": anchor_bonus,
+                        "kind_bonus": kind_bonus,
                     }
                 )
             else:
@@ -103,6 +118,7 @@ class RetrievalService:
                     "episode_vector": score,
                     "lexical_overlap_bonus": overlap_bonus,
                     "anchor_term_bonus": anchor_bonus,
+                    "kind_bonus": kind_bonus,
                 }
                 ranked_map[item_id] = merged
 
@@ -225,6 +241,26 @@ class RetrievalService:
             summary_parts.append(f"decisions:{len(decisions)}")
         return ", ".join(summary_parts) if summary_parts else "no_hits"
 
+    def _retrieval_runtime(self, *, capabilities: dict[str, Any]) -> dict[str, Any]:
+        if capabilities.get("sqlite_vec"):
+            return {
+                "status": "ok",
+                "degraded": False,
+                "message": "vector runtime ready",
+                "detail": None,
+                "action_hint": "noop",
+                "target": None,
+            }
+        preflight = vector_runtime_preflight()
+        return {
+            "status": "misconfigured" if not preflight.get("ok") else "runtime_failed",
+            "degraded": True,
+            "message": preflight.get("message") or "vector runtime unavailable",
+            "detail": preflight.get("detail") or capabilities.get("sqlite_vec_error"),
+            "action_hint": preflight.get("action_hint") or "configure_sqlite_vec_path",
+            "target": preflight.get("target"),
+        }
+
     def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
         episodes = self.backend.search_episodes_text(query, session_id=session_id, limit=limit)
         query_tokens = self.tokenize_for_overlap(query)
@@ -234,7 +270,8 @@ class RetrievalService:
         query_vector: list[float] | None = None
 
         capabilities = self.backend.sqlite_vec_capability()
-        if capabilities.get("sqlite_vec"):
+        retrieval_runtime = self._retrieval_runtime(capabilities=capabilities)
+        if capabilities.get("sqlite_vec") and retrieval_runtime.get("status") == "ok":
             try:
                 query_vector = self.backend.embed_retrieval_query(query)
                 vector_episodes = self.backend.vector_search_episodes(query_vector, session_id=session_id, limit=limit)
@@ -243,7 +280,7 @@ class RetrievalService:
                 vector_mode = "error"
                 vector_error = str(exc)
         else:
-            vector_error = capabilities.get("sqlite_vec_error")
+            vector_error = retrieval_runtime.get("detail") or capabilities.get("sqlite_vec_error")
 
         episode_vector_mode = vector_mode
         episode_vector_error = vector_error
@@ -259,7 +296,7 @@ class RetrievalService:
         semantic_vector_mode = "disabled"
         semantic_vector_error = None
 
-        if query_vector is not None and capabilities.get("sqlite_vec"):
+        if query_vector is not None and capabilities.get("sqlite_vec") and retrieval_runtime.get("status") == "ok":
             try:
                 vector_semantic_hits = self.backend.vector_search_semantic_nodes(query_vector, limit=limit)
                 semantic_vector_mode = "sqlite_vec_semantic_similarity"
@@ -267,7 +304,7 @@ class RetrievalService:
                 semantic_vector_mode = "error"
                 semantic_vector_error = str(exc)
         else:
-            semantic_vector_error = capabilities.get("sqlite_vec_error") if not capabilities.get("sqlite_vec") else None
+            semantic_vector_error = retrieval_runtime.get("detail") or (capabilities.get("sqlite_vec_error") if not capabilities.get("sqlite_vec") else None)
 
         ranked_semantic_hits = self._rank_semantic_hits(
             semantic_hits=semantic_hits,
@@ -311,4 +348,6 @@ class RetrievalService:
                 ranked_semantic_hits=ranked_semantic_hits,
                 decisions=decisions,
             ),
+            "retrieval_runtime": retrieval_runtime,
+            "zero_hit_reason": retrieval_runtime.get("status") if not ranked_episodes and not ranked_semantic_hits and not decisions else None,
         }

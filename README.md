@@ -528,6 +528,29 @@ Run the bounded end-to-end smoke test:
 It writes a summary artifact to:
 - `artifacts/e2e-summary.json`
 
+## Retrieval green-path smoke test
+
+Run the bounded retrieval/runtime smoke test:
+
+```bash
+source .env
+./scripts/retrieval_smoke.sh
+```
+
+It writes artifacts under:
+- `artifacts/retrieval-smoke/`
+- `artifacts/retrieval-smoke/summary.json`
+
+Purpose:
+- verify retrieval runtime green path on a fresh DB
+- verify vector sync + `recall` + `retrieval-explain` + `retrieval-health`
+- catch env/runtime regressions that can otherwise look like normal retrieval failure
+
+Interpretation:
+- `PASS` = runtime ready and at least one ranked retrieval hit returned
+- `FAIL` = runtime/env broken or no ranked hit on the bounded corpus
+- this is **not** a broad retrieval-quality benchmark
+
 
 ## CLI error behavior
 
