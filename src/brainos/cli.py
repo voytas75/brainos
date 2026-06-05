@@ -35,6 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_ep_add.add_argument("session_id")
     p_ep_add.add_argument("content")
     p_ep_add.add_argument("--metadata-json", default="{}")
+    p_ep_add.add_argument("--kind")
+    p_ep_add.add_argument("--topic")
+    p_ep_add.add_argument("--source")
 
     p_ep_list = sub.add_parser("episodes-list", help="List episodes")
     p_ep_list.add_argument("--session-id")
@@ -201,10 +204,17 @@ def main() -> None:
             print(json.dumps(value, ensure_ascii=False, indent=2))
         elif args.command == "episode-add":
             store.initialize()
+            metadata = json.loads(args.metadata_json)
+            if args.kind and "kind" not in metadata:
+                metadata["kind"] = args.kind
+            if args.topic and "topic" not in metadata:
+                metadata["topic"] = args.topic
+            if args.source and "source" not in metadata:
+                metadata["source"] = args.source
             episode_id = store.add_episode(
                 session_id=args.session_id,
                 content=args.content,
-                metadata=json.loads(args.metadata_json),
+                metadata=metadata,
             )
             print(episode_id)
         elif args.command == "episodes-list":

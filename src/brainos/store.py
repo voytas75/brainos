@@ -22,6 +22,7 @@ from .errors import (
     VectorIndexContractError,
 )
 from .ledger import canonical_json, compute_event_hash
+from .ingest import prepare_episode_ingest
 from .retrieval import RetrievalService
 from .schema import detect_capabilities, get_schema_status, get_vec_table_sql, initialize_schema
 from .sqlite_vec import sqlite_vec_readiness
@@ -1116,7 +1117,7 @@ class BrainOSStore:
         episode_id: str | None = None,
         causal_event_id: str | None = None,
     ) -> str:
-        metadata = metadata or {}
+        content, metadata = prepare_episode_ingest(content, metadata)
         episode_id = episode_id or str(uuid.uuid4())
         metadata_json = json.dumps(metadata, ensure_ascii=False)
         with self.transaction():
