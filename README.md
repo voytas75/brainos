@@ -206,9 +206,12 @@ One explicit implementation decision:
 
 Use the docs this way:
 - start with `README.md` for project overview and quick start
-- read `docs/api.md` for exact Python API and CLI reference
-- read `docs/implementation-notes.md` for design tradeoffs and spec-gap notes
-- read `docs/README-DEV.md` for runtime, operator, and development details
+- read [`docs/api.md`](docs/api.md) for exact Python API and CLI reference
+- read [`docs/implementation-notes.md`](docs/implementation-notes.md) for design tradeoffs and spec-gap notes
+- read [`docs/README-DEV.md`](docs/README-DEV.md) for runtime, operator, and development details
+- read [`docs/STATUS.md`](docs/STATUS.md) for the current retrieval/runtime slice status
+- read [`docs/retrieval-contract-v1.md`](docs/retrieval-contract-v1.md) and [`docs/retrieval-quality-contract-v1.md`](docs/retrieval-quality-contract-v1.md) for retrieval semantics and evaluation posture
+- read [`docs/decision-support-contract-v1.md`](docs/decision-support-contract-v1.md) for the current decision-support contract
 
 ## Roadmap
 
