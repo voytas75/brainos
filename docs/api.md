@@ -71,13 +71,25 @@ Returns runtime capability detection results.
 
 ## Working memory API
 
+Working memory is intended for small, short-lived operational state.
+Use it for values that describe the current runtime situation, for example an agent mode, a checkpoint, or a temporary control flag.
+
+This layer is passive storage: BrainOS does not automatically act on keys stored in working memory.
+If a key such as `agent_state` should influence behavior, that interpretation must be implemented in higher-level application or orchestration logic.
+
 ### `set_working_memory(key, value, causal_event_id=None) -> str`
 
 Upserts a JSON value in `wm` and appends a ledger event.
 
+Typical use:
+- set current mode, checkpoint, or small runtime flag
+
 ### `get_working_memory(key) -> dict | None`
 
 Returns parsed JSON value for one working-memory key.
+
+Typical use:
+- read current operational state before taking the next step in a wrapper, worker, or agent loop
 
 ---
 
@@ -285,15 +297,28 @@ brainos --db ./brain.db capabilities
 
 ### Working memory
 
+Use working memory for compact runtime state, not for long-form history or durable knowledge.
+A common pattern is to store a small JSON object such as the current mode or active step under a stable key like `agent_state`.
+
 #### `wm-set`
 ```bash
 brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
 ```
 
+Writes or replaces the JSON value for a working-memory key and records the change in the ledger.
+
 #### `wm-get`
 ```bash
 brainos --db ./brain.db wm-get agent_state
 ```
+
+Reads the current JSON value for a working-memory key.
+This is typically used by higher-level logic that wants to check current state before continuing work.
+
+Example flow:
+1. `wm-get agent_state` returns `{"mode":"ready"}`
+2. wrapper starts a task and writes `{"mode":"busy","task":"index_docs"}` with `wm-set`
+3. after the task completes, wrapper writes `{"mode":"ready"}` again
 
 ### Episodes / recall
 

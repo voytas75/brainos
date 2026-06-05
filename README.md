@@ -133,6 +133,22 @@ BrainOS maps multiple memory layers into one SQLite database:
 - **Decision support** — operator-facing decision briefs and history
 - **Provenance ledger** — auditable write history with chained hashes
 
+### Working memory in practice
+
+Working memory is for small, current operational state that higher-level agent logic may need to read or update between steps.
+
+Typical uses:
+- current mode such as `ready`, `busy`, `paused`, or `error`
+- active task or step checkpoint
+- short-lived control flags
+- small local runtime context worth persisting across process boundaries or restarts
+
+`wm-set` and `wm-get` are storage primitives, not an autonomous control loop.
+BrainOS stores the value and records the write in the ledger, but it does not automatically interpret keys such as `agent_state` unless a higher-level application, wrapper, or orchestrator is explicitly written to do so.
+
+Use working memory when you need a compact shared state like “what is happening now”.
+Do not use it as a substitute for episodic history, durable semantic knowledge, or large document storage.
+
 ## Project structure
 
 - `src/brainos/` — core package
