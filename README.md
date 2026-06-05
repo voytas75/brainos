@@ -244,7 +244,6 @@ One explicit implementation decision:
 ## Documentation map
 
 Use the docs this way:
-- start with `README.md` for project overview and quick start
 - read [`docs/canonical-e2e-demo.md`](docs/canonical-e2e-demo.md) for the fastest honest repo walkthrough
 - read [`docs/evidence-map.md`](docs/evidence-map.md) for what is proven vs only bounded evidence
 - read [`docs/api.md`](docs/api.md) for exact Python API and CLI reference
@@ -253,12 +252,3 @@ Use the docs this way:
 - read [`docs/STATUS.md`](docs/STATUS.md) for the concise current project status
 - read [`docs/retrieval-contract-v1.md`](docs/retrieval-contract-v1.md) and [`docs/retrieval-quality-contract-v1.md`](docs/retrieval-quality-contract-v1.md) for retrieval semantics and evaluation posture
 - read [`docs/decision-support-contract-v1.md`](docs/decision-support-contract-v1.md) for the current decision-support contract
-- read [`CONTRIBUTING.md`](CONTRIBUTING.md) if you want to contribute changes
-- read [`SECURITY.md`](SECURITY.md) for vulnerability reporting expectations
-
-## Current posture
-
-Current priority is trustworthiness of the existing local core:
-- keep README/docs aligned with the code that actually exists
-- keep one canonical demo path easy to run and easy to read honestly
-- treat vector-ready retrieval as environment-dependent evidence, not a blanket project claim
