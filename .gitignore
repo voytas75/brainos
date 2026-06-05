@@ -15,3 +15,6 @@ brain_e2e.db*
 
 # Generated local decision-test reports
 /docs/brainos-decision-test-*.md
+
+# Local-only archived notes and working docs
+/local-docs/
