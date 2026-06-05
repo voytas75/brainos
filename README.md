@@ -4,13 +4,15 @@ BrainOS is a SQLite-first cognitive memory core for LLM agents.
 
 It gives an agent a local, auditable, multi-layer memory system in a single SQLite file: working memory, episodic memory, semantic memory, procedural memory, decision support, and provenance.
 
+In practice, BrainOS helps you keep agent memory local, inspectable, and portable without standing up a multi-service memory stack.
+
 **Current scope:** BrainOS is a local storage and retrieval core, not a full agent runtime or hosted platform.
 
 ## Why BrainOS is different
 
-- **One file, not a memory stack zoo** — core agent memory lives in one transactional SQLite database.
-- **Auditability by default** — meaningful writes are tracked through a provenance ledger with chained hashes.
-- **Built for local-first agent work** — simple to run, inspect, test, and carry between environments.
+- **One file, not a memory stack zoo** — core agent memory lives in one transactional SQLite database, with fewer moving parts to provision and debug.
+- **Auditability by default** — meaningful writes are tracked through a provenance ledger with chained hashes, so state changes stay inspectable.
+- **Built for local-first agent work** — simple to run, test, inspect, and carry between environments without extra service glue.
 
 ## Why this exists
 
@@ -137,27 +139,18 @@ BrainOS maps multiple memory layers into one SQLite database:
 
 ## Main commands
 
-### Core lifecycle
-- `init`
-- `schema-status`
-- `capabilities`
+Representative CLI commands:
 
-### Working and episodic memory
-- `wm-set`, `wm-get`
-- `episode-add`, `episodes-list`, `episode-search`
-- `consolidation-preview`, `promote-episode`, `episode-promotion-get`
-- `recall`
+- lifecycle: `init`, `schema-status`, `capabilities`
+- working memory: `wm-set`, `wm-get`
+- episodic memory: `episode-add`, `episodes-list`, `episode-search`, `recall`
+- promotion flow: `consolidation-preview`, `promote-episode`, `episode-promotion-get`
+- semantic memory: `semantic-node-upsert`, `semantic-node-get`, `semantic-edge-upsert`, `semantic-edges-list`
+- procedures: `procedure-create`, `procedure-list`, `procedure-get`
+- decision support: `decision-log`, `decision-list`, `decision-get`, `decision-check`, `decision-history`
+- inspection and audit: `inspect`, `ledger`, `ledger-verify`
 
-### Semantic and procedural memory
-- `semantic-node-upsert`, `semantic-node-get`
-- `semantic-edge-upsert`, `semantic-edges-list`
-- `procedure-create`, `procedure-list`, `procedure-get`
-
-### Decision support and inspection
-- `decision-log`, `decision-list`, `decision-get`
-- `decision-check`, `decision-history`
-- `inspect`
-- `ledger`, `ledger-verify`
+For the full command surface and arguments, see `docs/api.md`.
 
 ## Python usage
 
