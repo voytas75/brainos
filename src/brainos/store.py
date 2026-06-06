@@ -1368,21 +1368,25 @@ class BrainOSStore:
         if candidate["target_layer"] == "procedural":
             procedure = candidate["procedure"]
             with self.transaction():
-                procedure_id = self.create_procedure(
+                procedure_result = self.create_procedure(
                     name=procedure["name"],
                     description=procedure["description"],
                     steps=procedure["steps"],
                     causal_event_id=episode_id,
+                    return_ledger_event_id=True,
                 )
+                procedure_id = procedure_result["procedure_id"]
+                event_id = procedure_result["ledger_event_id"]
                 self.conn.execute(
                     "INSERT INTO episode_promotions(episode_id, target_layer, target_id, status, ledger_event_id) VALUES (?, ?, ?, ?, ?)",
-                    (episode_id, "procedural", procedure_id, "promoted", None),
+                    (episode_id, "procedural", procedure_id, "promoted", event_id),
                 )
             return {
                 "ok": True,
                 "episode_id": episode_id,
                 "target_layer": "procedural",
                 "created_id": procedure_id,
+                "ledger_event_id": event_id,
                 "mode": "promoted",
             }
 
@@ -1543,7 +1547,8 @@ class BrainOSStore:
         description: str | None = None,
         procedure_id: str | None = None,
         causal_event_id: str | None = None,
-    ) -> str:
+        return_ledger_event_id: bool = False,
+    ) -> str | dict[str, str]:
         self._ensure_list_of_dicts(steps, field_name="steps")
         procedure_id = procedure_id or str(uuid.uuid4())
         with self.transaction():
@@ -1551,7 +1556,7 @@ class BrainOSStore:
                 "INSERT INTO procedures(id, name, description, steps_json) VALUES (?, ?, ?, ?)",
                 (procedure_id, name, description, json.dumps(steps, ensure_ascii=False)),
             )
-            self._append_ledger(
+            event_id = self._append_ledger(
                 layer="procedural",
                 action="CREATE",
                 payload={
@@ -1562,6 +1567,8 @@ class BrainOSStore:
                 },
                 causal_event_id=causal_event_id,
             )
+        if return_ledger_event_id:
+            return {"procedure_id": procedure_id, "ledger_event_id": event_id}
         return procedure_id
 
     def get_procedure(self, procedure_id: str) -> dict[str, Any] | None:

@@ -146,6 +146,7 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     promotion_record = store.get_episode_promotion(semantic_episode_id)
     assert promotion_record is not None
     assert promotion_record["target_layer"] == "semantic"
+    assert promotion_record["ledger_event_id"] == semantic_promote["ledger_event_id"]
 
     already_promoted_preview = store.preview_consolidation(semantic_episode_id)
     assert already_promoted_preview["mode"] == "already_promoted"
@@ -158,9 +159,14 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     procedure_promote = store.promote_episode(procedure_episode_id)
     assert procedure_promote["ok"] is True
     assert procedure_promote["target_layer"] == "procedural"
+    assert procedure_promote["ledger_event_id"]
     promoted_procedure = store.get_procedure(procedure_promote["created_id"])
     assert promoted_procedure is not None
     assert promoted_procedure["steps"][1]["step"] == "load-state"
+    procedure_promotion_record = store.get_episode_promotion(procedure_episode_id)
+    assert procedure_promotion_record is not None
+    assert procedure_promotion_record["target_layer"] == "procedural"
+    assert procedure_promotion_record["ledger_event_id"] == procedure_promote["ledger_event_id"]
 
     try:
         store.promote_episode(procedure_episode_id)
