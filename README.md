@@ -2,253 +2,116 @@
 
 BrainOS is a SQLite-first cognitive memory core for LLM agents.
 
-It gives an agent a local, auditable, multi-layer memory system in a single SQLite file: working memory, episodic memory, semantic memory, procedural memory, decision support, provenance, and bounded retrieval diagnostics.
+It gives an agent a local, auditable memory system in a single SQLite file, with working memory, episodes, semantic structures, procedures, decisions, provenance, and bounded retrieval diagnostics.
 
-In practice, BrainOS helps you keep agent memory local, inspectable, and portable without standing up a multi-service memory stack.
+BrainOS is early-stage, experimental, and local-first. It is a storage and retrieval core, not a full agent runtime or hosted platform.
 
-**Project stage:** early-stage, experimental, and local-first.
+## Why BrainOS
 
-**Current scope:** BrainOS is a local storage and retrieval core, not a full agent runtime or hosted platform.
+- **One file, not a memory stack zoo** — core agent memory lives in one transactional SQLite database.
+- **Auditability by default** — meaningful writes are tracked through a provenance ledger with chained hashes.
+- **Local-first by design** — simple to run, inspect, test, and move between environments.
 
-## Why BrainOS is different
+## What it is
 
-- **One file, not a memory stack zoo** — core agent memory lives in one transactional SQLite database, with fewer moving parts to provision and debug.
-- **Auditability by default** — meaningful writes are tracked through a provenance ledger with chained hashes, so state changes stay inspectable.
-- **Built for local-first agent work** — simple to run, test, inspect, and carry between environments without extra service glue.
+BrainOS currently provides:
 
-## Why this exists
+- a local SQLite memory core
+- a Python API and local CLI
+- working memory, episodes, semantic nodes/edges, procedures, decisions, and provenance
+- bounded retrieval and runtime diagnostics
 
-Many agent-memory architectures split state across multiple services and runtime layers. BrainOS takes the opposite approach: keep the core memory model in one transactional SQLite database.
-
-That gives:
-- deterministic local behavior
-- low infrastructure cost
-- ACID transactions
-- simple portability
-- easy local testing and inspection
-
-## Who this is for
-
-BrainOS is for people building local or operator-facing LLM systems who want:
-- one-file memory storage
-- explicit audit and provenance trails
-- a pragmatic storage core before a larger runtime platform
-
-Good fit:
-- local-first experimentation
-- bounded production-style memory slices
-- operator-facing systems that need inspectable state
-
-## What BrainOS is not
+## What it is not
 
 BrainOS is not:
+
 - a full agent runtime
 - a hosted memory platform
-- a broad retrieval-science platform
-- a workflow engine for autonomous execution
-
-## Current status
-
-### Implemented now
-
-- single-file SQLite database (`brain.db`)
-- WAL mode and foreign keys
-- JSON validation on JSON-bearing columns
-- working memory (`wm`)
-- episodic memory (`episodes`, `episodes_fts`)
-- semantic memory (`semantic_nodes`, `semantic_edges`)
-- procedural memory (`procedures`)
-- decision support objects (`decisions`)
-- immutable provenance ledger (`ledger`)
-- bounded retrieval/runtime surfaces (`recall`, `retrieval-explain`, `retrieval-health`, `retrieval-benchmark`, `real-corpus-probe`)
-- vector maintenance and readiness surfaces (`vector-index-*`, `capabilities`, `sqlite-vec-readiness`, `embedding-readiness`, `doctor`)
-- Python API
-- CLI
-- tests and smoke checks
-
-### Not implemented yet
-
-- broad retrieval guarantees beyond the current bounded recall/explain/ranking slices
-- full cognitive execution loop
-- broad migration framework beyond the current hardening baseline
-- HTTP/MCP/server APIs
+- an autonomous workflow engine
+- a broad retrieval-quality guarantee across open-ended corpora
 
 ## Quick start
 
-### 1. Install dependencies
+Install dependencies:
 
 ```bash
 uv sync --extra dev
 ```
 
-### 2. Optional local environment
-
-Core storage flows work without a `.env` file.
-If you want retrieval/vector diagnostics that depend on embeddings or `sqlite-vec`, provide local env configuration first.
-
-### 3. Initialize a database
+Initialize a database:
 
 ```bash
 uv run brainos --db ./brain.db init
 ```
 
-### 4. Write and read working memory
+Write and read working memory:
 
 ```bash
 uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
 uv run brainos --db ./brain.db wm-get agent_state
 ```
 
-### 5. Add and search an episode
+Add and search an episode:
 
 ```bash
-uv run brainos --db ./brain.db episode-add session-1 'Agent initialized successfully' --metadata-json '{"source":"manual"}'
-uv run brainos --db ./brain.db episode-search Agent --limit 5
+uv run brainos --db ./brain.db episode-add session-1 'BrainOS initialized successfully' --metadata-json '{"source":"manual"}'
+uv run brainos --db ./brain.db episode-search BrainOS --limit 5
 ```
-
-### 6. Run a minimal test
-
-```bash
-uv run pytest tests/test_brainos.py -q
-```
-
-## Example workflow
-
-```bash
-uv run brainos --db ./brain.db init
-uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
-uv run brainos --db ./brain.db episode-add session-1 'BrainOS initialized' --metadata-json '{"source":"smoke"}'
-uv run brainos --db ./brain.db recall BrainOS --session-id session-1 --limit 5
-uv run brainos --db ./brain.db ledger
-```
-
-## Examples
 
 If you want small Python walkthroughs instead of raw CLI snippets, see [`examples/README.md`](examples/README.md).
-The examples are intentionally narrow and teach the usage contract of each layer rather than pretending BrainOS is already a full agent runtime.
 
-Start here:
-- `examples/working_memory_flow.py` — working memory as passive operational state
-- `examples/episode_recall_flow.py` — episodic memory as searchable history
-- `examples/ledger_inspection.py` — auditable writes through the ledger
+## 10-minute honest evaluation path
 
-## Memory model
-
-BrainOS maps multiple memory layers into one SQLite database:
-
-- **Working memory** — short-lived runtime state
-- **Episodic memory** — session events and searchable history
-- **Semantic memory** — nodes, edges, and durable knowledge structure
-- **Procedural memory** — JSON-defined reusable procedures
-- **Decision support** — operator-facing decision briefs and history
-- **Provenance ledger** — auditable write history with chained hashes
-
-### Working memory in practice
-
-Working memory is for small, current operational state that higher-level agent logic may need to read or update between steps.
-
-Typical uses:
-- current mode such as `ready`, `busy`, `paused`, or `error`
-- active task or step checkpoint
-- short-lived control flags
-- small local runtime context worth persisting across process boundaries or restarts
-
-`wm-set` and `wm-get` are storage primitives, not an autonomous control loop.
-BrainOS stores the value and records the write in the ledger, but it does not automatically interpret keys such as `agent_state` unless a higher-level application, wrapper, or orchestrator is explicitly written to do so.
-
-Use working memory when you need a compact shared state like “what is happening now”.
-Do not use it as a substitute for episodic history, durable semantic knowledge, or large document storage.
-
-## Project structure
-
-- `src/brainos/` — core package
-- `src/brainos/schema.py` — schema and initialization
-- `src/brainos/store.py` — storage API
-- `src/brainos/cli.py` — CLI entrypoint
-- `src/brainos/ledger.py` — canonical JSON and hash helpers
-- `tests/` — test suite
-- `scripts/` — smoke scripts
-- `docs/api.md` — Python API and CLI reference
-- `docs/implementation-notes.md` — design decisions and spec-gap notes
-- `docs/README-DEV.md` — deeper development and operator notes
-
-## Main commands
-
-Representative CLI commands:
-
-- lifecycle: `init`, `schema-status`, `capabilities`
-- working memory: `wm-set`, `wm-get`
-- episodic memory: `episode-add`, `episodes-list`, `episode-search`, `recall`
-- promotion flow: `consolidation-preview`, `promote-episode`, `episode-promotion-get`
-- semantic memory: `semantic-node-upsert`, `semantic-node-get`, `semantic-edge-upsert`, `semantic-edges-list`
-- procedures: `procedure-create`, `procedure-list`, `procedure-get`
-- decision support: `decision-log`, `decision-list`, `decision-get`, `decision-check`, `decision-history`
-- inspection and audit: `inspect`, `ledger`, `ledger-verify`
-
-For the full command surface and arguments, see `docs/api.md`.
-
-## Python usage
-
-BrainOS also exposes a direct Python API through `BrainOSStore`.
-For a runnable walkthrough, see [`examples/python_api_quickstart.py`](examples/python_api_quickstart.py) and the overview in [`examples/README.md`](examples/README.md).
-
-## Development verification
-
-Run a minimal verification path:
-
-```bash
-uv run pytest tests/test_brainos.py -q
-uv run brainos --db ./brain.db init
-uv run brainos --db ./brain.db wm-set agent_state '{"mode":"ready"}'
-uv run brainos --db ./brain.db episode-add session-1 'BrainOS initialized with WAL and ledger' --metadata-json '{"source":"smoke"}'
-uv run brainos --db ./brain.db episode-search BrainOS --limit 5
-uv run brainos --db ./brain.db ledger
-```
-
-## 10-minute evaluation path
-
-If you want one honest repo-local walkthrough, run:
+If you want one recommended repo-local walkthrough, run:
 
 ```bash
 ./scripts/canonical_e2e_demo.sh
 ```
 
-If your shell cannot run the script directly, use:
+Fallback if your shell cannot run the script directly:
 
 ```bash
 bash ./scripts/canonical_e2e_demo.sh
 ```
 
-This produces `./artifacts/canonical-e2e/summary.json` and classifies the result as `PASS`, `DEGRADED`, or `FAIL`.
+This produces artifacts under `./artifacts/canonical-e2e/` and classifies the run as:
 
-- `PASS` means the local core path is working and the bounded retrieval/runtime surfaces are green on this machine.
-- `DEGRADED` means the core path worked, but vector-ready evidence was skipped or unavailable in the current environment.
-- `FAIL` means a core storage, retrieval, promotion, or ledger check broke.
+- `PASS` — the local core path worked and the bounded retrieval/runtime surfaces were green
+- `DEGRADED` — the local core path worked, but vector-ready evidence was skipped or unavailable in the current environment
+- `FAIL` — a core storage, retrieval, promotion, or ledger check failed
 
-If you already have embedding and `sqlite-vec` env configured and want stronger vector-ready evidence, run:
+If your local environment is already configured for embeddings and `sqlite-vec`, you can request a stronger vector-ready pass:
 
 ```bash
 BRAINOS_CANONICAL_E2E_ENABLE_VECTOR_SYNC=1 ./scripts/canonical_e2e_demo.sh
 ```
 
-## Design notes
+## Core concepts
 
-BrainOS aims at a larger target architecture than the current repository implements today, especially around execution flow and some `sqlite-vec` operational details.
+BrainOS maps several memory layers into one SQLite database:
 
-This repository therefore implements the durable local storage core first.
-
-One explicit implementation decision:
-- cryptographic chaining implies an explicit previous-link field for verification
-- this implementation adds `previous_hash` to make the chain explicit and verifiable
+- **Working memory** — current operational state
+- **Episodes** — searchable session history
+- **Semantic memory** — durable knowledge as nodes and edges
+- **Procedures** — reusable JSON-defined procedures
+- **Decisions** — operator-facing decision records
+- **Ledger** — auditable write history with chained hashes
 
 ## Documentation map
 
 Use the docs this way:
+
 - read [`docs/canonical-e2e-demo.md`](docs/canonical-e2e-demo.md) for the fastest honest repo walkthrough
+- read [`docs/STATUS.md`](docs/STATUS.md) for the current bounded scope
 - read [`docs/evidence-map.md`](docs/evidence-map.md) for what is proven vs only bounded evidence
 - read [`docs/api.md`](docs/api.md) for exact Python API and CLI reference
 - read [`docs/implementation-notes.md`](docs/implementation-notes.md) for design tradeoffs and spec-gap notes
 - read [`docs/README-DEV.md`](docs/README-DEV.md) for runtime, operator, and development details
-- read [`docs/STATUS.md`](docs/STATUS.md) for the concise current project status
 - read [`docs/retrieval-contract-v1.md`](docs/retrieval-contract-v1.md) and [`docs/retrieval-quality-contract-v1.md`](docs/retrieval-quality-contract-v1.md) for retrieval semantics and evaluation posture
 - read [`docs/decision-support-contract-v1.md`](docs/decision-support-contract-v1.md) for the current decision-support contract
+
+## Current status
+
+BrainOS currently provides a local SQLite memory core with Python and CLI surfaces, bounded retrieval diagnostics, promotion flow, and provenance.
+
+It does not currently provide server APIs, autonomous runtime behavior, or broad retrieval guarantees across open-ended corpora.
