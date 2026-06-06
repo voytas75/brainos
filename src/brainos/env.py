@@ -4,10 +4,39 @@ import os
 from pathlib import Path
 
 
+_LAST_ENV_LOAD_INFO: dict[str, object] = {
+    "loaded": False,
+    "path": None,
+    "keys": [],
+    "cwd": None,
+    "exists": False,
+}
+
+
+def get_last_env_load_info() -> dict[str, object]:
+    return {
+        "loaded": bool(_LAST_ENV_LOAD_INFO.get("loaded", False)),
+        "path": _LAST_ENV_LOAD_INFO.get("path"),
+        "keys": list(_LAST_ENV_LOAD_INFO.get("keys", [])),
+        "cwd": _LAST_ENV_LOAD_INFO.get("cwd"),
+        "exists": bool(_LAST_ENV_LOAD_INFO.get("exists", False)),
+    }
+
+
 def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[str, object]:
     base = Path(cwd or os.getcwd())
     env_path = base / ".env"
     loaded: list[str] = []
+
+    _LAST_ENV_LOAD_INFO.update(
+        {
+            "loaded": False,
+            "path": str(env_path),
+            "keys": [],
+            "cwd": str(base),
+            "exists": env_path.exists(),
+        }
+    )
 
     if not env_path.exists():
         return {
@@ -34,6 +63,16 @@ def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[
         if override or key not in os.environ:
             os.environ[key] = value
             loaded.append(key)
+
+    _LAST_ENV_LOAD_INFO.update(
+        {
+            "loaded": True,
+            "path": str(env_path),
+            "keys": list(loaded),
+            "cwd": str(base),
+            "exists": True,
+        }
+    )
 
     return {
         "loaded": True,

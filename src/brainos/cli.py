@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
-from .env import load_project_env
+from .env import get_last_env_load_info, load_project_env
 from .errors import BrainOSError, SqliteVecReadinessError
 from .benchmark import run_retrieval_benchmark
 from .doctor import doctor_summary, embedding_readiness_summary
@@ -172,6 +173,30 @@ def _sqlite_vec_error_payload(exc: SqliteVecReadinessError) -> dict[str, object]
             "extension_load_failed": "runtime_fix",
             "readiness_probe_failed": "retry_or_runtime_fix",
         }.get(exc.error_kind, "inspect_error"),
+    }
+
+
+def _startup_runtime_context(*, db_path: str) -> dict[str, object]:
+    env_info = get_last_env_load_info()
+    env_keys = set(env_info.get("keys", []))
+
+    def _var_presence(name: str) -> dict[str, object]:
+        value = os.getenv(name, "")
+        return {
+            "present": bool(value.strip()),
+            "source": "loaded_env_file" if name in env_keys else ("process_env" if value.strip() else "missing"),
+        }
+
+    return {
+        "effective_db_path": str(Path(db_path).resolve()),
+        "env_load": env_info,
+        "env_presence": {
+            "BRAINOS_SQLITE_VEC_PATH": _var_presence("BRAINOS_SQLITE_VEC_PATH"),
+            "BRAINOS_EMBEDDING_MODEL": _var_presence("BRAINOS_EMBEDDING_MODEL"),
+            "AZURE_API_BASE": _var_presence("AZURE_API_BASE"),
+            "AZURE_API_KEY": _var_presence("AZURE_API_KEY"),
+            "AZURE_API_VERSION": _var_presence("AZURE_API_VERSION"),
+        },
     }
 
 
@@ -347,7 +372,9 @@ def main() -> None:
             print(json.dumps(run_retrieval_benchmark(store, limit=args.limit), ensure_ascii=False, indent=2))
         elif args.command == "retrieval-explain":
             store.initialize()
-            print(json.dumps(explain_recall(store, args.query, session_id=args.session_id, limit=args.limit), ensure_ascii=False, indent=2))
+            payload = explain_recall(store, args.query, session_id=args.session_id, limit=args.limit)
+            payload["startup_runtime_context"] = _startup_runtime_context(db_path=args.db)
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "retrieval-health":
             store.initialize()
             print(json.dumps(retrieval_health_summary(store, benchmark_limit=args.benchmark_limit), ensure_ascii=False, indent=2))
