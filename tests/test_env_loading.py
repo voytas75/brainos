@@ -57,3 +57,36 @@ def test_cli_honors_project_dotenv_for_embedding_readiness(tmp_path):
     )
     assert '"missing_env": []' in proc.stdout
     assert '"BRAINOS_EMBEDDING_MODEL"' in proc.stdout
+
+
+def test_cli_uses_brainos_db_path_env_for_db_selection(tmp_path):
+    db = tmp_path / "via-env.db"
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "BRAINOS_EMBEDDING_MODEL=azure/from-dotenv\nAZURE_API_BASE=https://example.openai.azure.com\nAZURE_API_KEY=dotenv-key\nAZURE_API_VERSION=2024-10-21\n",
+        encoding="utf-8",
+    )
+    cli = os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos")
+    env = {**_clean_cli_env(), "PATH": os.environ.get("PATH", ""), "BRAINOS_DB_PATH": str(db)}
+
+    init_proc = subprocess.run(
+        [cli, "init"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
+    )
+    assert f"Initialized {db}" in init_proc.stdout
+    assert db.exists()
+
+    explain_proc = subprocess.run(
+        [cli, "retrieval-explain", "runtime drift"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
+    )
+    assert f'"effective_db_path": "{db.resolve()}"' in explain_proc.stdout
+    assert f'"cwd": "{db.resolve().parent}"' in explain_proc.stdout

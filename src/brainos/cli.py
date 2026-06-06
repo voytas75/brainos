@@ -16,9 +16,14 @@ from .real_corpus_probe import run_real_corpus_probe
 from .store import BrainOSStore
 
 
+def _default_db_path() -> str:
+    value = os.getenv("BRAINOS_DB_PATH", "").strip()
+    return value or "brain.db"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="brainos")
-    parser.add_argument("--db", default="brain.db", help="Path to SQLite database")
+    parser.add_argument("--db", default=_default_db_path(), help="Path to SQLite database")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
