@@ -334,6 +334,34 @@ Shell environment variables still override `.env` when you need a temporary test
 - Current explicit health and readiness validation is strongest for Azure and OpenAI.
 - Other provider prefixes are intended to pass through LiteLLM, but should be treated as best-effort until explicitly verified in this repo.
 - If `sqlite-vec` is unavailable, embedding execution may still succeed but vector storage is marked `disabled`.
+- If no provider-prefixed model or explicit provider is configured yet, the embedding contract should report `operational_provider: unknown` rather than pretending a configured backend exists.
+
+## Runtime interpretation truth table
+
+| Surface | What it tells you | What it does **not** tell you | Normal next move when degraded/red |
+| --- | --- | --- | --- |
+| `capabilities` | Whether ambient/explicit sqlite-vec capability is available to the current process | Whether embeddings are configured correctly; whether retrieval quality is good | If `sqlite_vec=false`, inspect `BRAINOS_SQLITE_VEC_PATH` and compare with readiness |
+| `sqlite-vec-readiness` | Whether BrainOS can explicitly load the configured sqlite-vec path and run a probe | Whether the retrieval layer is relevant or high quality | Fix configured path / runtime loading first |
+| `embedding-readiness` | Whether embedding config, dependencies, and sqlite-vec prerequisites look operationally ready | Whether a provider call already succeeded on this corpus | Set missing env, fix invalid env, or resolve dependency/runtime issues |
+| `retrieval-health.runtime` | The current runtime posture: dependencies, sqlite-vec env, embedding config, DB runtime | Whether benchmark results imply broad retrieval maturity | Classify runtime issues before reading quality failures |
+| `retrieval-health.freshness` | Whether vector index state is fresh, stale, missing, disabled, or error-marked | Whether ranking policy itself regressed | Reindex/repair if stale or error-heavy; do not confuse with scoring drift |
+| `retrieval-benchmark` | Small bounded quality signal on protected benchmark cases | Proof of broad live-corpus retrieval quality | Read together with runtime posture, freshness posture, and mode |
+| `real-corpus-probe` | Small sample evidence from available live-ish corpus data | Broad quality proof or stable regression baseline | Use as supporting evidence, not as the only ranking truth |
+
+### Practical reading order
+
+1. `sqlite-vec-readiness` for explicit-path truth
+2. `capabilities` / `retrieval-health.runtime` for current process/runtime posture
+3. `retrieval-health.freshness` for maintenance/data-state interpretation
+4. `retrieval-benchmark` mode and pass/fail
+5. `retrieval-explain` for hit-level diagnosis
+
+### Important semantic rules
+
+- `degraded` does **not** automatically mean `broken`.
+- `low_evidence` does **not** mean `quality regression`.
+- `operational_provider: unknown` means the provider is not yet inferable/configured, not that Azure/OpenAI is failing silently.
+- Runtime/setup failures should be fixed before treating bounded benchmark output as a ranking problem.
 
 ## `sqlite-vec` runtime configuration
 

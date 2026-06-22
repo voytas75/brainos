@@ -71,19 +71,24 @@ def create_v2_database(path: Path) -> None:
     conn.close()
 
 
-def test_migrates_v2_to_v3_and_creates_vector_state_table(tmp_path):
+def test_migrates_v2_to_current_and_preserves_vector_state_table(tmp_path):
     db = tmp_path / "brain_v2.db"
     create_v2_database(db)
 
     store = BrainOSStore(db)
     store.initialize()
 
-    assert store.schema_status()["current_version"] == 3
+    status = store.schema_status()
+    assert status["current_version"] == status["expected_version"]
     tables = store.conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='vector_index_state'"
     ).fetchall()
     assert len(tables) == 1
-    assert get_schema_version(store.conn) == 3
+    decision_tables = store.conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='decisions'"
+    ).fetchall()
+    assert len(decision_tables) == 1
+    assert get_schema_version(store.conn) == status["expected_version"]
     store.close()
 
 
@@ -133,15 +138,16 @@ def test_embedding_contract_is_declared_but_not_executed(tmp_path, monkeypatch):
     store = BrainOSStore(db)
     store.initialize()
 
-    contract = store.get_embedding_profile_contract()
-    assert contract["profile"] == "brainos-embedding-default"
-    assert contract["provider_path"] == "litellm"
-    assert contract["operational_provider"] == "azure"
-
     monkeypatch.delenv("BRAINOS_EMBEDDING_MODEL", raising=False)
     monkeypatch.delenv("AZURE_API_BASE", raising=False)
     monkeypatch.delenv("AZURE_API_KEY", raising=False)
     monkeypatch.delenv("AZURE_API_VERSION", raising=False)
+
+    contract = store.get_embedding_profile_contract()
+    assert contract["profile"] == "brainos-embedding-default"
+    assert contract["provider_path"] == "litellm"
+    assert contract["operational_provider"] == "unknown"
+    assert contract["required_env"] == ["BRAINOS_EMBEDDING_MODEL"]
 
     try:
         store.embed_texts(["hello world"])
