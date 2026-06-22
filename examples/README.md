@@ -45,6 +45,17 @@ Run:
 uv run python examples/ledger_inspection.py
 ```
 
+### [`typed_ingest_flow.py`](typed_ingest_flow.py)
+Shows typed ingest as a **small quality lever** for new episodic entries.
+It writes a few episodes with `kind`, `topic`, and `source`, then recalls them so the operator value stays concrete.
+See also: [`docs/typed-ingest-and-corpus-hygiene.md`](../docs/typed-ingest-and-corpus-hygiene.md).
+
+Run:
+
+```bash
+uv run python examples/typed_ingest_flow.py
+```
+
 ### [`python_api_quickstart.py`](python_api_quickstart.py)
 Shows one compact Python API walkthrough.
 It initializes a database, writes working memory and an episode, upserts one semantic node, and prints the stored objects.
