@@ -155,7 +155,18 @@ Current plan:
 
 Current persistent eval-set implementation anchor:
 - `tests/test_retrieval_eval.py`
+- `tests/test_retrieval_eval_anchor.py`
 - [`docs/evidence-map.md`](./evidence-map.md)
+
+Current protected realistic query classes are intentionally small and grouped around:
+- storage / WAL wording
+- embedding path wording
+- maintenance / reindex wording
+- runtime-disabled interpretation wording
+- policy-version / explain wording
+
+This anchor is meant to stay small.
+If it starts growing casually, treat that as drift and re-justify the added classes explicitly.
 
 This plan is intentionally conservative.
 It favors trustworthiness of the retrieval layer over broader product breadth.

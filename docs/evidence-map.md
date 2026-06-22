@@ -14,8 +14,10 @@ Primary repo-local evidence:
 - [`scripts/e2e_smoke.sh`](../scripts/e2e_smoke.sh)
 - [`scripts/retrieval_smoke.sh`](../scripts/retrieval_smoke.sh)
 - [`scripts/canonical_e2e_demo.sh`](../scripts/canonical_e2e_demo.sh)
+- [`scripts/operator_acceptance.sh`](../scripts/operator_acceptance.sh)
 - `tests/test_brainos.py`
 - `tests/test_retrieval_eval.py`
+- `tests/test_retrieval_eval_anchor.py`
 - `tests/test_explain_cli.py`
 - `tests/test_health_cli.py`
 - `tests/test_sqlite_vec_runtime.py`
