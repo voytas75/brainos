@@ -187,6 +187,29 @@ Interpretation:
 - `FAIL` = runtime or env broken, or no ranked hit on the bounded corpus
 - this is **not** a broad retrieval-quality benchmark
 
+### Operator acceptance pack
+
+Run the bounded operator-interpretation pack:
+
+```bash
+./scripts/operator_acceptance.sh
+```
+
+Output artifacts:
+- `artifacts/operator-acceptance/`
+- `artifacts/operator-acceptance/summary.json`
+
+Purpose:
+- verify runtime issues are classified before quality interpretation
+- verify empty DB low-evidence behavior remains explicit
+- verify degraded runtime messaging still preserves lexical fallback interpretation
+- verify direct fix hints survive degraded runtime paths
+
+Interpretation:
+- `PASS` = the current operator-facing degraded/runtime semantics match the bounded acceptance scenarios
+- `FAIL` = at least one expected runtime/degraded interpretation contract drifted
+- this is an operator interpretation pack, **not** a retrieval-quality benchmark
+
 ## CLI error behavior
 
 For expected user-facing errors such as not found, invalid promotion metadata, or duplicate promotion, the CLI exits with code `2` and returns a compact JSON error object on stderr.
