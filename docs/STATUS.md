@@ -31,6 +31,22 @@ BrainOS does not currently ship:
 - Treat vector-ready success as environment-dependent. If local embedding or `sqlite-vec` config is missing, the repo should be read as degraded rather than broken.
 - Treat decision support as operator-facing support, not autonomous choice.
 
+## Current checkpoint
+
+Checkpoint after the 2026-06-22 trust-layer closeout:
+- contract/runtime cleanup landed
+- operator acceptance pack landed
+- typed-ingest quality-lever docs/example landed
+- realistic retrieval eval anchor landed
+- current full test posture: `119 passed`
+
+Recent commits:
+- `87f477b` — Anchor realistic retrieval eval set
+- `380a450` — Document typed ingest as quality lever
+- `23ce94b` — Add operator acceptance pack
+- `069167e` — Clarify degraded runtime messaging
+- `d661937` — Align runtime contracts and health semantics
+
 ## Supporting detail
 
 - Current runtime and operator notes: [`docs/README-DEV.md`](./README-DEV.md)

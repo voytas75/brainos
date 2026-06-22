@@ -35,24 +35,24 @@ Why:
 ## Evidence snapshot
 ### Verified repo-level evidence
 - Current branch: `main`
-- Recent commits include:
-  - `6b06d0b` Honor `BRAINOS_DB_PATH` as CLI default DB
-  - `3746ae2` Add retrieval startup runtime diagnostics
-  - `5b46a2e` persist procedure promotion ledger event id
-- Test run posture on 2026-06-22:
-  - `113 passed`
-  - `2 failed`
+- Trust-layer closeout sequence completed on 2026-06-22 with commits:
+  - `d661937` Align runtime contracts and health semantics
+  - `069167e` Clarify degraded runtime messaging
+  - `23ce94b` Add operator acceptance pack
+  - `380a450` Document typed ingest as quality lever
+  - `87f477b` Anchor realistic retrieval eval set
+- Current full test posture on 2026-06-22:
+  - `119 passed`
+  - `0 failed`
 
-### Current failing tests
-1. `tests/test_vector_metadata.py::test_migrates_v2_to_v3_and_creates_vector_state_table`
-   - test expects schema version `3`
-   - current code uses `SCHEMA_VERSION = 4`
-   - likely diagnosis: **historical migration expectation drift**, not core migration breakage
-
-2. `tests/test_vector_metadata.py::test_embedding_contract_is_declared_but_not_executed`
-   - test expects `operational_provider == "azure"`
-   - current contract returns `"unknown"` when env/config is insufficient
-   - likely diagnosis: **embedding contract drift** between older Azure-default expectation and newer safer runtime posture
+### Completed outcomes from this execution window
+1. migration-test drift removed
+2. embedding contract/test/docs alignment landed
+3. runtime truth table landed
+4. degraded runtime messaging clarified in code and tests
+5. operator acceptance pack added and documented
+6. typed-ingest quality lever documented with example/test coverage
+7. realistic retrieval eval anchor added and documented
 
 ## Core decision
 Treat the current BrainOS backlog in this order:
@@ -374,12 +374,12 @@ These would widen surface area before the current trust/contract layer is fully 
 # Resume shortcut
 If resuming later, the first question should be:
 
-**Are we still in contract cleanup + runtime credibility closeout, or did a new operator pain justify changing priority?**
+**Did a new operator pain appear after the 2026-06-22 trust-layer closeout, or are we already in optional/post-closeout territory?**
 
-If no new pain exists, resume at:
-- `P0.1` if tests are still red
-- else `P0.2`
-- else `P0.3`
+Current answer at this checkpoint:
+- the trust-layer closeout slice is complete
+- repo is green at `119 passed`
+- next work should be chosen by fresh product/operator need, not by unfinished cleanup debt
 
 # Primary sources reviewed
 - `README.md`
