@@ -31,6 +31,8 @@ def _health_action_hint(*, runtime_issues: list[str], freshness_issues: list[str
 
 
 def _health_summary_text(*, runtime_issues: list[str], freshness_issues: list[str], benchmark: dict[str, Any], low_evidence: bool) -> str:
+    if runtime_issues and low_evidence:
+        return "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
     if runtime_issues:
         return "runtime fix needed before vector-quality interpretation"
     if low_evidence:
@@ -199,7 +201,7 @@ def _runtime_failure_summary(*, store: BrainOSStore, error_kind: str, detail: st
     }
     return {
         "status": "warn",
-        "summary": "runtime fix needed before vector-quality interpretation",
+        "summary": "runtime fix needed before vector-quality interpretation; quality evidence is also still low",
         "action_hint": "runtime_fix",
         "runtime": {
             "status": "warn",

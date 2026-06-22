@@ -160,5 +160,6 @@ def test_retrieval_explain_cli_reports_runtime_misconfiguration_summary(tmp_path
     )
     payload = json.loads(proc.stdout)
     assert payload["retrieval_runtime"]["status"] == "misconfigured"
-    assert "misconfigured" in payload["operator_summary"]
+    assert "not configured" in payload["operator_summary"]
+    assert "lexical retrieval may still work" in payload["operator_summary"]
     assert payload["confidence_hint"] is None

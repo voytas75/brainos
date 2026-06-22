@@ -77,6 +77,7 @@ def test_retrieval_explain_cli_surfaces_runtime_misconfiguration(tmp_path):
     assert payload["retrieval_runtime"]["status"] == "misconfigured"
     assert payload["diagnostic_hint"] in {"inspect_vector_participation", "lexical_grounded_top_hit"}
     assert payload["retrieval_runtime"]["action_hint"] == "configure_sqlite_vec_path"
+    assert "lexical retrieval may still work" in payload["operator_summary"]
     assert payload["zero_hit_reason"] in {"misconfigured", None}
     assert payload["startup_runtime_context"]["effective_db_path"] == str(db.resolve())
     assert payload["startup_runtime_context"]["env_load"]["cwd"] == str(db.resolve().parent)

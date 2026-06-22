@@ -52,9 +52,9 @@ def _operator_summary(*, payload: dict[str, Any]) -> str:
     runtime = payload.get("retrieval_runtime") or {}
     ranked = payload.get("ranked_episodes", [])
     if runtime.get("status") == "misconfigured" and not ranked:
-        return "retrieval degraded: vector runtime is misconfigured; check BRAINOS_SQLITE_VEC_PATH"
+        return "retrieval degraded: vector runtime is not configured; lexical retrieval may still work; check BRAINOS_SQLITE_VEC_PATH"
     if runtime.get("status") == "runtime_failed" and not ranked:
-        return "retrieval degraded: sqlite-vec runtime failed during preflight"
+        return "retrieval degraded: sqlite-vec runtime preflight failed; lexical retrieval may still work"
     if ranked:
         top = ranked[0]
         sources = set(top.get("match_sources") or [])
@@ -62,9 +62,9 @@ def _operator_summary(*, payload: dict[str, Any]) -> str:
         kind_suffix = f"; kind={kind}" if kind else ""
         prefix = ""
         if runtime.get("status") == "misconfigured":
-            prefix = "retrieval degraded: vector runtime is misconfigured; "
+            prefix = "retrieval degraded: vector runtime is not configured; lexical retrieval may still work and did participate here; "
         elif runtime.get("status") == "runtime_failed":
-            prefix = "retrieval degraded: sqlite-vec runtime failed during preflight; "
+            prefix = "retrieval degraded: sqlite-vec runtime preflight failed; lexical retrieval may still work and did participate here; "
         if len(sources) >= 2:
             return f"{prefix}top hit supported by lexical and vector evidence{kind_suffix}"
         if "vector" in sources:
@@ -84,9 +84,9 @@ def _diagnostic_hint(*, payload: dict[str, Any]) -> str:
     runtime = payload.get("retrieval_runtime") or {}
     has_any_hits = bool(payload.get("ranked_episodes") or payload.get("ranked_semantic_hits") or payload.get("decisions"))
     if runtime.get("status") == "misconfigured" and not has_any_hits:
-        return "configure_sqlite_vec_path"
+        return "configure_sqlite_vec_path_before_quality_debug"
     if runtime.get("status") == "runtime_failed" and not has_any_hits:
-        return "inspect_sqlite_vec_runtime_failure"
+        return "inspect_sqlite_vec_runtime_failure_before_quality_debug"
     ranked = payload.get("ranked_episodes", [])
     if ranked:
         top = ranked[0]

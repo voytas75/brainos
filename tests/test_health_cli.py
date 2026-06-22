@@ -178,7 +178,7 @@ def test_retrieval_health_cli_marks_empty_db_as_low_evidence(tmp_path):
     assert "low_evidence_database" in payload["quality"]["notes"]
     assert payload["quality"]["action_hint"] == "seed_or_ingest_more_data"
     assert payload["runtime"]["status"] == "warn"
-    assert payload["summary"] == "runtime fix needed before vector-quality interpretation"
+    assert payload["summary"] == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
 
 
 def test_retrieval_health_cli_surfaces_benchmark_truthfulness_metadata(tmp_path):
@@ -205,7 +205,7 @@ def test_retrieval_health_cli_surfaces_runtime_prereq_details(tmp_path):
         env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
-    assert payload["summary"] == "runtime fix needed before vector-quality interpretation"
+    assert payload["summary"] == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
     embedding = payload["runtime"]["embedding_config"]
     assert embedding["required_env"] == [
         "BRAINOS_EMBEDDING_MODEL",
@@ -238,7 +238,7 @@ def test_retrieval_health_cli_openai_path_reports_openai_contract(tmp_path):
         env=_test_env_openai(),
     )
     payload = _extract_json(proc.stdout)
-    assert payload["summary"] == "runtime fix needed before vector-quality interpretation"
+    assert payload["summary"] == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
     embedding = payload["runtime"]["embedding_config"]
     assert embedding["contract"]["operational_provider"] == "openai"
     assert embedding["required_env"] == ["BRAINOS_EMBEDDING_MODEL", "OPENAI_API_KEY"]
