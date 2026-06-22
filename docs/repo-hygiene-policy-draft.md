@@ -32,7 +32,7 @@ Examples:
 - `docs/evidence-map.md`
 - `docs/api.md`
 - `docs/*contract*.md`
-- bounded SSOT/continuity docs when they reflect current project state and are intentionally public
+- bounded SSOT/continuity docs only when they are intentionally public, still current, and useful beyond one contributor's local work window
 
 ### 2. Tests that protect important behavior
 Track tests that:
@@ -63,6 +63,20 @@ Examples:
 - `docs/implementation-notes.md`
 - `docs/typed-ingest-and-corpus-hygiene.md`
 
+### 5. Small curated fixtures or sample data
+Track small fixture-like artifacts only when they are intentionally curated and part of the repo contract.
+
+Good fits:
+- bounded eval anchors
+- tiny sample corpora used by tests/examples
+- small fixture-like inputs referenced by docs, tests, or reproducible examples
+
+Requirements:
+- small and reviewable
+- stable enough to justify source control
+- useful to another contributor without private context
+- part of a test/example/doc contract rather than incidental run residue
+
 ## What should normally stay out of git
 ### 1. Local runtime outputs
 Do not track:
@@ -88,7 +102,10 @@ Do not track:
 - one-off review notes,
 - local breadcrumbs,
 - archived scratch docs,
-- private or machine-local coordination notes.
+- private or machine-local coordination notes,
+- one-session execution checkpoints,
+- saved-state notes that only help resume one local work window,
+- ad hoc handoff notes not intended as public continuity artifacts.
 
 Examples:
 - `.local/`
@@ -114,8 +131,11 @@ Do not prefer:
 A file should be treated as a canonical repo artifact if at least one of these is true:
 - it defines the current public contract,
 - it is the best current entrypoint for understanding a subsystem,
-- it protects behavior through test coverage,\n- it provides a bounded reproducible evaluation or smoke path,
+- it protects behavior through test coverage,
+- it provides a bounded reproducible evaluation or smoke path,
 - it is intentionally part of contributor/operator workflow.
+
+For continuity-style docs, use a stricter rule: they should stay tracked only if they are still current, intentionally public, and useful beyond a single local execution window. If a note is mainly a checkpoint, handoff, or resume aid for one contributor/session, it should usually stay local-only.
 
 A file should usually stay local-only if it is mainly:
 - a temporary note,
@@ -139,6 +159,8 @@ A file should usually stay local-only if it is mainly:
 
 If a note is useful only locally, prefer `.local/` or another ignored local path.
 
+Continuity docs in `docs/` should therefore be rare and deliberate. A dated execution summary or saved-state note is not automatically a canonical doc just because it is well written.
+
 ## `artifacts/` rule
 `artifacts/` should remain ignored.
 
@@ -153,6 +175,8 @@ If an artifact becomes important long-term, convert it into one of:
 - a test,
 - an example,
 - a smoke/acceptance script.
+
+If a local artifact gains durable value, promote it into one of those curated forms instead of committing the raw source material directly.
 
 ## `examples/` rule
 Examples are public teaching artifacts.
@@ -191,5 +215,6 @@ These are the only questions that likely need explicit agreement:
 - yes, keep intentionally public SSOT/continuity docs tracked,
 - no, do not track raw review notes,
 - no, do not track generated artifacts,
+- yes, track small curated fixtures only when they are part of a stable repo contract,
 - yes, promote durable value into docs/tests/examples/scripts,
 - yes, keep the repo small and legible even if that means leaving some local material out of git.
