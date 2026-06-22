@@ -69,3 +69,6 @@ If you open an issue, include:
 
 Tracked `docs/` should stay focused on canonical project docs.
 Working notes, archives, dated experiments, and local-only material should not be added to the main tracked docs surface.
+
+For the current review draft on repo hygiene / tracked-vs-local policy, see:
+- `docs/repo-hygiene-policy-draft.md`
