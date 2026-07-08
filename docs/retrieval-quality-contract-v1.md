@@ -156,6 +156,7 @@ Current plan:
 Current persistent eval-set implementation anchor:
 - `tests/test_retrieval_eval.py`
 - `tests/test_retrieval_eval_anchor.py`
+- `tests/test_continuation_regression_guardrail.py`
 - [`docs/evidence-map.md`](./evidence-map.md)
 
 Current protected realistic query classes are intentionally small and grouped around:
@@ -164,6 +165,9 @@ Current protected realistic query classes are intentionally small and grouped ar
 - maintenance / reindex wording
 - runtime-disabled interpretation wording
 - policy-version / explain wording
+- one narrow continuation behavioral guardrail for:
+  - current restart point beating stale restart point
+  - current-direction recovery from natural wording
 
 This anchor is meant to stay small.
 If it starts growing casually, treat that as drift and re-justify the added classes explicitly.

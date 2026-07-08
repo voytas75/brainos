@@ -1212,9 +1212,8 @@ class BrainOSStore:
         question_fillers = {
             "what", "is", "the", "current", "how", "do", "does", "can", "should", "could",
             "would", "why", "when", "where", "which", "who", "whats", "please", "tell", "me",
-            "about",
+            "about", "we", "did", "in", "for", "now", "with",
         }
-        normalized = []
         cleaned_tokens: list[str] = []
         for token in query.split():
             token = token.strip()
@@ -1225,13 +1224,34 @@ class BrainOSStore:
                 continue
             cleaned_tokens.append(cleaned)
         filtered_tokens = [token for token in cleaned_tokens if token.lower() not in question_fillers]
-        tokens_to_use = filtered_tokens or cleaned_tokens
-        for cleaned in tokens_to_use:
-            if any(ch in cleaned for ch in ('-', ':', '/')):
-                normalized.append(f'"{cleaned}"')
-            else:
-                normalized.append(cleaned)
-        return " ".join(normalized) if normalized else query
+        lowered = [token.lower() for token in filtered_tokens]
+        lowered_set = set(lowered)
+
+        class_terms: list[str] = []
+        if "resume" in lowered_set or "leave" in lowered_set or ("restart" in lowered_set and "point" in lowered_set):
+            class_terms.append('"restart point"')
+        elif "front" in lowered_set or "active" in lowered_set or "direction" in lowered_set:
+            class_terms.append('"current direction"')
+        elif "next" in lowered_set or "continue" in lowered_set or "continuation" in lowered_set or "step" in lowered_set:
+            class_terms.append('"next step"')
+
+        preferred_tokens: list[str] = []
+        for token in filtered_tokens or cleaned_tokens:
+            lowered_token = token.lower()
+            if class_terms == ['"restart point"'] and lowered_token in {"brainos", "restart", "point", "resume", "leave"}:
+                preferred_tokens.append(token)
+            elif class_terms == ['"current direction"'] and lowered_token in {"brainos", "current", "direction", "front", "active"}:
+                preferred_tokens.append(token)
+            elif class_terms == ['"next step"'] and lowered_token in {"brainos", "next", "step", "continue", "continuation"}:
+                preferred_tokens.append(token)
+
+        if class_terms:
+            terms = class_terms + [f'"{token}"' if any(ch in token for ch in ('-', ':', '/')) else token for token in preferred_tokens]
+            return " OR ".join(dict.fromkeys(terms))
+
+        fallback_tokens = filtered_tokens or cleaned_tokens
+        terms = [f'"{token}"' if any(ch in token for ch in ('-', ':', '/')) else token for token in fallback_tokens]
+        return " ".join(terms) if terms else query
 
     def search_episodes_text(
         self, query: str, *, session_id: str | None = None, limit: int = 10

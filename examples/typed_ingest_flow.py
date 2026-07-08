@@ -25,6 +25,10 @@ def main() -> None:
             "metadata": {"kind": "fact", "topic": "runtime", "source": "manual"},
         },
         {
+            "content": "SSOT: retrieval quality interpretation lives in retrieval-quality-contract-v1.",
+            "metadata": {"kind": "fact", "topic": "retrieval", "source": "manual", "authority": "canonical"},
+        },
+        {
             "content": "Decision: typed ingest is a small corpus hygiene lever for retrieval smoke checks.",
             "metadata": {"kind": "decision", "topic": "retrieval", "source": "manual"},
         },
@@ -44,7 +48,7 @@ def main() -> None:
     print("\nStored episodes:")
     for item in store.list_episodes(session_id="typed-demo", limit=10):
         meta = item.get("metadata") or {}
-        print(f"- kind={meta.get('kind')} topic={meta.get('topic')} source={meta.get('source')} :: {item['content']}")
+        print(f"- kind={meta.get('kind')} topic={meta.get('topic')} source={meta.get('source')} authority={meta.get('authority')} :: {item['content']}")
 
     print("\nRecall query: retrieval smoke check")
     recall_rows = store.search_episodes_text("retrieval")
@@ -52,11 +56,13 @@ def main() -> None:
         metadata = item.get("metadata") or {}
         kind = metadata.get("kind", "note")
         topic = metadata.get("topic")
-        print(f"{idx}. {item['content']} (kind={kind}, topic={topic})")
+        authority = metadata.get("authority")
+        print(f"{idx}. {item['content']} (kind={kind}, topic={topic}, authority={authority})")
 
     print("\nWhy this example exists:")
     print("- typed ingest is a small corpus hygiene lever")
     print("- it helps new entries carry useful retrieval context")
+    print("- authority metadata can distinguish canonical artifacts from supporting notes")
     print("- it is not a heavy schema system and does not require backfilling old data")
 
     print("\nSummary:")

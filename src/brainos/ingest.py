@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 CANONICAL_EPISODE_KINDS = {"fact", "decision", "procedure", "note", "observation"}
+CANONICAL_AUTHORITIES = {"canonical", "working", "supporting"}
 LEGACY_KIND_MAP = {
     "other": "note",
 }
@@ -17,7 +18,7 @@ def normalize_episode_content(content: str) -> str:
     return text
 
 
-def normalize_episode_metadata(metadata: dict[str, Any] | None = None, *, kind: str | None = None, topic: str | None = None, source: str | None = None) -> dict[str, Any]:
+def normalize_episode_metadata(metadata: dict[str, Any] | None = None, *, kind: str | None = None, topic: str | None = None, source: str | None = None, authority: str | None = None) -> dict[str, Any]:
     data = dict(metadata or {})
 
     raw_kind = (kind or data.get("kind") or "").strip().lower()
@@ -38,8 +39,18 @@ def normalize_episode_metadata(metadata: dict[str, Any] | None = None, *, kind: 
     else:
         data.pop("topic", None)
 
+    raw_authority = (authority or data.get("authority") or "").strip().lower()
+    if raw_authority:
+        if raw_authority in CANONICAL_AUTHORITIES:
+            data["authority"] = raw_authority
+        else:
+            data.pop("authority", None)
+            data["original_authority"] = raw_authority
+    else:
+        data.pop("authority", None)
+
     return data
 
 
-def prepare_episode_ingest(content: str, metadata: dict[str, Any] | None = None, *, kind: str | None = None, topic: str | None = None, source: str | None = None) -> tuple[str, dict[str, Any]]:
-    return normalize_episode_content(content), normalize_episode_metadata(metadata, kind=kind, topic=topic, source=source)
+def prepare_episode_ingest(content: str, metadata: dict[str, Any] | None = None, *, kind: str | None = None, topic: str | None = None, source: str | None = None, authority: str | None = None) -> tuple[str, dict[str, Any]]:
+    return normalize_episode_content(content), normalize_episode_metadata(metadata, kind=kind, topic=topic, source=source, authority=authority)

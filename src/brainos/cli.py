@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ep_add.add_argument("--kind")
     p_ep_add.add_argument("--topic")
     p_ep_add.add_argument("--source")
+    p_ep_add.add_argument("--authority")
 
     p_ep_list = sub.add_parser("episodes-list", help="List episodes")
     p_ep_list.add_argument("--session-id")
@@ -241,6 +242,8 @@ def main() -> None:
                 metadata["topic"] = args.topic
             if args.source and "source" not in metadata:
                 metadata["source"] = args.source
+            if args.authority and "authority" not in metadata:
+                metadata["authority"] = args.authority
             episode_id = store.add_episode(
                 session_id=args.session_id,
                 content=args.content,
