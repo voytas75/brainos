@@ -181,7 +181,16 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     store.close()
 
 
+def _mock_runtime_ok(monkeypatch):
+    monkeypatch.setattr(
+        "brainos.retrieval.vector_runtime_preflight",
+        lambda: {"status": "ok", "ok": True, "degraded": False, "action_hint": "noop"},
+    )
+
+
+
 def test_recall_returns_vector_episodes_when_vec_path_available(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -232,6 +241,7 @@ def test_recall_returns_vector_episodes_when_vec_path_available(monkeypatch, tmp
 
 
 def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -283,6 +293,7 @@ def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_pa
 
 
 def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -335,6 +346,7 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
 
 
 def test_recall_filters_weak_vector_only_hits(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()

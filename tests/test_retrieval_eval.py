@@ -72,7 +72,16 @@ def seed_eval_store(store: BrainOSStore) -> dict[str, str]:
     return ids
 
 
+def _mock_runtime_ok(monkeypatch):
+    monkeypatch.setattr(
+        "brainos.retrieval.vector_runtime_preflight",
+        lambda: {"status": "ok", "ok": True, "degraded": False, "action_hint": "noop"},
+    )
+
+
+
 def test_eval_recall_expected_hits(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -322,6 +331,7 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
 
 
 def test_eval_prefers_overlap_when_similar_vector_hits_compete(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -376,6 +386,7 @@ def test_eval_prefers_overlap_when_similar_vector_hits_compete(monkeypatch, tmp_
 
 
 def test_eval_distinguishes_disabled_runtime_from_stale_data_wording(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()

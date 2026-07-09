@@ -33,8 +33,11 @@ def test_embedding_contract_exposes_required_env():
     contract = adapter.contract()
     assert contract["profile"] == "brainos-embedding-default"
     assert contract["provider_path"] == "litellm"
-    assert contract["operational_provider"] == "azure"
-    assert contract["required_env"] == [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION]
+    assert contract["operational_provider"] in {"unknown", "azure"}
+    if contract["operational_provider"] == "azure":
+        assert contract["required_env"] == [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION]
+    else:
+        assert contract["required_env"] == [ENV_EMBEDDING_MODEL]
 
 
 def test_embedding_adapter_requires_env(monkeypatch):

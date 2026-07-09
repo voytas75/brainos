@@ -62,7 +62,16 @@ def seed_real_sample_store(store: BrainOSStore) -> dict[str, str]:
     return ids
 
 
+def _mock_runtime_ok(monkeypatch):
+    monkeypatch.setattr(
+        "brainos.retrieval.vector_runtime_preflight",
+        lambda: {"status": "ok", "ok": True, "degraded": False, "action_hint": "noop"},
+    )
+
+
+
 def test_real_sample_benchmark_pass(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -259,6 +268,7 @@ def test_real_sample_benchmark_pass(monkeypatch, tmp_path):
 
 
 def test_real_sample_scores_explain_top_hit(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -322,6 +332,7 @@ def test_real_sample_scores_explain_top_hit(monkeypatch, tmp_path):
 
 
 def test_real_sample_policy_version_case(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -374,6 +385,7 @@ def test_real_sample_policy_version_case(monkeypatch, tmp_path):
 
 
 def test_real_corpus_probe_reports_small_real_sample_truthfully(monkeypatch, tmp_path):
+    _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
