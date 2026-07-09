@@ -400,6 +400,12 @@ Example `.env` value:
 BRAINOS_SQLITE_VEC_PATH="/absolute/path/to/sqlite-vec/vec0.so"
 ```
 
+Environment loading contract:
+- BrainOS starts lookup from the database directory.
+- If no `.env` exists there, it walks upward through parent directories.
+- The first `.env` found wins.
+- Existing process env still overrides `.env` values unless explicit override is requested.
+
 ### Verification commands
 
 ```bash

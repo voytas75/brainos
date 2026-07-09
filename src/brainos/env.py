@@ -4,6 +4,15 @@ import os
 from pathlib import Path
 
 
+# Contract:
+# 1. Start from the supplied cwd (or process cwd).
+# 2. Prefer the nearest .env in that directory.
+# 3. If missing, walk upward through parent directories.
+# 4. Stop at filesystem root; load the first .env found.
+# 5. Never override existing process env unless override=True.
+# 6. Report both the original lookup cwd and the resolved env path.
+# 7. If nothing is found, report the nearest candidate path (<cwd>/.env).
+
 _LAST_ENV_LOAD_INFO: dict[str, object] = {
     "loaded": False,
     "path": None,
@@ -24,24 +33,32 @@ def get_last_env_load_info() -> dict[str, object]:
 
 
 def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[str, object]:
-    base = Path(cwd or os.getcwd())
-    env_path = base / ".env"
+    base = Path(cwd or os.getcwd()).resolve()
     loaded: list[str] = []
+
+    env_path: Path | None = None
+    for candidate_base in [base, *base.parents]:
+        candidate = candidate_base / ".env"
+        if candidate.exists():
+            env_path = candidate
+            break
+
+    reported_path = env_path if env_path is not None else (base / ".env")
 
     _LAST_ENV_LOAD_INFO.update(
         {
             "loaded": False,
-            "path": str(env_path),
+            "path": str(reported_path.resolve()),
             "keys": [],
             "cwd": str(base),
-            "exists": env_path.exists(),
+            "exists": bool(env_path is not None),
         }
     )
 
-    if not env_path.exists():
+    if env_path is None:
         return {
             "loaded": False,
-            "path": str(env_path),
+            "path": str(reported_path.resolve()),
             "keys": loaded,
         }
 
@@ -67,7 +84,7 @@ def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[
     _LAST_ENV_LOAD_INFO.update(
         {
             "loaded": True,
-            "path": str(env_path),
+            "path": str(env_path.resolve()),
             "keys": list(loaded),
             "cwd": str(base),
             "exists": True,
@@ -76,6 +93,6 @@ def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[
 
     return {
         "loaded": True,
-        "path": str(env_path),
+        "path": str(env_path.resolve()),
         "keys": loaded,
     }

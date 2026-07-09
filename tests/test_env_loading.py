@@ -59,6 +59,60 @@ def test_cli_honors_project_dotenv_for_embedding_readiness(tmp_path):
     assert '"BRAINOS_EMBEDDING_MODEL"' in proc.stdout
 
 
+def test_load_project_env_falls_back_to_parent_dotenv(tmp_path, monkeypatch):
+    project_root = tmp_path / "project"
+    nested = project_root / "artifacts" / "runtime"
+    nested.mkdir(parents=True)
+    (project_root / ".env").write_text(
+        "BRAINOS_EMBEDDING_MODEL=azure/from-parent\nAZURE_API_BASE=https://example.openai.azure.com\nAZURE_API_KEY=dotenv-key\nAZURE_API_VERSION=2024-10-21\n",
+        encoding="utf-8",
+    )
+    for key in _ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
+
+    result = load_project_env(cwd=str(nested))
+    assert result["loaded"] is True
+    assert result["path"] == str((project_root / ".env").resolve())
+    assert os.environ["BRAINOS_EMBEDDING_MODEL"] == "azure/from-parent"
+
+
+
+def test_cli_uses_parent_dotenv_when_db_lives_in_nested_directory(tmp_path):
+    project_root = tmp_path / "project"
+    nested = project_root / "artifacts" / "runtime"
+    nested.mkdir(parents=True)
+    db = nested / "brain.db"
+    (project_root / ".env").write_text(
+        "BRAINOS_EMBEDDING_MODEL=azure/from-parent\nAZURE_API_BASE=https://example.openai.azure.com\nAZURE_API_KEY=dotenv-key\nAZURE_API_VERSION=2024-10-21\n",
+        encoding="utf-8",
+    )
+    cli = os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos")
+
+    init_proc = subprocess.run(
+        [cli, "--db", str(db), "init"],
+        cwd=str(project_root),
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**_clean_cli_env(), "PATH": os.environ.get("PATH", "")},
+    )
+    assert f"Initialized {db}" in init_proc.stdout
+    assert db.exists()
+
+    explain_proc = subprocess.run(
+        [cli, "--db", str(db), "retrieval-explain", "runtime drift"],
+        cwd=str(project_root),
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**_clean_cli_env(), "PATH": os.environ.get("PATH", "")},
+    )
+    assert f'"effective_db_path": "{db.resolve()}"' in explain_proc.stdout
+    assert f'"cwd": "{db.resolve().parent}"' in explain_proc.stdout
+    assert f'"path": "{(project_root / ".env").resolve()}"' in explain_proc.stdout
+
+
+
 def test_cli_uses_brainos_db_path_env_for_db_selection(tmp_path):
     db = tmp_path / "via-env.db"
     env_file = tmp_path / ".env"
