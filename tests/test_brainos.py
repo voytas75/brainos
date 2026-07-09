@@ -115,11 +115,16 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     store.upsert_semantic_node(node_id="semantic-1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
 
     recall = store.recall("semantic", session_id="s1", limit=5)
-    assert recall["mode"] == "fts_plus_vector_episode_similarity_plus_semantic_name_match_plus_decision_text"
-    assert recall["count"] == 1
-    assert recall["semantic_count"] == 1
-    assert recall["vector_count"] == 0
-    assert recall["vector_mode"] in {"disabled", "error", "sqlite_vec_episode_similarity"}
+    expected_episode_vector_mode = {
+        "ok": "sqlite_vec_episode_similarity",
+        "misconfigured": "misconfigured",
+        "runtime_failed": "runtime_failed",
+    }[recall["retrieval_runtime"]["status"]]
+    assert recall["mode"] == f"fts_plus_{expected_episode_vector_mode}_plus_semantic_name_match_plus_decision_text"
+    assert len(recall["episodes"]) == 1
+    assert len(recall["semantic_hits"]) == 1
+    assert len(recall["vector_episodes"]) == 0
+    assert recall["episode_vector_mode"] == expected_episode_vector_mode
     assert recall["episodes"][0]["metadata"]["kind"] == "graph"
     assert recall["ranked_count"] == 1
     assert recall["ranked_episodes"][0]["id"] == semantic_episode_id
@@ -128,7 +133,7 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     assert recall["ranked_semantic_count"] == 1
     assert recall["ranked_semantic_hits"][0]["id"] == "semantic-1"
     assert recall["ranked_semantic_hits"][0]["match_sources"] == ["name_match"]
-    assert recall["summary"] == "episodes:1, ranked_episodes:1, semantic_hits:1, ranked_semantic_hits:1"
+    assert recall["summary"] == "episodes:1, vector_episodes:0, semantic:1, vector_semantic:0, decisions:0"
     assert recall["decision_count"] == 0
 
     semantic_preview = store.preview_consolidation(semantic_episode_id)
@@ -217,8 +222,8 @@ def test_recall_returns_vector_episodes_when_vec_path_available(monkeypatch, tmp
     )
 
     recall = store.recall("embedding smoke", session_id="s1", limit=5)
-    assert recall["vector_mode"] == "sqlite_vec_episode_similarity"
-    assert recall["vector_count"] == 1
+    assert recall["episode_vector_mode"] == "sqlite_vec_episode_similarity"
+    assert len(recall["vector_episodes"]) == 1
     assert recall["ranked_count"] == 1
     assert recall["vector_episodes"][0]["id"] == episode_id
     assert recall["ranked_episodes"][0]["id"] == episode_id
@@ -267,8 +272,8 @@ def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_pa
     )
 
     recall = store.recall("semantic", session_id="s1", limit=5)
-    assert recall["count"] == 1
-    assert recall["vector_count"] == 1
+    assert len(recall["episodes"]) == 1
+    assert len(recall["vector_episodes"]) == 1
     assert recall["ranked_count"] == 1
     assert recall["ranked_episodes"][0]["id"] == episode_id
     assert recall["ranked_episodes"][0]["match_sources"] == ["fts", "vector"]
@@ -319,8 +324,8 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
     )
 
     recall = store.recall("semantic", session_id="s1", limit=5)
-    assert recall["semantic_count"] == 1
-    assert recall["vector_semantic_count"] == 1
+    assert len(recall["semantic_hits"]) == 1
+    assert len(recall["vector_semantic_hits"]) == 1
     assert recall["ranked_semantic_count"] == 1
     assert recall["ranked_semantic_hits"][0]["id"] == "n1"
     assert recall["ranked_semantic_hits"][0]["match_sources"] == ["name_match", "vector"]
@@ -369,7 +374,7 @@ def test_recall_filters_weak_vector_only_hits(monkeypatch, tmp_path):
     monkeypatch.setattr(store, "vector_search_semantic_nodes", lambda query_vector, limit=10: [])
 
     recall = store.recall("unrelated", session_id="s1", limit=5)
-    assert recall["vector_count"] == 1
+    assert len(recall["vector_episodes"]) == 1
     assert recall["ranked_count"] == 0
     assert recall["episode_vector_mode"] == "sqlite_vec_episode_similarity"
     assert recall["semantic_vector_mode"] == "sqlite_vec_semantic_similarity"

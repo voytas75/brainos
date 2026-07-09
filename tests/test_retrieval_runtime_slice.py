@@ -32,7 +32,8 @@ def _test_env() -> dict[str, str]:
     return {**_clean_cli_env(), "PATH": os.environ.get("PATH", "")}
 
 
-def test_recall_marks_runtime_misconfigured_when_sqlite_vec_missing(tmp_path):
+def test_recall_marks_runtime_misconfigured_when_sqlite_vec_missing(monkeypatch, tmp_path):
+    monkeypatch.delenv("BRAINOS_SQLITE_VEC_PATH", raising=False)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -42,8 +43,8 @@ def test_recall_marks_runtime_misconfigured_when_sqlite_vec_missing(tmp_path):
 
     assert payload["retrieval_runtime"]["status"] == "misconfigured"
     assert payload["retrieval_runtime"]["degraded"] is True
-    assert payload["vector_mode"] == "disabled"
-    assert payload["semantic_vector_mode"] == "disabled"
+    assert payload["episode_vector_mode"] == "misconfigured"
+    assert payload["semantic_vector_mode"] == "misconfigured"
     assert payload["retrieval_runtime"]["action_hint"] == "configure_sqlite_vec_path"
 
 
@@ -78,7 +79,7 @@ def test_retrieval_explain_cli_surfaces_runtime_misconfiguration(tmp_path):
     assert payload["diagnostic_hint"] in {"inspect_vector_participation", "lexical_grounded_top_hit"}
     assert payload["retrieval_runtime"]["action_hint"] == "configure_sqlite_vec_path"
     assert "lexical retrieval may still work" in payload["operator_summary"]
-    assert payload["zero_hit_reason"] in {"misconfigured", None}
+    assert payload["zero_hit_reason"] in {"runtime_misconfigured", None}
     assert payload["startup_runtime_context"]["effective_db_path"] == str(db.resolve())
     assert payload["startup_runtime_context"]["env_load"]["cwd"] == str(db.resolve().parent)
     assert payload["startup_runtime_context"]["env_presence"]["BRAINOS_SQLITE_VEC_PATH"]["present"] is False

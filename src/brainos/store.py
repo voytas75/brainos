@@ -25,7 +25,7 @@ from .ledger import canonical_json, compute_event_hash
 from .ingest import prepare_episode_ingest
 from .retrieval import RetrievalService
 from .schema import detect_capabilities, get_schema_status, get_vec_table_sql, initialize_schema
-from .sqlite_vec import sqlite_vec_readiness
+from .sqlite_vec import load_sqlite_vec_extension, sqlite_vec_readiness
 
 DECISION_RETRIEVAL_STOPWORDS = frozenset(
     {
@@ -504,6 +504,7 @@ class BrainOSStore:
     ) -> list[dict[str, Any]]:
         if not self._vec_table_exists("episodes_vec"):
             return []
+        load_sqlite_vec_extension(self.conn)
         vector_json = json.dumps(query_vector, ensure_ascii=False)
         if session_id:
             rows = self.conn.execute(
@@ -548,6 +549,7 @@ class BrainOSStore:
     def vector_search_semantic_nodes(self, query_vector: list[float], *, limit: int = 10) -> list[dict[str, Any]]:
         if not self._vec_table_exists("semantic_nodes_vec"):
             return []
+        load_sqlite_vec_extension(self.conn)
         vector_json = json.dumps(query_vector, ensure_ascii=False)
         rows = self.conn.execute(
             """

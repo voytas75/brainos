@@ -314,8 +314,8 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
     nonsense = store.recall("nonsense request", session_id="eval", limit=5)
     assert nonsense["ranked_count"] == 0
     assert nonsense["ranked_semantic_count"] == 0
-    assert nonsense["vector_count"] == 1
-    assert nonsense["vector_semantic_count"] == 1
+    assert len(nonsense["vector_episodes"]) == 1
+    assert len(nonsense["vector_semantic_hits"]) == 1
 
     assert len(report) == 5
     store.close()
