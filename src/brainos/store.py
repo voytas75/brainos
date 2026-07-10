@@ -1214,7 +1214,13 @@ class BrainOSStore:
         question_fillers = {
             "what", "is", "the", "current", "how", "do", "does", "can", "should", "could",
             "would", "why", "when", "where", "which", "who", "whats", "please", "tell", "me",
-            "about", "we", "did", "in", "for", "now", "with",
+            "about", "we", "did", "in", "for", "now", "with", "to",
+        }
+        fts_aliases = {
+            "fix": ["repair", "reindex"],
+            "repair": ["reindex"],
+            "reindex": ["repair"],
+            "reindexing": ["reindex", "repair"],
         }
         cleaned_tokens: list[str] = []
         for token in query.split():
@@ -1251,9 +1257,22 @@ class BrainOSStore:
             terms = class_terms + [f'"{token}"' if any(ch in token for ch in ('-', ':', '/')) else token for token in preferred_tokens]
             return " OR ".join(dict.fromkeys(terms))
 
-        fallback_tokens = filtered_tokens or cleaned_tokens
+        base_tokens = filtered_tokens or cleaned_tokens
+        expanded_tokens: list[str] = []
+        alias_applied = False
+        for token in base_tokens:
+            expanded_tokens.append(token)
+            aliases = fts_aliases.get(token.lower(), [])
+            if aliases:
+                alias_applied = True
+                expanded_tokens.extend(aliases)
+
+        fallback_tokens = expanded_tokens or base_tokens
         terms = [f'"{token}"' if any(ch in token for ch in ('-', ':', '/')) else token for token in fallback_tokens]
-        return " ".join(terms) if terms else query
+        if not terms:
+            return query
+        joiner = " OR " if alias_applied else " "
+        return joiner.join(dict.fromkeys(terms))
 
     def search_episodes_text(
         self, query: str, *, session_id: str | None = None, limit: int = 10

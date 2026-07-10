@@ -31,6 +31,19 @@ class RetrievalService:
         return {token for token in normalized.split() if len(token) >= 3}
 
     @staticmethod
+    def _query_alias_expansions(query_tokens: set[str]) -> set[str]:
+        aliases = {
+            "fix": {"repair", "reindex"},
+            "repair": {"reindex"},
+            "reindex": {"repair"},
+            "reindexing": {"reindex", "repair"},
+        }
+        expanded = set(query_tokens)
+        for token in tuple(query_tokens):
+            expanded.update(aliases.get(token, set()))
+        return expanded
+
+    @staticmethod
     def _anchor_terms(query_tokens: set[str]) -> set[str]:
         anchors = {
             "posture", "ssot", "restart", "anchors", "anchor", "memory", "maintenance", "heartbeat",
@@ -57,6 +70,23 @@ class RetrievalService:
         if "direction" in query_tokens or "active" in query_tokens or "front" in query_tokens:
             return "current_direction"
         return None
+
+    @staticmethod
+    def _procedure_query_intent(query_tokens: set[str]) -> bool:
+        procedure_triggers = {"fix", "repair", "reindex", "reindexing", "steps", "step", "how"}
+        return bool(query_tokens & procedure_triggers)
+
+    @staticmethod
+    def _procedure_intent_bonus(*, procedure_intent: bool, metadata: dict[str, Any], content: str) -> float:
+        if not procedure_intent:
+            return 0.0
+        kind = metadata.get("kind")
+        lowered = content.lower()
+        if kind == "procedure":
+            return 120.0
+        if lowered.startswith("to ") and (" run " in lowered or " verify " in lowered):
+            return 40.0
+        return 0.0
 
     @staticmethod
     def _continuation_intent_bonus(*, intent: str | None, metadata: dict[str, Any], content: str) -> float:
@@ -92,6 +122,7 @@ class RetrievalService:
         ranked_map: dict[str, dict[str, Any]] = {}
         anchor_terms = self._anchor_terms(query_tokens)
         continuation_intent = self._continuation_query_intent(query_tokens)
+        procedure_intent = self._procedure_query_intent(query_tokens)
         for idx, item in enumerate(episodes):
             merged = dict(item)
             metadata = item.get("metadata") or {}
@@ -103,8 +134,9 @@ class RetrievalService:
             kind_bonus = self._episode_kind_bonus(metadata.get("kind"))
             authority_bonus = self._authority_bonus(metadata.get("authority"), query_tokens, self.scoring_policy.authority_bonus)
             continuation_bonus = self._continuation_intent_bonus(intent=continuation_intent, metadata=metadata, content=content)
+            procedure_bonus = self._procedure_intent_bonus(procedure_intent=procedure_intent, metadata=metadata, content=content)
             merged["match_sources"] = ["fts"]
-            merged["rank_score"] = (1000.0 - float(idx)) + anchor_bonus + kind_bonus + authority_bonus + continuation_bonus - weak_anchor_penalty
+            merged["rank_score"] = (1000.0 - float(idx)) + anchor_bonus + kind_bonus + authority_bonus + continuation_bonus + procedure_bonus - weak_anchor_penalty
             merged["lexical_overlap"] = len(query_tokens & item_tokens)
             merged["score_components"] = {
                 "fts_rank": 1000.0 - float(idx),
@@ -112,6 +144,7 @@ class RetrievalService:
                 "kind_bonus": kind_bonus,
                 "authority_bonus": authority_bonus,
                 "continuation_intent_bonus": continuation_bonus,
+                "procedure_intent_bonus": procedure_bonus,
                 "weak_anchor_penalty": weak_anchor_penalty,
             }
             ranked_map[item["id"]] = merged
@@ -132,7 +165,8 @@ class RetrievalService:
             kind_bonus = self._episode_kind_bonus(metadata.get("kind"))
             authority_bonus = self._authority_bonus(metadata.get("authority"), query_tokens, self.scoring_policy.authority_bonus)
             continuation_bonus = self._continuation_intent_bonus(intent=continuation_intent, metadata=metadata, content=content)
-            score += overlap_bonus + anchor_bonus + kind_bonus + authority_bonus + continuation_bonus
+            procedure_bonus = self._procedure_intent_bonus(procedure_intent=procedure_intent, metadata=metadata, content=content)
+            score += overlap_bonus + anchor_bonus + kind_bonus + authority_bonus + continuation_bonus + procedure_bonus
             if item_id in ranked_map:
                 ranked_map[item_id]["match_sources"].append("vector")
                 ranked_map[item_id]["rank_score"] += score + self.scoring_policy.dual_source_bonus
@@ -148,6 +182,7 @@ class RetrievalService:
                         "kind_bonus": kind_bonus,
                         "authority_bonus": authority_bonus,
                         "continuation_intent_bonus": continuation_bonus,
+                        "procedure_intent_bonus": procedure_bonus,
                     }
                 )
             else:
@@ -167,6 +202,7 @@ class RetrievalService:
                     "kind_bonus": kind_bonus,
                     "authority_bonus": authority_bonus,
                     "continuation_intent_bonus": continuation_bonus,
+                    "procedure_intent_bonus": procedure_bonus,
                 }
                 ranked_map[item_id] = merged
 
@@ -285,7 +321,7 @@ class RetrievalService:
         except sqlite3.Error as exc:
             raise BrainOSError(f"retrieval runtime failed: {exc}") from exc
 
-        query_tokens = self.tokenize_for_overlap(query)
+        query_tokens = self._query_alias_expansions(self.tokenize_for_overlap(query))
         episodes = self.backend.search_episodes_text(query, session_id=session_id, limit=limit)
         semantic_hits = self._semantic_name_hits(query, limit=limit)
         decisions = self.backend.search_decisions_text(query, limit=limit)
