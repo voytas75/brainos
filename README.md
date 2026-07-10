@@ -104,6 +104,7 @@ Use the docs this way:
 - read [`docs/canonical-e2e-demo.md`](docs/canonical-e2e-demo.md) for the fastest honest repo walkthrough
 - read [`docs/STATUS.md`](docs/STATUS.md) for the current bounded scope
 - read [`docs/evidence-map.md`](docs/evidence-map.md) for what is proven vs only bounded evidence
+- read [`docs/retrieval-evaluation-scenarios.md`](docs/retrieval-evaluation-scenarios.md) for the canonical bounded scenario set behind current retrieval claims
 - read [`docs/api.md`](docs/api.md) for exact Python API and CLI reference
 - read [`docs/implementation-notes.md`](docs/implementation-notes.md) for design tradeoffs and spec-gap notes
 - read [`docs/README-DEV.md`](docs/README-DEV.md) for runtime, operator, and development details
@@ -112,6 +113,10 @@ Use the docs this way:
 
 ## Current status
 
-BrainOS currently provides a local SQLite memory core with Python and CLI surfaces, bounded retrieval diagnostics, promotion flow, and provenance.
+BrainOS currently provides a coherent local SQLite memory core with Python and CLI surfaces, bounded retrieval diagnostics, promotion flow, and provenance.
+
+The implementation is healthier than the most cautious reading of the docs might imply, but the project should still be read through bounded evidence rather than confidence by vibe.
+
+The main current risks are not broken-code risk. They are bounded evidence, heuristic retrieval behavior, and growing operational/documentation debt.
 
 It does not currently provide server APIs, autonomous runtime behavior, or broad retrieval guarantees across open-ended corpora.

@@ -64,6 +64,8 @@ def test_retrieval_explain_cli_runs(tmp_path):
     assert "confidence_hint" in payload
     assert "top_hit_evidence" in payload
     assert "comparison_hint" in payload
+    assert "retrieval_trace" in payload
+    assert payload["retrieval_trace"]["candidate_generation"]["episodes_text_count"] >= 1
     assert "top_ranked_episodes" in payload
     assert "top_ranked_semantic_hits" in payload
     assert "top_decisions" in payload

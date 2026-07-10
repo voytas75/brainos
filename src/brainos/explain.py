@@ -3,6 +3,40 @@ from __future__ import annotations
 from typing import Any
 
 
+def _retrieval_trace(*, payload: dict[str, Any]) -> dict[str, Any]:
+    ranked = payload.get("ranked_episodes", [])
+    semantic = payload.get("ranked_semantic_hits", [])
+    decisions = payload.get("decisions", [])
+    top = ranked[0] if ranked else None
+    return {
+        "query": payload.get("query"),
+        "session_id": payload.get("session_id"),
+        "runtime_status": (payload.get("retrieval_runtime") or {}).get("status"),
+        "candidate_generation": {
+            "episodes_text_count": len(payload.get("episodes", [])),
+            "episodes_vector_count": len(payload.get("vector_episodes", [])),
+            "semantic_name_count": len(payload.get("semantic_hits", [])),
+            "semantic_vector_count": len(payload.get("vector_semantic_hits", [])),
+            "decision_text_count": len(decisions),
+        },
+        "ranking": {
+            "episode_vector_mode": payload.get("episode_vector_mode"),
+            "semantic_vector_mode": payload.get("semantic_vector_mode"),
+            "ranked_episode_count": len(ranked),
+            "ranked_semantic_count": len(semantic),
+            "top_episode_id": top.get("id") if top else None,
+            "top_episode_match_sources": top.get("match_sources") if top else [],
+            "top_episode_score_components": top.get("score_components") if top else {},
+            "top_episode_vector_distance": top.get("vector_distance") if top else None,
+            "top_episode_lexical_overlap": top.get("lexical_overlap") if top else 0,
+        },
+        "result_interpretation": {
+            "zero_hit_reason": payload.get("zero_hit_reason"),
+            "summary": payload.get("summary"),
+        },
+    }
+
+
 def _top_hit_evidence(*, payload: dict[str, Any]) -> dict[str, Any] | None:
     ranked = payload.get("ranked_episodes", [])
     if not ranked:
@@ -143,6 +177,7 @@ def explain_recall(store: BrainOSStore, query: str, *, session_id: str | None = 
         "confidence_hint": _confidence_hint(payload=payload),
         "top_hit_evidence": _top_hit_evidence(payload=payload),
         "comparison_hint": _comparison_hint(payload=payload),
+        "retrieval_trace": _retrieval_trace(payload=payload),
         "top_ranked_episodes": compact_hits(
             payload.get("ranked_episodes", []),
             fields=["id", "content", "rank_score"],

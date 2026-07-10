@@ -28,8 +28,18 @@ BrainOS does not currently ship:
 - Treat the canonical demo as the fastest local proof path.
 - Treat `retrieval-benchmark` as seeded-fixture evidence, not live-corpus proof.
 - Treat `real-corpus-probe` as small-sample evidence, not broad quality proof.
+- Treat the canonical retrieval scenario set in [`docs/retrieval-evaluation-scenarios.md`](./retrieval-evaluation-scenarios.md) as the current bounded basis for retrieval claims.
 - Treat vector-ready success as environment-dependent. If local embedding or `sqlite-vec` config is missing, the repo should be read as degraded rather than broken.
 - Treat decision support as operator-facing support, not autonomous choice.
+
+## Current risk framing
+
+The main near-term risks are not that the local core is fundamentally broken.
+
+The heavier risks are:
+- bounded evidence that can be over-interpreted if the scenario set is not kept explicit
+- heuristic retrieval behavior that can look stronger or weaker than it really is without explain/trace output
+- accumulating operational and documentation debt that makes the repo look less healthy than the implementation actually is
 
 ## Current checkpoint
 

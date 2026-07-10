@@ -16,6 +16,7 @@ If you want the project overview, quick start, or repo map, go back to `../READM
 
 - [Canonical demo](#canonical-demo)
 - [Evidence map](#evidence-map)
+- [Retrieval evaluation scenarios](#retrieval-evaluation-scenarios)
 - [Diagnostic CLI contract](#diagnostic-cli-contract-verified)
 - [Smoke tests](#smoke-tests)
 - [CLI error behavior](#cli-error-behavior)
@@ -48,6 +49,12 @@ Use [`docs/evidence-map.md`](./evidence-map.md) when you need the shortest answe
 - what is only bounded evidence
 - what remains intentionally unproven
 
+## Retrieval evaluation scenarios
+
+Use [`docs/retrieval-evaluation-scenarios.md`](./retrieval-evaluation-scenarios.md) when you need the canonical bounded scenario set behind current retrieval claims.
+
+This is the small review surface that keeps BrainOS from over-claiming retrieval quality based on a few good demos or a few bad impressions.
+
 ## Diagnostic CLI contract (verified)
 
 BrainOS exposes operator-oriented diagnostic commands that prefer structured JSON over tracebacks.
@@ -65,6 +72,9 @@ BrainOS exposes operator-oriented diagnostic commands that prefer structured JSO
 - `decision-check`
 - `decision-history`
 - `inspect`
+- `retrieval-explain`
+
+`retrieval-explain` is the main operator surface for understanding why a result appeared. It should be used before declaring a quality regression, because many apparent failures are really runtime drift, low evidence, or heuristic edge cases.
 
 ### Expected response shape
 

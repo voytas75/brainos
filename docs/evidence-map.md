@@ -30,6 +30,7 @@ Primary repo-local evidence:
 
 - `retrieval-benchmark` is seeded-fixture evidence. It is useful regression signal, not proof of broad live-corpus relevance.
 - `real-corpus-probe` is a small read-only sample aligned to available session data. It is stronger than a pure fixture, but still not broad corpus evidence.
+- The current bounded scenario set is documented in [`docs/retrieval-evaluation-scenarios.md`](./retrieval-evaluation-scenarios.md). Green results there mean the bounded evaluation surface is coherent, not that broad retrieval quality is solved.
 - `retrieval_smoke.sh` proves a vector-ready green path only on the machine and environment where it is run.
 - `canonical_e2e_demo.sh` proves the local end-to-end path honestly, but in default mode it does not force remote embedding calls or claim vector-ready success unless the environment is configured for it.
 - The canonical demo defaults to a repo-local database path (`./brain_canonical_e2e.db`) and artifact directory so the walkthrough is easy to repeat and inspect.
@@ -38,6 +39,7 @@ Primary repo-local evidence:
 ## Still unproven or intentionally not claimed
 
 - No claim of broad retrieval quality across open-ended or production-scale corpora.
+- No claim that current heuristic ranking behavior is globally stable outside the bounded scenario set and small probes.
 - No claim of hosted/server behavior. The repo does not expose HTTP, MCP, or other network API servers.
 - No claim of new retrieval algorithms beyond the current bounded lexical plus optional vector surfaces.
 - No claim of autonomous decision making or full execution-loop behavior.
