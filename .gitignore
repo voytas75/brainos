@@ -27,6 +27,7 @@ examples/tmp/
 
 # Local analysis / smoke-test artifacts
 *.db
+!.env.example
 /tmp-*.db
 brainos-*.db
-notes/restart-point-*.md
+notes/restart-point-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-brainos-*.md
