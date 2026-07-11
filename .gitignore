@@ -24,3 +24,9 @@ brain_e2e.db*
 
 # Example runtime artifacts
 examples/tmp/
+
+# Local analysis / smoke-test artifacts
+*.db
+/tmp-*.db
+brainos-*.db
+notes/restart-point-*.md
