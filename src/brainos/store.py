@@ -1901,11 +1901,11 @@ class BrainOSStore:
     def ledger_events_for_object(
         self, *, layer: str, object_id_field: str, object_id: str
     ) -> list[dict[str, Any]]:
-        events = []
+        events: list[dict[str, Any]] = []
         for entry in self.list_ledger():
             if entry.get("layer") != layer:
                 continue
-            payload = json.loads(entry["payload"])
+            payload = cast(dict[str, Any], json.loads(entry["payload"]))
             if payload.get(object_id_field) != object_id:
                 continue
             enriched = dict(entry)
@@ -1917,7 +1917,7 @@ class BrainOSStore:
     def _decision_history_changed_fields(
         current: dict[str, Any], previous: dict[str, Any]
     ) -> list[str]:
-        changed = []
+        changed: list[str] = []
         for field in (
             "question",
             "status",
@@ -1946,10 +1946,10 @@ class BrainOSStore:
             object_id_field="decision_id",
             object_id=decision_id,
         )
-        revisions = []
-        snapshots = []
+        revisions: list[dict[str, Any]] = []
+        snapshots: list[dict[str, Any]] = []
         for event in events:
-            payload = event["payload"]
+            payload = cast(dict[str, Any], event["payload"])
             snapshot = {
                 "decision_id": payload.get("decision_id"),
                 "question": payload.get("question"),
