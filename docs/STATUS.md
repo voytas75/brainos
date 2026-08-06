@@ -51,7 +51,7 @@ Remote stabilization checkpoint:
 - isolated the degraded-runtime operator acceptance pack from inherited `BRAINOS_SQLITE_VEC_PATH`
 - current full local test posture: `133 passed`
 
-The only remaining governance decision is whether to require CI through a `main` protection rule/ruleset; it is not active yet.
+`main` requires the strict `Lock and tests` check; review approval is not required and repository administrators may bypass the requirement.
 
 ## Supporting detail
 
