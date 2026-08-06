@@ -1515,7 +1515,7 @@ class BrainOSStore:
             )
             if not fallback_query or fallback_query == normalized_query:
                 raise
-            fallback_params = [fallback_query]
+            fallback_params: list[Any] = [fallback_query]
             if session_id:
                 fallback_params.append(session_id)
             fallback_params.append(limit)
@@ -1607,7 +1607,7 @@ class BrainOSStore:
                 "message": "episode has already been promoted",
             }
 
-        metadata = episode["metadata"] or {}
+        metadata = cast(dict[str, Any], episode["metadata"] or {})
         promotion_type = self._validate_promotion_metadata(metadata)
 
         if promotion_type == "procedure":
@@ -1629,17 +1629,20 @@ class BrainOSStore:
             raise PromotionError("episode has already been promoted")
 
         preview = self.preview_consolidation(episode_id)
-        candidate = preview["candidate"]
+        candidate = cast(dict[str, Any], preview["candidate"])
 
         if candidate["target_layer"] == "procedural":
-            procedure = candidate["procedure"]
+            procedure = cast(dict[str, Any], candidate["procedure"])
             with self.transaction():
-                procedure_result = self.create_procedure(
-                    name=procedure["name"],
-                    description=procedure["description"],
-                    steps=procedure["steps"],
-                    causal_event_id=episode_id,
-                    return_ledger_event_id=True,
+                procedure_result = cast(
+                    dict[str, Any],
+                    self.create_procedure(
+                        name=procedure["name"],
+                        description=procedure["description"],
+                        steps=procedure["steps"],
+                        causal_event_id=episode_id,
+                        return_ledger_event_id=True,
+                    ),
                 )
                 procedure_id = procedure_result["procedure_id"]
                 event_id = procedure_result["ledger_event_id"]
@@ -1656,7 +1659,7 @@ class BrainOSStore:
                 "mode": "promoted",
             }
 
-        semantic_node = candidate["semantic_node"]
+        semantic_node = cast(dict[str, Any], candidate["semantic_node"])
         with self.transaction():
             event_id = self.upsert_semantic_node(
                 node_id=semantic_node["id"],
