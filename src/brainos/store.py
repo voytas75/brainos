@@ -242,7 +242,7 @@ class BrainOSStore:
         return episode["content"]
 
     def _canonical_semantic_node_embedding_text(self, node: dict[str, Any]) -> str:
-        properties = node.get("properties") or {}
+        properties = cast(dict[str, Any], node.get("properties") or {})
         properties_json = json.dumps(properties, ensure_ascii=False, sort_keys=True)
         return f"{node['name']}\nType: {node['type']}\nProperties: {properties_json}"
 
@@ -320,7 +320,7 @@ class BrainOSStore:
         vector_status: str | None = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        conditions = []
+        conditions: list[str] = []
         params: list[Any] = []
         if object_type is not None:
             conditions.append("object_type = ?")
@@ -357,7 +357,7 @@ class BrainOSStore:
     def semantic_name_hits(
         self, query: str, *, limit: int = 10
     ) -> list[dict[str, Any]]:
-        semantic_hits = []
+        semantic_hits: list[dict[str, Any]] = []
         query_lower = query.lower()
         node_rows = self.conn.execute(
             "SELECT id, name, type, properties FROM semantic_nodes ORDER BY name"
@@ -379,7 +379,7 @@ class BrainOSStore:
             parts.append(str(decision["question"]))
         if decision.get("recommended_option_id"):
             parts.append(f"recommended option {decision['recommended_option_id']}")
-        for option in decision.get("options", []):
+        for option in cast(list[dict[str, Any]], decision.get("options", [])):
             if option.get("option_id"):
                 parts.append(f"option {option['option_id']}")
             if option.get("label"):
@@ -393,7 +393,7 @@ class BrainOSStore:
             "missing_information",
             "uncertainty_notes",
         ):
-            for item in decision.get(field, []):
+            for item in cast(list[object], decision.get(field, [])):
                 if isinstance(item, dict):
                     for key in ("text", "kind", "option_id"):
                         value = item.get(key)
@@ -401,7 +401,7 @@ class BrainOSStore:
                             parts.append(value.strip())
                 elif isinstance(item, str) and item.strip():
                     parts.append(item.strip())
-        metadata = decision.get("metadata") or {}
+        metadata = cast(dict[str, Any], decision.get("metadata") or {})
         for key in ("entity_id", "source_case"):
             value = metadata.get(key)
             if isinstance(value, str) and value.strip():
