@@ -5,11 +5,11 @@ import json
 import re
 import sqlite3
 import uuid
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .decision_checks import decision_conflict_check
 from .decisions import validate_decision_payload
@@ -143,7 +143,7 @@ class BrainOSStore:
         return detect_capabilities(self.conn)
 
     @contextmanager
-    def transaction(self) -> Iterator[sqlite3.Connection]:
+    def transaction(self) -> Generator[sqlite3.Connection, None, None]:
         is_outermost = self._transaction_depth == 0
         self._transaction_depth += 1
         try:
@@ -173,15 +173,16 @@ class BrainOSStore:
     def _ensure_dict(value: Any, *, field_name: str) -> dict[str, Any]:
         if not isinstance(value, dict):
             raise ValidationError(f"{field_name} must be a JSON object")
-        return value
+        return cast(dict[str, Any], value)
 
     @staticmethod
     def _ensure_list_of_dicts(value: Any, *, field_name: str) -> list[dict[str, Any]]:
-        if not isinstance(value, list) or any(
-            not isinstance(item, dict) for item in value
-        ):
+        if not isinstance(value, list):
             raise ValidationError(f"{field_name} must be a JSON array of objects")
-        return value
+        items = cast(list[object], value)
+        if any(not isinstance(item, dict) for item in items):
+            raise ValidationError(f"{field_name} must be a JSON array of objects")
+        return [cast(dict[str, Any], item) for item in items]
 
     @staticmethod
     def _text_hash(text: str) -> str:
@@ -193,7 +194,7 @@ class BrainOSStore:
 
     @staticmethod
     def _now_iso() -> str:
-        return datetime.now(UTC).replace(microsecond=0).isoformat()
+        return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
     def _last_ledger_hash(self) -> str | None:
         row = self.conn.execute(
