@@ -49,6 +49,7 @@ Notes:
 - enables SQLite foreign keys
 - enables WAL mode
 - does not initialize schema automatically; call `initialize()` first
+- with `enable_vector=True`, validates configured `sqlite-vec` but defers vector-table creation until the first successful embedding establishes its dimension
 
 ### Lifecycle / environment methods
 
@@ -284,6 +285,8 @@ Optional:
 ```bash
 brainos --db ./brain.db init --enable-vector
 ```
+
+This validates configured `sqlite-vec` without precreating a fixed-dimension table. The first successful embedding creates vector tables with its returned dimension; a later different dimension requires rebuilding that index.
 
 #### `schema-status`
 ```bash

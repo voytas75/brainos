@@ -254,8 +254,6 @@ def initialize_schema(conn: sqlite3.Connection, *, enable_vector: bool = False) 
         vec_path = configured_sqlite_vec_path()
         if vec_path:
             load_sqlite_vec_extension(conn, vec_path)
-        conn.execute(get_vec_table_sql(1536, table_name="episodes_vec"))
-        conn.execute(get_vec_table_sql(1536, table_name="semantic_nodes_vec"))
     if current_version == 0:
         set_schema_version(conn, SCHEMA_VERSION)
     elif migrated_version != current_version:

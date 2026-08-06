@@ -1,9 +1,11 @@
 import json
+import os
 import sqlite3
 import subprocess
 from pathlib import Path
 
 from brainos.schema import get_schema_version
+from brainos.sqlite_vec import ENV_SQLITE_VEC_PATH
 from brainos.store import BrainOSStore
 
 
@@ -84,6 +86,43 @@ def test_migrates_v1_to_current(tmp_path):
     assert len(promotion_tables) == 1
     assert get_schema_version(store.conn) >= 3
     store.close()
+
+
+def test_enable_vector_defers_tables_until_first_embedding(monkeypatch, tmp_path):
+    db = tmp_path / "brain.db"
+    vec_path = "/tmp/vec0.so"
+    loaded_paths = []
+    monkeypatch.setenv(ENV_SQLITE_VEC_PATH, vec_path)
+    monkeypatch.setattr("brainos.schema.load_sqlite_vec_extension", lambda conn, path: loaded_paths.append(path))
+
+    store = BrainOSStore(db, enable_vector=True)
+    store.initialize()
+
+    tables = {row[0] for row in store.conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+    assert loaded_paths == [vec_path]
+    assert "episodes_vec" not in tables
+    assert "semantic_nodes_vec" not in tables
+    store.close()
+
+
+def test_cli_enable_vector_defers_tables_when_runtime_is_unconfigured(tmp_path):
+    db = tmp_path / "brain.db"
+    env = os.environ.copy()
+    env.pop(ENV_SQLITE_VEC_PATH, None)
+
+    subprocess.run(
+        ["uv", "run", "brainos", "--db", str(db), "init", "--enable-vector"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    conn = sqlite3.connect(db)
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+    conn.close()
+    assert "episodes_vec" not in tables
+    assert "semantic_nodes_vec" not in tables
 
 
 def test_cli_not_found_and_validation_errors(tmp_path):
