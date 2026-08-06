@@ -395,8 +395,9 @@ class BrainOSStore:
         ):
             for item in cast(list[object], decision.get(field, [])):
                 if isinstance(item, dict):
+                    detail = cast(dict[str, Any], item)
                     for key in ("text", "kind", "option_id"):
-                        value = item.get(key)
+                        value = detail.get(key)
                         if isinstance(value, str) and value.strip():
                             parts.append(value.strip())
                 elif isinstance(item, str) and item.strip():
@@ -978,7 +979,7 @@ class BrainOSStore:
                 result = self.generate_episode_embedding(
                     object_id, embedding_profile=embedding_profile
                 )
-                if isinstance(result, dict) and "action_hint" not in result:
+                if "action_hint" not in result:
                     result["action_hint"] = "reindex"
                 return result
             return {
@@ -1004,7 +1005,7 @@ class BrainOSStore:
                 result = self.generate_semantic_node_embedding(
                     object_id, embedding_profile=embedding_profile
                 )
-                if isinstance(result, dict) and "action_hint" not in result:
+                if "action_hint" not in result:
                     result["action_hint"] = "reindex"
                 return result
             return {
