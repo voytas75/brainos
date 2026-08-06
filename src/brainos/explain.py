@@ -1,19 +1,33 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from .store import BrainOSStore
 
 
+def _mapping(value: object) -> dict[str, Any]:
+    return cast(dict[str, Any], value) if isinstance(value, dict) else {}
+
+
+def _records(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    value = payload.get(key, [])
+    if not isinstance(value, list):
+        return []
+    typed_value = cast(list[object], value)
+    return [
+        cast(dict[str, Any], item) for item in typed_value if isinstance(item, dict)
+    ]
+
+
 def _retrieval_trace(*, payload: dict[str, Any]) -> dict[str, Any]:
-    ranked = payload.get("ranked_episodes", [])
-    semantic = payload.get("ranked_semantic_hits", [])
-    decisions = payload.get("decisions", [])
+    ranked = _records(payload, "ranked_episodes")
+    semantic = _records(payload, "ranked_semantic_hits")
+    decisions = _records(payload, "decisions")
     top = ranked[0] if ranked else None
     return {
         "query": payload.get("query"),
         "session_id": payload.get("session_id"),
-        "runtime_status": (payload.get("retrieval_runtime") or {}).get("status"),
+        "runtime_status": _mapping(payload.get("retrieval_runtime")).get("status"),
         "candidate_generation": {
             "episodes_text_count": len(payload.get("episodes", [])),
             "episodes_vector_count": len(payload.get("vector_episodes", [])),
@@ -40,13 +54,13 @@ def _retrieval_trace(*, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _top_hit_evidence(*, payload: dict[str, Any]) -> dict[str, Any] | None:
-    ranked = payload.get("ranked_episodes", [])
+    ranked = _records(payload, "ranked_episodes")
     if not ranked:
         return None
     top = ranked[0]
     return {
         "id": top.get("id"),
-        "kind": (top.get("metadata") or {}).get("kind"),
+        "kind": _mapping(top.get("metadata")).get("kind"),
         "match_sources": top.get("match_sources") or [],
         "lexical_overlap": top.get("lexical_overlap") or 0,
         "vector_distance": top.get("vector_distance"),
@@ -55,7 +69,7 @@ def _top_hit_evidence(*, payload: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _comparison_hint(*, payload: dict[str, Any]) -> dict[str, Any] | None:
-    ranked = payload.get("ranked_episodes", [])
+    ranked = _records(payload, "ranked_episodes")
     if len(ranked) < 2:
         return None
     top = ranked[0]
@@ -66,13 +80,13 @@ def _comparison_hint(*, payload: dict[str, Any]) -> dict[str, Any] | None:
         "top_id": top.get("id"),
         "runner_up_id": second.get("id"),
         "score_gap": round(top_score - second_score, 3),
-        "top_kind": (top.get("metadata") or {}).get("kind"),
-        "runner_up_kind": (second.get("metadata") or {}).get("kind"),
+        "top_kind": _mapping(top.get("metadata")).get("kind"),
+        "runner_up_kind": _mapping(second.get("metadata")).get("kind"),
     }
 
 
 def _confidence_hint(*, payload: dict[str, Any]) -> str | None:
-    ranked = payload.get("ranked_episodes", [])
+    ranked = _records(payload, "ranked_episodes")
     if len(ranked) < 2:
         return None
     top = ranked[0]
@@ -85,8 +99,8 @@ def _confidence_hint(*, payload: dict[str, Any]) -> str | None:
 
 
 def _operator_summary(*, payload: dict[str, Any]) -> str:
-    runtime = payload.get("retrieval_runtime") or {}
-    ranked = payload.get("ranked_episodes", [])
+    runtime = _mapping(payload.get("retrieval_runtime"))
+    ranked = _records(payload, "ranked_episodes")
     if runtime.get("status") == "misconfigured" and not ranked:
         return "retrieval degraded: vector runtime is not configured; lexical retrieval may still work; check BRAINOS_SQLITE_VEC_PATH"
     if runtime.get("status") == "runtime_failed" and not ranked:
@@ -94,7 +108,7 @@ def _operator_summary(*, payload: dict[str, Any]) -> str:
     if ranked:
         top = ranked[0]
         sources = set(top.get("match_sources") or [])
-        kind = (top.get("metadata") or {}).get("kind")
+        kind = _mapping(top.get("metadata")).get("kind")
         kind_suffix = f"; kind={kind}" if kind else ""
         prefix = ""
         if runtime.get("status") == "misconfigured":
@@ -117,7 +131,7 @@ def _operator_summary(*, payload: dict[str, Any]) -> str:
 
 
 def _diagnostic_hint(*, payload: dict[str, Any]) -> str:
-    runtime = payload.get("retrieval_runtime") or {}
+    runtime = _mapping(payload.get("retrieval_runtime"))
     has_any_hits = bool(
         payload.get("ranked_episodes")
         or payload.get("ranked_semantic_hits")
@@ -127,7 +141,7 @@ def _diagnostic_hint(*, payload: dict[str, Any]) -> str:
         return "configure_sqlite_vec_path_before_quality_debug"
     if runtime.get("status") == "runtime_failed" and not has_any_hits:
         return "inspect_sqlite_vec_runtime_failure_before_quality_debug"
-    ranked = payload.get("ranked_episodes", [])
+    ranked = _records(payload, "ranked_episodes")
     if ranked:
         top = ranked[0]
         sources = set(top.get("match_sources") or [])
@@ -157,7 +171,7 @@ def explain_recall(
     def compact_hits(
         items: list[dict[str, Any]], *, fields: list[str]
     ) -> list[dict[str, Any]]:
-        out = []
+        out: list[dict[str, Any]] = []
         for item in items[:limit]:
             row = {field: item.get(field) for field in fields}
             if "metadata" in item:
@@ -192,15 +206,15 @@ def explain_recall(
         "comparison_hint": _comparison_hint(payload=payload),
         "retrieval_trace": _retrieval_trace(payload=payload),
         "top_ranked_episodes": compact_hits(
-            payload.get("ranked_episodes", []),
+            _records(payload, "ranked_episodes"),
             fields=["id", "content", "rank_score"],
         ),
         "top_ranked_semantic_hits": compact_hits(
-            payload.get("ranked_semantic_hits", []),
+            _records(payload, "ranked_semantic_hits"),
             fields=["id", "name", "type", "rank_score"],
         ),
         "top_decisions": compact_hits(
-            payload.get("decisions", []),
+            _records(payload, "decisions"),
             fields=[
                 "decision_id",
                 "question",
