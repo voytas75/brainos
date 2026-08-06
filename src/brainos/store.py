@@ -96,6 +96,7 @@ class BrainOSStore:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys=ON;")
         self.conn.execute("PRAGMA journal_mode=WAL;")
+        self._transaction_depth = 0
         self.retrieval = RetrievalService(self)
 
     def initialize(self) -> None:
@@ -109,12 +110,18 @@ class BrainOSStore:
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
+        is_outermost = self._transaction_depth == 0
+        self._transaction_depth += 1
         try:
             yield self.conn
-            self.conn.commit()
+            if is_outermost:
+                self.conn.commit()
         except Exception:
-            self.conn.rollback()
+            if is_outermost:
+                self.conn.rollback()
             raise
+        finally:
+            self._transaction_depth -= 1
 
     def close(self) -> None:
         self.conn.close()

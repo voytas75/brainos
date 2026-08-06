@@ -1,3 +1,5 @@
+import sqlite3
+
 from brainos.errors import PromotionError, ValidationError
 from brainos.store import BrainOSStore
 
@@ -178,6 +180,56 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
         assert False, "expected PromotionError"
     except PromotionError:
         pass
+    store.close()
+
+
+def test_promotion_rolls_back_target_and_ledger_when_record_insert_fails(tmp_path):
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    procedure_episode_id = store.add_episode(
+        session_id="s1",
+        content="Create a procedure only if the promotion record is durable.",
+        metadata={
+            "promotion_type": "procedure",
+            "procedure_name": "atomic_procedure",
+            "procedure_steps": [{"step": "verify-promotion"}],
+        },
+    )
+    semantic_episode_id = store.add_episode(
+        session_id="s1",
+        content="Create a semantic node only if the promotion record is durable.",
+        metadata={
+            "promotion_type": "semantic",
+            "semantic_name": "Atomic promotion",
+            "semantic_type": "Fact",
+        },
+    )
+    semantic_node_id = store.preview_consolidation(semantic_episode_id)["candidate"]["semantic_node"]["id"]
+    store.conn.execute(
+        """
+        CREATE TRIGGER reject_episode_promotion
+        BEFORE INSERT ON episode_promotions
+        BEGIN
+            SELECT RAISE(ABORT, 'forced promotion record failure');
+        END;
+        """
+    )
+
+    for episode_id in (procedure_episode_id, semantic_episode_id):
+        try:
+            store.promote_episode(episode_id)
+            assert False, "expected forced promotion record failure"
+        except sqlite3.IntegrityError:
+            pass
+
+    assert store.list_procedures() == []
+    assert store.get_semantic_node(semantic_node_id) is None
+    assert store.get_episode_promotion(procedure_episode_id) is None
+    assert store.get_episode_promotion(semantic_episode_id) is None
+    assert len(store.list_ledger()) == 2
+    assert store.verify_ledger()["ok"] is True
     store.close()
 
 
