@@ -5,7 +5,7 @@ import os
 import sqlite3
 import tempfile
 from contextlib import suppress
-from typing import Any
+from typing import Any, cast
 
 from .store import BrainOSStore
 
@@ -15,7 +15,7 @@ def _benchmark_mode(store: BrainOSStore) -> str:
     return "vector-ready" if capabilities.get("sqlite_vec") else "degraded-non-vector"
 
 
-def _classify_benchmark_failure(*, mode: str, result: dict[str, Any]) -> str:
+def _classify_benchmark_failure(*, mode: str, result: dict[str, object]) -> str:
     if mode != "vector-ready":
         return "likely_runtime_related"
     if (
@@ -35,7 +35,7 @@ def _failed_case_next_debug(*, query: str) -> dict[str, Any]:
 
 
 def seed_benchmark_store(store: BrainOSStore) -> dict[str, str]:
-    ids = {}
+    ids: dict[str, str] = {}
     ids["ep_sqlite_wal"] = store.add_episode(
         session_id="bench",
         content="SQLite WAL mode helps BrainOS keep local writes safe and concurrent.",
@@ -188,6 +188,7 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
     mode = _benchmark_mode(store)
     fd, temp_db = tempfile.mkstemp(prefix="brainos-bench-", suffix=".db")
     os.close(fd)
+    bench_store: BrainOSStore | None = None
     try:
         bench_store = BrainOSStore(temp_db, enable_vector=False)
         bench_store.initialize()
@@ -202,7 +203,7 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                 limit=100,
             )
         cases = benchmark_cases(ids)
-        results = []
+        results: list[dict[str, object]] = []
         overall_passed = 0
         episode_passed = 0
         semantic_passed = 0
@@ -276,7 +277,7 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
 
         degraded = mode != "vector-ready"
         degraded_reason = None if not degraded else "sqlite_vec_unavailable"
-        failed_cases = []
+        failed_cases: list[dict[str, object]] = []
         for result in results:
             if not result["ok"]:
                 failed_cases.append(
@@ -293,7 +294,9 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                         "expected_episode_hash": result.get("expected_episode_hash"),
                         "top_episode_hash": result.get("top_episode_hash"),
                         "top_semantic_id": result["top_semantic_id"],
-                        "next_debug": _failed_case_next_debug(query=result["query"]),
+                        "next_debug": _failed_case_next_debug(
+                            query=cast(str, result["query"])
+                        ),
                         "recommended_fix": {
                             "action_hint": "configure_sqlite_vec_path"
                             if result.get("runtime_error")
@@ -326,8 +329,9 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
             "runtime_error": benchmark_runtime_error,
         }
     finally:
-        with suppress(sqlite3.Error):
-            bench_store.close()
+        if bench_store is not None:
+            with suppress(sqlite3.Error):
+                bench_store.close()
         for path in (temp_db, f"{temp_db}-wal", f"{temp_db}-shm"):
             with suppress(FileNotFoundError):
                 os.remove(path)
