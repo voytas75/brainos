@@ -5,19 +5,23 @@ DB_PATH="${1:-/tmp/brainos-operator-acceptance-$(date +%Y%m%d-%H%M%S).db}"
 OUT_DIR="${2:-./artifacts/operator-acceptance}"
 SESSION_ID="operator-acceptance"
 
+brainos() {
+  BRAINOS_SQLITE_VEC_PATH= uv run brainos "$@"
+}
+
 mkdir -p "$OUT_DIR"
 rm -f "$DB_PATH"
 
-uv run brainos --db "$DB_PATH" init >/dev/null
+brainos --db "$DB_PATH" init >/dev/null
 
-uv run brainos --db "$DB_PATH" retrieval-health --benchmark-limit 5 > "$OUT_DIR/health-empty.json"
+brainos --db "$DB_PATH" retrieval-health --benchmark-limit 5 > "$OUT_DIR/health-empty.json"
 
-uv run brainos --db "$DB_PATH" episode-add "$SESSION_ID" 'BrainOS retrieval should stay operator-readable even when vector runtime is unavailable.' --metadata-json '{"source":"operator_acceptance","kind":"observation"}' >/dev/null
-uv run brainos --db "$DB_PATH" episode-add "$SESSION_ID" 'Low-evidence databases should not be presented as ordinary ranking regressions.' --metadata-json '{"source":"operator_acceptance","kind":"fact"}' >/dev/null
+brainos --db "$DB_PATH" episode-add "$SESSION_ID" 'BrainOS retrieval should stay operator-readable even when vector runtime is unavailable.' --metadata-json '{"source":"operator_acceptance","kind":"observation"}' >/dev/null
+brainos --db "$DB_PATH" episode-add "$SESSION_ID" 'Low-evidence databases should not be presented as ordinary ranking regressions.' --metadata-json '{"source":"operator_acceptance","kind":"fact"}' >/dev/null
 
-uv run brainos --db "$DB_PATH" retrieval-health --benchmark-limit 5 > "$OUT_DIR/health-populated.json"
-uv run brainos --db "$DB_PATH" retrieval-explain 'vector runtime unavailable' --session-id "$SESSION_ID" > "$OUT_DIR/explain-misconfigured.json"
-uv run brainos --db "$DB_PATH" recall 'operator-readable retrieval' --session-id "$SESSION_ID" > "$OUT_DIR/recall-misconfigured.json"
+brainos --db "$DB_PATH" retrieval-health --benchmark-limit 5 > "$OUT_DIR/health-populated.json"
+brainos --db "$DB_PATH" retrieval-explain 'vector runtime unavailable' --session-id "$SESSION_ID" > "$OUT_DIR/explain-misconfigured.json"
+brainos --db "$DB_PATH" recall 'operator-readable retrieval' --session-id "$SESSION_ID" > "$OUT_DIR/recall-misconfigured.json"
 
 python3 - <<'PY' "$DB_PATH" "$OUT_DIR"
 import json
