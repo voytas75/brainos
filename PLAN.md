@@ -15,6 +15,12 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 - [x] Made `operator_acceptance.sh` deterministic for its declared runtime scenario.
 - [x] Synchronized status and control documents with verified local and remote evidence.
 
+## Quality campaign — approved
+
+- [ ] **P1 — Ruff baseline:** add repository-owned Ruff tooling/configuration and resolve its mechanical baseline before making it blocking.
+- [ ] **P2 — strict Pyright debt:** remove strict typing errors in bounded module batches; do not use suppressions or lower strictness to manufacture a green gate.
+- [ ] **P3 — required quality gate:** add Ruff and strict Pyright to frozen CI only after their full local baseline is green.
+
 ## Deferred / anti-scope
 - New product features, retrieval/scoring work, HTTP/MCP/hosted runtime, and background workers.
 - Broad `store.py` refactor, scalability/concurrency claims, and unsolicited provider-backed runs.

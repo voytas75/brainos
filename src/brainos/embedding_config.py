@@ -5,7 +5,6 @@ from typing import Any
 
 from .errors import EmbeddingProviderNotConfiguredError
 
-
 DEFAULT_EMBEDDING_PROFILE = "brainos-embedding-default"
 ENV_EMBEDDING_MODEL = "BRAINOS_EMBEDDING_MODEL"
 ENV_EMBEDDING_PROVIDER = "BRAINOS_EMBEDDING_PROVIDER"
@@ -33,7 +32,9 @@ def _infer_provider(model: str, explicit: str) -> str:
     return "unknown"
 
 
-def _provider_required_env(provider: str, api_base: str, api_key: str, api_version: str) -> list[str]:
+def _provider_required_env(
+    provider: str, api_base: str, api_key: str, api_version: str
+) -> list[str]:
     required = [ENV_EMBEDDING_MODEL]
     if provider == "azure":
         required.extend([ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION])
@@ -53,7 +54,9 @@ def _provider_required_env(provider: str, api_base: str, api_key: str, api_versi
     return required
 
 
-def resolve_embedding_config(profile: str = DEFAULT_EMBEDDING_PROFILE) -> dict[str, Any]:
+def resolve_embedding_config(
+    profile: str = DEFAULT_EMBEDDING_PROFILE,
+) -> dict[str, Any]:
     model = _getenv(ENV_EMBEDDING_MODEL)
     explicit_provider = _getenv(ENV_EMBEDDING_PROVIDER).lower()
 
@@ -114,10 +117,18 @@ def resolve_embedding_config(profile: str = DEFAULT_EMBEDDING_PROFILE) -> dict[s
 
     env_values = {
         ENV_EMBEDDING_MODEL: model,
-        ENV_AZURE_API_BASE: api_base if provider == "azure" else _getenv(ENV_AZURE_API_BASE),
-        ENV_AZURE_API_KEY: api_key if provider == "azure" else _getenv(ENV_AZURE_API_KEY),
-        ENV_AZURE_API_VERSION: api_version if provider == "azure" else _getenv(ENV_AZURE_API_VERSION),
-        ENV_OPENAI_API_KEY: api_key if provider == "openai" else _getenv(ENV_OPENAI_API_KEY),
+        ENV_AZURE_API_BASE: api_base
+        if provider == "azure"
+        else _getenv(ENV_AZURE_API_BASE),
+        ENV_AZURE_API_KEY: api_key
+        if provider == "azure"
+        else _getenv(ENV_AZURE_API_KEY),
+        ENV_AZURE_API_VERSION: api_version
+        if provider == "azure"
+        else _getenv(ENV_AZURE_API_VERSION),
+        ENV_OPENAI_API_KEY: api_key
+        if provider == "openai"
+        else _getenv(ENV_OPENAI_API_KEY),
         ENV_EMBEDDING_API_BASE: api_base,
         ENV_EMBEDDING_API_KEY: api_key,
         ENV_EMBEDDING_API_VERSION: api_version,

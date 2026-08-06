@@ -16,7 +16,10 @@ def import_litellm_quietly() -> ModuleType:
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
     try:
-        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
+        with (
+            contextlib.redirect_stdout(stdout_buffer),
+            contextlib.redirect_stderr(stderr_buffer),
+        ):
             import litellm  # type: ignore
     finally:
         if previous_log is None:

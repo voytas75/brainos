@@ -3,7 +3,11 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from .sqlite_vec import ENV_SQLITE_VEC_PATH, configured_sqlite_vec_path, load_sqlite_vec_extension
+from .sqlite_vec import (
+    ENV_SQLITE_VEC_PATH,
+    configured_sqlite_vec_path,
+    load_sqlite_vec_extension,
+)
 
 
 def vector_runtime_preflight() -> dict[str, Any]:

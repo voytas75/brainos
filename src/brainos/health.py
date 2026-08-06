@@ -12,11 +12,17 @@ from .errors import SqliteVecReadinessError
 from .sqlite_vec import configured_sqlite_vec_path
 from .store import BrainOSStore
 
-
 SQLITE_WAL_REQUIRED_VALUE = "wal"
 
 
-def _health_action_hint(*, runtime_issues: list[str], freshness_issues: list[str], freshness_notes: list[str], benchmark: dict[str, Any], low_evidence: bool) -> str:
+def _health_action_hint(
+    *,
+    runtime_issues: list[str],
+    freshness_issues: list[str],
+    freshness_notes: list[str],
+    benchmark: dict[str, Any],
+    low_evidence: bool,
+) -> str:
     if runtime_issues:
         return "runtime_fix"
     if low_evidence:
@@ -30,7 +36,13 @@ def _health_action_hint(*, runtime_issues: list[str], freshness_issues: list[str
     return "noop"
 
 
-def _health_summary_text(*, runtime_issues: list[str], freshness_issues: list[str], benchmark: dict[str, Any], low_evidence: bool) -> str:
+def _health_summary_text(
+    *,
+    runtime_issues: list[str],
+    freshness_issues: list[str],
+    benchmark: dict[str, Any],
+    low_evidence: bool,
+) -> str:
     if runtime_issues and low_evidence:
         return "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
     if runtime_issues:
@@ -52,7 +64,9 @@ _AZURE_API_VERSION_KEYWORDS = {"v1", "latest", "preview"}
 
 def _is_valid_azure_api_version(value: str) -> bool:
     normalized = value.strip().lower()
-    return normalized in _AZURE_API_VERSION_KEYWORDS or bool(_AZURE_API_VERSION_PATTERN.fullmatch(normalized))
+    return normalized in _AZURE_API_VERSION_KEYWORDS or bool(
+        _AZURE_API_VERSION_PATTERN.fullmatch(normalized)
+    )
 
 
 def _embedding_config_health() -> dict[str, Any]:
@@ -65,7 +79,9 @@ def _embedding_config_health() -> dict[str, Any]:
         present = list(contract.get("present_env", []))
     except Exception:
         base_model = os.getenv("BRAINOS_EMBEDDING_MODEL", "").strip()
-        provider = base_model.split("/", 1)[0].lower() if "/" in base_model else "unknown"
+        provider = (
+            base_model.split("/", 1)[0].lower() if "/" in base_model else "unknown"
+        )
         required_env = ["BRAINOS_EMBEDDING_MODEL"]
         if provider == "azure":
             required_env += ["AZURE_API_BASE", "AZURE_API_KEY", "AZURE_API_VERSION"]
@@ -94,11 +110,15 @@ def _embedding_config_health() -> dict[str, Any]:
             invalid.append("AZURE_API_VERSION")
 
     status = "ok" if not missing and not invalid else "warn"
-    issues = [f"missing:{name}" for name in missing] + [f"invalid:{name}" for name in invalid]
+    issues = [f"missing:{name}" for name in missing] + [
+        f"invalid:{name}" for name in invalid
+    ]
     return {
         "status": status,
         "issues": issues,
-        "action_hint": "set_required_env" if missing else ("fix_invalid_env" if invalid else "noop"),
+        "action_hint": "set_required_env"
+        if missing
+        else ("fix_invalid_env" if invalid else "noop"),
         "contract": diagnostic_embedding_contract(contract),
         "required_env": contract["required_env"],
         "present_env": present,
@@ -171,7 +191,9 @@ def _database_runtime_health(store: BrainOSStore) -> dict[str, Any]:
     }
 
 
-def _runtime_failure_summary(*, store: BrainOSStore, error_kind: str, detail: str) -> dict[str, Any]:
+def _runtime_failure_summary(
+    *, store: BrainOSStore, error_kind: str, detail: str
+) -> dict[str, Any]:
     sqlite_vec_env = _sqlite_vec_env_health()
     sqlite_vec_env = {
         **sqlite_vec_env,
@@ -238,18 +260,26 @@ def _runtime_failure_summary(*, store: BrainOSStore, error_kind: str, detail: st
     }
 
 
-def retrieval_health_summary(store: BrainOSStore, *, benchmark_limit: int = 5) -> dict[str, Any]:
+def retrieval_health_summary(
+    store: BrainOSStore, *, benchmark_limit: int = 5
+) -> dict[str, Any]:
     try:
         capabilities = store.capabilities()
         states = store.list_vector_index_states(limit=1000)
     except SqliteVecReadinessError as exc:
-        return _runtime_failure_summary(store=store, error_kind=exc.error_kind, detail=exc.detail or str(exc))
+        return _runtime_failure_summary(
+            store=store, error_kind=exc.error_kind, detail=exc.detail or str(exc)
+        )
 
     counts_by_status: dict[str, int] = {}
     counts_by_type: dict[str, int] = {}
     for item in states:
-        counts_by_status[item["vector_status"]] = counts_by_status.get(item["vector_status"], 0) + 1
-        counts_by_type[item["object_type"]] = counts_by_type.get(item["object_type"], 0) + 1
+        counts_by_status[item["vector_status"]] = (
+            counts_by_status.get(item["vector_status"], 0) + 1
+        )
+        counts_by_type[item["object_type"]] = (
+            counts_by_type.get(item["object_type"], 0) + 1
+        )
 
     benchmark = run_retrieval_benchmark(store, limit=benchmark_limit)
     low_evidence = len(states) == 0
@@ -294,7 +324,15 @@ def retrieval_health_summary(store: BrainOSStore, *, benchmark_limit: int = 5) -
 
     runtime_status = "ok" if not runtime_issues else "warn"
     freshness_status = "ok" if not freshness_issues else "warn"
-    quality_status = "low_evidence" if low_evidence else ("ok" if not quality_issues else ("degraded" if benchmark.get("degraded") else "warn"))
+    quality_status = (
+        "low_evidence"
+        if low_evidence
+        else (
+            "ok"
+            if not quality_issues
+            else ("degraded" if benchmark.get("degraded") else "warn")
+        )
+    )
 
     action_hint = _health_action_hint(
         runtime_issues=runtime_issues,
@@ -328,7 +366,9 @@ def retrieval_health_summary(store: BrainOSStore, *, benchmark_limit: int = 5) -
             "status": freshness_status,
             "issues": freshness_issues,
             "notes": freshness_notes,
-            "action_hint": "reindex_or_repair" if freshness_issues else ("inspect_notes" if freshness_notes else "noop"),
+            "action_hint": "reindex_or_repair"
+            if freshness_issues
+            else ("inspect_notes" if freshness_notes else "noop"),
             "vector_index": {
                 "total": len(states),
                 "by_status": counts_by_status,
@@ -339,7 +379,17 @@ def retrieval_health_summary(store: BrainOSStore, *, benchmark_limit: int = 5) -
             "status": quality_status,
             "issues": quality_issues,
             "notes": quality_notes,
-            "action_hint": "seed_or_ingest_more_data" if low_evidence else ("inspect_benchmark_failure" if quality_issues else ("accept_degraded_or_fix_runtime" if benchmark.get("degraded") else "noop")),
+            "action_hint": "seed_or_ingest_more_data"
+            if low_evidence
+            else (
+                "inspect_benchmark_failure"
+                if quality_issues
+                else (
+                    "accept_degraded_or_fix_runtime"
+                    if benchmark.get("degraded")
+                    else "noop"
+                )
+            ),
             "benchmark": {
                 "suite": benchmark.get("suite"),
                 "evidence_kind": benchmark.get("evidence_kind"),
@@ -348,12 +398,17 @@ def retrieval_health_summary(store: BrainOSStore, *, benchmark_limit: int = 5) -
                 "mode": benchmark.get("mode"),
                 "degraded": benchmark.get("degraded"),
                 "degraded_reason": benchmark.get("degraded_reason"),
-                "recommended_fix": benchmark.get("recommended_fix") or ({
-                    "action_hint": "configure_sqlite_vec_path",
-                    "target": "BRAINOS_SQLITE_VEC_PATH",
-                    "reason": benchmark.get("degraded_reason"),
-                    "runtime_origin": sqlite_vec_env.get("runtime_origin"),
-                } if benchmark.get("degraded") else None),
+                "recommended_fix": benchmark.get("recommended_fix")
+                or (
+                    {
+                        "action_hint": "configure_sqlite_vec_path",
+                        "target": "BRAINOS_SQLITE_VEC_PATH",
+                        "reason": benchmark.get("degraded_reason"),
+                        "runtime_origin": sqlite_vec_env.get("runtime_origin"),
+                    }
+                    if benchmark.get("degraded")
+                    else None
+                ),
                 "case_count": benchmark.get("case_count"),
                 "passed": benchmark.get("passed"),
                 "failed": benchmark.get("failed"),

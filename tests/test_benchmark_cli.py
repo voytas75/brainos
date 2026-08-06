@@ -6,7 +6,6 @@ from pathlib import Path
 from brainos.benchmark import run_retrieval_benchmark
 from brainos.store import BrainOSStore
 
-
 _ENV_KEYS = {
     "BRAINOS_EMBEDDING_MODEL",
     "AZURE_API_BASE",
@@ -21,14 +20,24 @@ def _clean_cli_env() -> dict[str, str]:
     return {
         key: value
         for key, value in os.environ.items()
-        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+        if key not in _ENV_KEYS
+        and not any(key.startswith(prefix) for prefix in prefixes)
     }
 
 
 def test_retrieval_benchmark_cli_runs(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        [os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"), "--db", str(db), "retrieval-benchmark", "--limit", "5"],
+        [
+            os.fspath(
+                Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"
+            ),
+            "--db",
+            str(db),
+            "retrieval-benchmark",
+            "--limit",
+            "5",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -52,7 +61,16 @@ def test_retrieval_benchmark_cli_runs(tmp_path):
 def test_retrieval_benchmark_cli_exposes_failed_case_drilldown(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        [os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"), "--db", str(db), "retrieval-benchmark", "--limit", "5"],
+        [
+            os.fspath(
+                Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"
+            ),
+            "--db",
+            str(db),
+            "retrieval-benchmark",
+            "--limit",
+            "5",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -69,7 +87,16 @@ def test_retrieval_benchmark_cli_exposes_failed_case_drilldown(tmp_path):
 def test_retrieval_benchmark_failed_cases_expose_next_debug_handoff(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        [os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"), "--db", str(db), "retrieval-benchmark", "--limit", "5"],
+        [
+            os.fspath(
+                Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"
+            ),
+            "--db",
+            str(db),
+            "retrieval-benchmark",
+            "--limit",
+            "5",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -88,7 +115,11 @@ def test_retrieval_benchmark_nl_semantic_case_is_green(tmp_path):
     store = BrainOSStore(db)
     store.initialize()
     payload = run_retrieval_benchmark(store, limit=10)
-    target = next(item for item in payload["results"] if item["query"] == "what helps BrainOS keep local writes safe?")
+    target = next(
+        item
+        for item in payload["results"]
+        if item["query"] == "what helps BrainOS keep local writes safe?"
+    )
     assert target["episode_ok"] is True
     assert target["semantic_ok"] is True
     assert target["top_semantic_id"] == "sem-wal"
@@ -99,4 +130,9 @@ def test_semantic_name_query_reduces_nl_case_to_wal():
     assert run_retrieval_benchmark is not None
     from brainos.retrieval import RetrievalService
 
-    assert RetrievalService._semantic_name_query("what helps BrainOS keep local writes safe?") == "wal"
+    assert (
+        RetrievalService._semantic_name_query(
+            "what helps BrainOS keep local writes safe?"
+        )
+        == "wal"
+    )

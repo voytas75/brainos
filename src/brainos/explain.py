@@ -100,7 +100,9 @@ def _operator_summary(*, payload: dict[str, Any]) -> str:
         elif runtime.get("status") == "runtime_failed":
             prefix = "retrieval degraded: sqlite-vec runtime preflight failed; lexical retrieval may still work and did participate here; "
         if len(sources) >= 2:
-            return f"{prefix}top hit supported by lexical and vector evidence{kind_suffix}"
+            return (
+                f"{prefix}top hit supported by lexical and vector evidence{kind_suffix}"
+            )
         if "vector" in sources:
             return f"{prefix}top hit is primarily vector-led{kind_suffix}"
         if "fts" in sources:
@@ -111,12 +113,17 @@ def _operator_summary(*, payload: dict[str, Any]) -> str:
         return "decision hits returned without ranked episodic support"
     return "no ranked hits returned"
 
+
 from .store import BrainOSStore
 
 
 def _diagnostic_hint(*, payload: dict[str, Any]) -> str:
     runtime = payload.get("retrieval_runtime") or {}
-    has_any_hits = bool(payload.get("ranked_episodes") or payload.get("ranked_semantic_hits") or payload.get("decisions"))
+    has_any_hits = bool(
+        payload.get("ranked_episodes")
+        or payload.get("ranked_semantic_hits")
+        or payload.get("decisions")
+    )
     if runtime.get("status") == "misconfigured" and not has_any_hits:
         return "configure_sqlite_vec_path_before_quality_debug"
     if runtime.get("status") == "runtime_failed" and not has_any_hits:
@@ -135,15 +142,22 @@ def _diagnostic_hint(*, payload: dict[str, Any]) -> str:
             return "vector_led_top_hit"
         if overlap > 0:
             return "lexical_grounded_top_hit"
-    if payload.get("episode_vector_mode") != "sqlite_vec_episode_similarity" or payload.get("semantic_vector_mode") != "sqlite_vec_semantic_similarity":
+    if (
+        payload.get("episode_vector_mode") != "sqlite_vec_episode_similarity"
+        or payload.get("semantic_vector_mode") != "sqlite_vec_semantic_similarity"
+    ):
         return "inspect_vector_participation"
     return "inspect_score_components"
 
 
-def explain_recall(store: BrainOSStore, query: str, *, session_id: str | None = None, limit: int = 5) -> dict[str, Any]:
+def explain_recall(
+    store: BrainOSStore, query: str, *, session_id: str | None = None, limit: int = 5
+) -> dict[str, Any]:
     payload = store.recall(query, session_id=session_id, limit=limit)
 
-    def compact_hits(items: list[dict[str, Any]], *, fields: list[str]) -> list[dict[str, Any]]:
+    def compact_hits(
+        items: list[dict[str, Any]], *, fields: list[str]
+    ) -> list[dict[str, Any]]:
         out = []
         for item in items[:limit]:
             row = {field: item.get(field) for field in fields}
@@ -188,6 +202,12 @@ def explain_recall(store: BrainOSStore, query: str, *, session_id: str | None = 
         ),
         "top_decisions": compact_hits(
             payload.get("decisions", []),
-            fields=["decision_id", "question", "status", "recommended_option_id", "operator_call_required"],
+            fields=[
+                "decision_id",
+                "question",
+                "status",
+                "recommended_option_id",
+                "operator_call_required",
+            ],
         ),
     }

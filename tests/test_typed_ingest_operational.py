@@ -1,5 +1,5 @@
-from brainos.store import BrainOSStore
 from brainos.explain import explain_recall
+from brainos.store import BrainOSStore
 
 
 def test_typed_ingest_mixed_type_operational_flow(tmp_path):
@@ -35,7 +35,13 @@ def test_typed_ingest_mixed_type_operational_flow(tmp_path):
 
     recall = store.recall("retrieval smoke check", session_id="ops", limit=5)
     assert recall["ranked_count"] >= 1
-    assert recall["ranked_episodes"][0]["metadata"]["kind"] in {"decision", "procedure", "note", "observation", "fact"}
+    assert recall["ranked_episodes"][0]["metadata"]["kind"] in {
+        "decision",
+        "procedure",
+        "note",
+        "observation",
+        "fact",
+    }
 
     explain = explain_recall(store, "retrieval smoke check", session_id="ops", limit=5)
     assert "operator_summary" in explain

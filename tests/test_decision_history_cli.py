@@ -21,14 +21,16 @@ def test_decision_history_shows_previous_snapshot_and_changed_fields(tmp_path):
         "--recommended-option-id",
         "A",
         "--options-json",
-        json.dumps([
-            {"option_id": "A", "label": "Fix retrieval first"},
-            {"option_id": "B", "label": "Build dashboard first"},
-        ]),
+        json.dumps(
+            [
+                {"option_id": "A", "label": "Fix retrieval first"},
+                {"option_id": "B", "label": "Build dashboard first"},
+            ]
+        ),
         "--arguments-json",
-        json.dumps([
-            {"option_id": "A", "kind": "support", "text": "Trust impact first"}
-        ]),
+        json.dumps(
+            [{"option_id": "A", "kind": "support", "text": "Trust impact first"}]
+        ),
     )
     assert first.returncode == 0, first.stderr
 
@@ -43,14 +45,22 @@ def test_decision_history_shows_previous_snapshot_and_changed_fields(tmp_path):
         "--recommended-option-id",
         "B",
         "--options-json",
-        json.dumps([
-            {"option_id": "A", "label": "Fix retrieval first"},
-            {"option_id": "B", "label": "Build dashboard first"},
-        ]),
+        json.dumps(
+            [
+                {"option_id": "A", "label": "Fix retrieval first"},
+                {"option_id": "B", "label": "Build dashboard first"},
+            ]
+        ),
         "--arguments-json",
-        json.dumps([
-            {"option_id": "B", "kind": "support", "text": "Need visible operator feedback sooner"}
-        ]),
+        json.dumps(
+            [
+                {
+                    "option_id": "B",
+                    "kind": "support",
+                    "text": "Need visible operator feedback sooner",
+                }
+            ]
+        ),
         "--review-after",
         "2026-06-09T09:00:00Z",
     )
@@ -81,9 +91,7 @@ def test_decision_history_single_revision_has_no_previous_snapshot(tmp_path):
         "--recommended-option-id",
         "A",
         "--options-json",
-        json.dumps([
-            {"option_id": "A", "label": "Keep direction"}
-        ]),
+        json.dumps([{"option_id": "A", "label": "Keep direction"}]),
     )
     assert created.returncode == 0, created.stderr
 

@@ -4,7 +4,6 @@ from pathlib import Path
 
 from brainos import BrainOSStore
 
-
 DB_PATH = Path(__file__).resolve().parent / "tmp" / "python_api_quickstart.db"
 
 

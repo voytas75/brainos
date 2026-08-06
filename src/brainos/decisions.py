@@ -4,7 +4,6 @@ from typing import Any
 
 from .errors import ValidationError
 
-
 ALLOWED_DECISION_STATUSES = {"draft", "active", "superseded", "closed"}
 
 
@@ -62,11 +61,17 @@ def validate_decision_payload(
     validated_options: list[dict[str, Any]] = []
     for index, item in enumerate(normalized_options):
         option = _ensure_dict(item, field_name=f"options_json[{index}]")
-        option_id = _ensure_non_empty_text(option.get("option_id"), field_name=f"options_json[{index}].option_id")
-        label = _ensure_non_empty_text(option.get("label"), field_name=f"options_json[{index}].label")
+        option_id = _ensure_non_empty_text(
+            option.get("option_id"), field_name=f"options_json[{index}].option_id"
+        )
+        label = _ensure_non_empty_text(
+            option.get("label"), field_name=f"options_json[{index}].label"
+        )
         summary = option.get("summary")
         if summary is not None and not isinstance(summary, str):
-            raise ValidationError(f"options_json[{index}].summary must be a string when present")
+            raise ValidationError(
+                f"options_json[{index}].summary must be a string when present"
+            )
         if option_id in option_ids:
             raise ValidationError(f"duplicate option_id not allowed: {option_id}")
         option_ids.add(option_id)
@@ -76,10 +81,16 @@ def validate_decision_payload(
         validated_options.append(cleaned)
 
     normalized_arguments = _ensure_list(arguments, field_name="arguments_json")
-    normalized_counterarguments = _ensure_list(counterarguments, field_name="counterarguments_json")
+    normalized_counterarguments = _ensure_list(
+        counterarguments, field_name="counterarguments_json"
+    )
     normalized_risks = _ensure_list(risks, field_name="risks_json")
-    normalized_missing_information = _ensure_list(missing_information, field_name="missing_information_json")
-    normalized_uncertainty_notes = _ensure_list(uncertainty_notes, field_name="uncertainty_notes_json")
+    normalized_missing_information = _ensure_list(
+        missing_information, field_name="missing_information_json"
+    )
+    normalized_uncertainty_notes = _ensure_list(
+        uncertainty_notes, field_name="uncertainty_notes_json"
+    )
     normalized_metadata = _ensure_dict(metadata, field_name="metadata_json")
     normalized_operator_call_required = _normalize_bool(
         operator_call_required,
@@ -92,7 +103,9 @@ def validate_decision_payload(
             field_name="recommended_option_id",
         )
         if recommended_option_id not in option_ids:
-            raise ValidationError("recommended_option_id must match one declared option_id")
+            raise ValidationError(
+                "recommended_option_id must match one declared option_id"
+            )
 
     return {
         "question": normalized_question,

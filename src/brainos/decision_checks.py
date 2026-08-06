@@ -4,7 +4,6 @@ from typing import Any
 
 from .retrieval import RetrievalService
 
-
 _ACTIVE_STATUSES = {"draft", "active"}
 _GENERIC_OPTION_IDS = {chr(code) for code in range(ord("A"), ord("Z") + 1)}
 
@@ -22,8 +21,12 @@ def _option_ids(decision: dict[str, Any]) -> set[str]:
     return option_ids
 
 
-def _question_overlap_tokens(current: dict[str, Any], other: dict[str, Any]) -> list[str]:
-    return sorted(_tokenize(current.get("question", "")) & _tokenize(other.get("question", "")))
+def _question_overlap_tokens(
+    current: dict[str, Any], other: dict[str, Any]
+) -> list[str]:
+    return sorted(
+        _tokenize(current.get("question", "")) & _tokenize(other.get("question", ""))
+    )
 
 
 def _option_overlap_tokens(current: dict[str, Any], other: dict[str, Any]) -> list[str]:
@@ -73,8 +76,14 @@ def decision_conflict_check(
 
         other_entity_id = (other.get("metadata") or {}).get("entity_id")
         other_option_ids = _option_ids(other)
-        same_entity = current_entity_id is not None and other_entity_id is not None and current_entity_id == other_entity_id
-        active_pair = _active_enough(current_status) and _active_enough(other.get("status"))
+        same_entity = (
+            current_entity_id is not None
+            and other_entity_id is not None
+            and current_entity_id == other_entity_id
+        )
+        active_pair = _active_enough(current_status) and _active_enough(
+            other.get("status")
+        )
         shared_option_ids = sorted(current_option_ids & other_option_ids)
         meaningful_shared_option_ids = _meaningful_shared_option_ids(shared_option_ids)
         current_recommendation = current.get("recommended_option_id")
@@ -83,7 +92,10 @@ def decision_conflict_check(
             current_recommendation in meaningful_shared_option_ids
             and other_recommendation in meaningful_shared_option_ids
         )
-        different_recommendation = comparable_recommendations and current_recommendation != other_recommendation
+        different_recommendation = (
+            comparable_recommendations
+            and current_recommendation != other_recommendation
+        )
         question_overlap = _question_overlap_tokens(current, other)
         option_overlap = _option_overlap_tokens(current, other)
 
@@ -110,7 +122,9 @@ def decision_conflict_check(
             weak_signals.append("option_text_overlap")
 
         severity = "clear"
-        if {"shared_entity_id", "active_pair", "different_recommendations"}.issubset(set(strong_signals)):
+        if {"shared_entity_id", "active_pair", "different_recommendations"}.issubset(
+            set(strong_signals)
+        ):
             severity = "conflict"
         elif same_entity and active_pair and medium_signals:
             severity = "caution"

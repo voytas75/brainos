@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-
 # Contract:
 # 1. Start from the supplied cwd (or process cwd).
 # 2. Prefer the nearest .env in that directory.
@@ -32,7 +31,9 @@ def get_last_env_load_info() -> dict[str, object]:
     }
 
 
-def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[str, object]:
+def load_project_env(
+    *, cwd: str | None = None, override: bool = False
+) -> dict[str, object]:
     base = Path(cwd or os.getcwd()).resolve()
     loaded: list[str] = []
 
@@ -67,7 +68,7 @@ def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[
         if not line or line.startswith("#"):
             continue
         if line.startswith("export "):
-            line = line[len("export "):].strip()
+            line = line[len("export ") :].strip()
         if "=" not in line:
             continue
         key, value = line.split("=", 1)
@@ -75,7 +76,12 @@ def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[
         value = value.strip()
         if not key:
             continue
-        if value and len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        if (
+            value
+            and len(value) >= 2
+            and value[0] == value[-1]
+            and value[0] in {'"', "'"}
+        ):
             value = value[1:-1]
         if override or key not in os.environ:
             os.environ[key] = value

@@ -3,7 +3,6 @@ import os
 import subprocess
 from pathlib import Path
 
-
 _ENV_KEYS = {
     "BRAINOS_EMBEDDING_MODEL",
     "AZURE_API_BASE",
@@ -18,7 +17,8 @@ def _clean_cli_env() -> dict[str, str]:
     return {
         key: value
         for key, value in os.environ.items()
-        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+        if key not in _ENV_KEYS
+        and not any(key.startswith(prefix) for prefix in prefixes)
     }
 
 
@@ -77,11 +77,17 @@ def test_retrieval_health_cli_runs(tmp_path):
     assert "vector_index" in payload["freshness"]
     assert "benchmark" in payload["quality"]
     assert "notes" in payload["freshness"]
-    assert payload["quality"]["benchmark"]["mode"] in {"vector-ready", "degraded-non-vector"}
+    assert payload["quality"]["benchmark"]["mode"] in {
+        "vector-ready",
+        "degraded-non-vector",
+    }
     assert "degraded" in payload["quality"]["benchmark"]
     assert "degraded_reason" in payload["quality"]["benchmark"]
     assert "recommended_fix" in payload["quality"]["benchmark"]
-    assert payload["quality"]["benchmark"]["recommended_fix"]["action_hint"] == "configure_sqlite_vec_path"
+    assert (
+        payload["quality"]["benchmark"]["recommended_fix"]["action_hint"]
+        == "configure_sqlite_vec_path"
+    )
 
 
 def test_retrieval_health_cli_exposes_action_hints(tmp_path):
@@ -96,12 +102,34 @@ def test_retrieval_health_cli_exposes_action_hints(tmp_path):
     payload = _extract_json(proc.stdout)
     assert "action_hint" in payload
     assert payload["runtime"]["action_hint"] in {"runtime_fix", "noop"}
-    assert payload["freshness"]["action_hint"] in {"reindex_or_repair", "inspect_notes", "noop"}
-    assert payload["quality"]["action_hint"] in {"seed_or_ingest_more_data", "inspect_benchmark_failure", "accept_degraded_or_fix_runtime", "noop"}
-    assert payload["runtime"]["embedding_config"]["action_hint"] in {"set_required_env", "fix_invalid_env", "noop"}
-    assert payload["runtime"]["sqlite_vec_env"]["action_hint"] in {"configure_sqlite_vec_path", "noop"}
-    assert payload["runtime"]["dependencies"]["action_hint"] in {"install_dependencies", "noop"}
-    assert payload["runtime"]["database_runtime"]["action_hint"] in {"fix_sqlite_runtime", "noop"}
+    assert payload["freshness"]["action_hint"] in {
+        "reindex_or_repair",
+        "inspect_notes",
+        "noop",
+    }
+    assert payload["quality"]["action_hint"] in {
+        "seed_or_ingest_more_data",
+        "inspect_benchmark_failure",
+        "accept_degraded_or_fix_runtime",
+        "noop",
+    }
+    assert payload["runtime"]["embedding_config"]["action_hint"] in {
+        "set_required_env",
+        "fix_invalid_env",
+        "noop",
+    }
+    assert payload["runtime"]["sqlite_vec_env"]["action_hint"] in {
+        "configure_sqlite_vec_path",
+        "noop",
+    }
+    assert payload["runtime"]["dependencies"]["action_hint"] in {
+        "install_dependencies",
+        "noop",
+    }
+    assert payload["runtime"]["database_runtime"]["action_hint"] in {
+        "fix_sqlite_runtime",
+        "noop",
+    }
 
 
 def test_retrieval_health_cli_exposes_benchmark_failed_case_drilldown(tmp_path):
@@ -132,7 +160,10 @@ def test_retrieval_health_failed_cases_expose_next_debug_handoff(tmp_path):
         assert item["next_debug"]["tool"] == "retrieval-explain"
         assert item["next_debug"]["query"] == item["query"]
         assert item["next_debug"]["session_id"] == "bench"
-        assert item["recommended_fix"]["action_hint"] in {"configure_sqlite_vec_path", "inspect_retrieval_explain"}
+        assert item["recommended_fix"]["action_hint"] in {
+            "configure_sqlite_vec_path",
+            "inspect_retrieval_explain",
+        }
 
 
 def test_retrieval_health_cli_summary_is_compact_string(tmp_path):
@@ -149,7 +180,9 @@ def test_retrieval_health_cli_summary_is_compact_string(tmp_path):
     assert payload["summary"]
 
 
-def test_retrieval_health_cli_degraded_benchmark_summary_is_explicit_not_generic_failure(tmp_path):
+def test_retrieval_health_cli_degraded_benchmark_summary_is_explicit_not_generic_failure(
+    tmp_path,
+):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
         [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
@@ -160,7 +193,10 @@ def test_retrieval_health_cli_degraded_benchmark_summary_is_explicit_not_generic
     )
     payload = _extract_json(proc.stdout)
     assert payload["quality"]["benchmark"]["degraded"] is True
-    assert payload["quality"]["benchmark"]["mode"] in {"degraded-non-vector", "runtime_error"}
+    assert payload["quality"]["benchmark"]["mode"] in {
+        "degraded-non-vector",
+        "runtime_error",
+    }
     assert payload["action_hint"] == "runtime_fix"
 
 
@@ -178,7 +214,10 @@ def test_retrieval_health_cli_marks_empty_db_as_low_evidence(tmp_path):
     assert "low_evidence_database" in payload["quality"]["notes"]
     assert payload["quality"]["action_hint"] == "seed_or_ingest_more_data"
     assert payload["runtime"]["status"] == "warn"
-    assert payload["summary"] == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
+    assert (
+        payload["summary"]
+        == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
+    )
 
 
 def test_retrieval_health_cli_surfaces_benchmark_truthfulness_metadata(tmp_path):
@@ -205,7 +244,10 @@ def test_retrieval_health_cli_surfaces_runtime_prereq_details(tmp_path):
         env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
-    assert payload["summary"] == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
+    assert (
+        payload["summary"]
+        == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
+    )
     embedding = payload["runtime"]["embedding_config"]
     assert embedding["required_env"] == [
         "BRAINOS_EMBEDDING_MODEL",
@@ -238,7 +280,10 @@ def test_retrieval_health_cli_openai_path_reports_openai_contract(tmp_path):
         env=_test_env_openai(),
     )
     payload = _extract_json(proc.stdout)
-    assert payload["summary"] == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
+    assert (
+        payload["summary"]
+        == "runtime fix needed before vector-quality interpretation; quality evidence is also still low"
+    )
     embedding = payload["runtime"]["embedding_config"]
     assert embedding["contract"]["operational_provider"] == "openai"
     assert embedding["required_env"] == ["BRAINOS_EMBEDDING_MODEL", "OPENAI_API_KEY"]

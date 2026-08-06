@@ -7,12 +7,22 @@ def test_refresh_vector_freshness_for_semantic_node_marks_stale(tmp_path):
     store = BrainOSStore(db)
     store.initialize()
 
-    store.upsert_semantic_node(node_id="n1", name="Semantic fact", node_type="Fact", properties={"topic": "memory"})
+    store.upsert_semantic_node(
+        node_id="n1",
+        name="Semantic fact",
+        node_type="Fact",
+        properties={"topic": "memory"},
+    )
     state = store.get_vector_index_state("semantic_node", "n1")
     assert state is not None
     assert state["vector_status"] == "missing"
 
-    store.upsert_semantic_node(node_id="n1", name="Semantic fact", node_type="Fact", properties={"topic": "memory", "tier": "core"})
+    store.upsert_semantic_node(
+        node_id="n1",
+        name="Semantic fact",
+        node_type="Fact",
+        properties={"topic": "memory", "tier": "core"},
+    )
     refreshed = store.refresh_vector_freshness_for_semantic_node("n1")
     assert refreshed["vector_status"] == "stale"
     store.close()
@@ -22,13 +32,24 @@ def test_sync_vector_index_dispatches_to_episode_generator(monkeypatch, tmp_path
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
-    episode_id = store.add_episode(session_id="s1", content="Need embedding", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1", content="Need embedding", metadata={}
+    )
 
-    monkeypatch.setattr(store, "refresh_vector_freshness_for_episode", lambda object_id, embedding_profile=None: {"vector_status": "missing"})
+    monkeypatch.setattr(
+        store,
+        "refresh_vector_freshness_for_episode",
+        lambda object_id, embedding_profile=None: {"vector_status": "missing"},
+    )
     monkeypatch.setattr(
         store,
         "generate_episode_embedding",
-        lambda object_id, embedding_profile=None: {"ok": True, "object_type": "episode", "object_id": object_id, "vector_status": "fresh"},
+        lambda object_id, embedding_profile=None: {
+            "ok": True,
+            "object_type": "episode",
+            "object_id": object_id,
+            "vector_status": "fresh",
+        },
     )
 
     result = store.sync_vector_index(object_type="episode", object_id=episode_id)
@@ -38,7 +59,9 @@ def test_sync_vector_index_dispatches_to_episode_generator(monkeypatch, tmp_path
     store.close()
 
 
-def test_sync_vector_index_batch_collects_dimension_contract_errors(monkeypatch, tmp_path):
+def test_sync_vector_index_batch_collects_dimension_contract_errors(
+    monkeypatch, tmp_path
+):
     db = tmp_path / "brain_contract_error.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -47,12 +70,18 @@ def test_sync_vector_index_batch_collects_dimension_contract_errors(monkeypatch,
     monkeypatch.setattr(
         store,
         "sync_vector_index",
-        lambda object_type, object_id, embedding_profile=None, force=False: (_ for _ in ()).throw(
-            VectorIndexContractError("vector index dimension mismatch: table=episodes_vec, expected=1536, got=3; rebuild required")
+        lambda object_type, object_id, embedding_profile=None, force=False: (
+            _ for _ in ()
+        ).throw(
+            VectorIndexContractError(
+                "vector index dimension mismatch: table=episodes_vec, expected=1536, got=3; rebuild required"
+            )
         ),
     )
 
-    result = store.sync_vector_index_batch(object_type="episode", vector_status="missing", limit=10)
+    result = store.sync_vector_index_batch(
+        object_type="episode", vector_status="missing", limit=10
+    )
     assert result["ok"] is False
     assert result["requested"] >= 1
     assert result["synced"] == 0
@@ -73,10 +102,20 @@ def test_sync_vector_index_batch_filters_states(monkeypatch, tmp_path):
     monkeypatch.setattr(
         store,
         "sync_vector_index",
-        lambda object_type, object_id, embedding_profile=None, force=False: called.append((object_type, object_id, force)) or {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": "fresh"},
+        lambda object_type, object_id, embedding_profile=None, force=False: (
+            called.append((object_type, object_id, force))
+            or {
+                "ok": True,
+                "object_type": object_type,
+                "object_id": object_id,
+                "vector_status": "fresh",
+            }
+        ),
     )
 
-    result = store.sync_vector_index_batch(object_type="episode", vector_status="missing", limit=10)
+    result = store.sync_vector_index_batch(
+        object_type="episode", vector_status="missing", limit=10
+    )
     assert result["requested"] >= 2
     assert len(called) >= 2
     assert all(item[0] == "episode" for item in called)
@@ -89,7 +128,9 @@ def test_sync_vector_index_returns_noop_for_fresh_state(monkeypatch, tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
-    episode_id = store.add_episode(session_id="s1", content="Already fresh", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1", content="Already fresh", metadata={}
+    )
 
     monkeypatch.setattr(
         store,
@@ -98,9 +139,15 @@ def test_sync_vector_index_returns_noop_for_fresh_state(monkeypatch, tmp_path):
     )
 
     called = {"generate": False}
+
     def fake_generate(object_id, embedding_profile=None):
         called["generate"] = True
-        return {"ok": True, "object_type": "episode", "object_id": object_id, "vector_status": "fresh"}
+        return {
+            "ok": True,
+            "object_type": "episode",
+            "object_id": object_id,
+            "vector_status": "fresh",
+        }
 
     monkeypatch.setattr(store, "generate_episode_embedding", fake_generate)
 
@@ -131,7 +178,10 @@ def test_vector_search_semantic_nodes_returns_empty_when_vec_table_absent(tmp_pa
     assert results == []
     store.close()
 
-def test_sync_vector_index_batch_dedupes_duplicate_source_text_states(monkeypatch, tmp_path):
+
+def test_sync_vector_index_batch_dedupes_duplicate_source_text_states(
+    monkeypatch, tmp_path
+):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
@@ -152,10 +202,20 @@ def test_sync_vector_index_batch_dedupes_duplicate_source_text_states(monkeypatc
     monkeypatch.setattr(
         store,
         "sync_vector_index",
-        lambda object_type, object_id, embedding_profile=None, force=False: calls.append((object_type, object_id)) or {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": "fresh"},
+        lambda object_type, object_id, embedding_profile=None, force=False: (
+            calls.append((object_type, object_id))
+            or {
+                "ok": True,
+                "object_type": object_type,
+                "object_id": object_id,
+                "vector_status": "fresh",
+            }
+        ),
     )
 
-    result = store.sync_vector_index_batch(object_type="episode", vector_status="missing", limit=20)
+    result = store.sync_vector_index_batch(
+        object_type="episode", vector_status="missing", limit=20
+    )
     assert result["ok"] is True
     assert result["requested"] == 3
     assert result["synced"] == 2

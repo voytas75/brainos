@@ -8,13 +8,19 @@ import pytest
 
 from brainos.errors import SqliteVecReadinessError
 from brainos.schema import detect_capabilities
-from brainos.sqlite_vec import ENV_SQLITE_VEC_PATH, configured_sqlite_vec_path, sqlite_vec_readiness
+from brainos.sqlite_vec import (
+    ENV_SQLITE_VEC_PATH,
+    configured_sqlite_vec_path,
+    sqlite_vec_readiness,
+)
 
 
 def _real_vec_path_or_skip() -> str:
     vec_path = configured_sqlite_vec_path()
     if not vec_path or not Path(vec_path).is_file():
-        pytest.skip("requires BRAINOS_SQLITE_VEC_PATH pointing to a real vec0 extension")
+        pytest.skip(
+            "requires BRAINOS_SQLITE_VEC_PATH pointing to a real vec0 extension"
+        )
     assert vec_path is not None
     return vec_path
 
@@ -24,7 +30,8 @@ def _clean_cli_env() -> dict[str, str]:
     return {
         key: value
         for key, value in os.environ.items()
-        if key != ENV_SQLITE_VEC_PATH and not any(key.startswith(prefix) for prefix in prefixes)
+        if key != ENV_SQLITE_VEC_PATH
+        and not any(key.startswith(prefix) for prefix in prefixes)
     }
 
 
@@ -44,7 +51,10 @@ def test_detect_capabilities_reports_missing_vec_path(monkeypatch):
     assert caps["sqlite_vec"] is False
     assert caps["sqlite_vec_path"] is None
     assert caps["sqlite_vec_runtime_origin"] == "disabled_without_explicit_path"
-    assert caps["sqlite_vec_error"] == f"{ENV_SQLITE_VEC_PATH} not configured; ambient sqlite-vec probe disabled"
+    assert (
+        caps["sqlite_vec_error"]
+        == f"{ENV_SQLITE_VEC_PATH} not configured; ambient sqlite-vec probe disabled"
+    )
 
 
 def test_sqlite_vec_readiness_with_real_extension(monkeypatch):
@@ -85,7 +95,14 @@ def test_sqlite_vec_readiness_cli_returns_json_payload(tmp_path, monkeypatch):
     monkeypatch.delenv(ENV_SQLITE_VEC_PATH, raising=False)
     db = tmp_path / "brain.db"
     proc = subprocess.run(
-        [os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"), "--db", str(db), "sqlite-vec-readiness"],
+        [
+            os.fspath(
+                Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"
+            ),
+            "--db",
+            str(db),
+            "sqlite-vec-readiness",
+        ],
         capture_output=True,
         text=True,
         env={**_clean_cli_env(), "PATH": os.environ.get("PATH", "")},
@@ -107,11 +124,17 @@ def test_sqlite_vec_readiness_cli_returns_json_payload(tmp_path, monkeypatch):
             assert payload["action_hint"] == "noop"
         else:
             assert payload["status"] == "warn"
-            assert payload["error_kind"] in {"path_not_configured", "extension_load_failed", "readiness_probe_failed"}
+            assert payload["error_kind"] in {
+                "path_not_configured",
+                "extension_load_failed",
+                "readiness_probe_failed",
+            }
             assert payload["action_hint"] in {"runtime_fix", "retry_or_runtime_fix"}
 
 
-def test_detect_capabilities_reports_explicit_probe_mode_when_vec_path_configured(monkeypatch):
+def test_detect_capabilities_reports_explicit_probe_mode_when_vec_path_configured(
+    monkeypatch,
+):
     vec_path = _real_vec_path_or_skip()
     monkeypatch.setenv(ENV_SQLITE_VEC_PATH, vec_path)
     conn = sqlite3.connect(":memory:")

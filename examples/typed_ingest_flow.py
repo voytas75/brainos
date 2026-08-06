@@ -4,7 +4,6 @@ from pathlib import Path
 
 from brainos.store import BrainOSStore
 
-
 DB_PATH = Path(__file__).resolve().parent / "tmp" / "typed_ingest_flow.db"
 
 
@@ -26,7 +25,12 @@ def main() -> None:
         },
         {
             "content": "SSOT: retrieval quality interpretation lives in retrieval-quality-contract-v1.",
-            "metadata": {"kind": "fact", "topic": "retrieval", "source": "manual", "authority": "canonical"},
+            "metadata": {
+                "kind": "fact",
+                "topic": "retrieval",
+                "source": "manual",
+                "authority": "canonical",
+            },
         },
         {
             "content": "Decision: typed ingest is a small corpus hygiene lever for retrieval smoke checks.",
@@ -43,12 +47,18 @@ def main() -> None:
     ]
 
     for entry in entries:
-        store.add_episode(session_id="typed-demo", content=entry["content"], metadata=entry["metadata"])
+        store.add_episode(
+            session_id="typed-demo",
+            content=entry["content"],
+            metadata=entry["metadata"],
+        )
 
     print("\nStored episodes:")
     for item in store.list_episodes(session_id="typed-demo", limit=10):
         meta = item.get("metadata") or {}
-        print(f"- kind={meta.get('kind')} topic={meta.get('topic')} source={meta.get('source')} authority={meta.get('authority')} :: {item['content']}")
+        print(
+            f"- kind={meta.get('kind')} topic={meta.get('topic')} source={meta.get('source')} authority={meta.get('authority')} :: {item['content']}"
+        )
 
     print("\nRecall query: retrieval smoke check")
     recall_rows = store.search_episodes_text("retrieval")
@@ -57,12 +67,16 @@ def main() -> None:
         kind = metadata.get("kind", "note")
         topic = metadata.get("topic")
         authority = metadata.get("authority")
-        print(f"{idx}. {item['content']} (kind={kind}, topic={topic}, authority={authority})")
+        print(
+            f"{idx}. {item['content']} (kind={kind}, topic={topic}, authority={authority})"
+        )
 
     print("\nWhy this example exists:")
     print("- typed ingest is a small corpus hygiene lever")
     print("- it helps new entries carry useful retrieval context")
-    print("- authority metadata can distinguish canonical artifacts from supporting notes")
+    print(
+        "- authority metadata can distinguish canonical artifacts from supporting notes"
+    )
     print("- it is not a heavy schema system and does not require backfilling old data")
 
     print("\nSummary:")

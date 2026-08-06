@@ -3,7 +3,6 @@ import os
 import subprocess
 from pathlib import Path
 
-
 _ENV_KEYS = {
     "BRAINOS_EMBEDDING_MODEL",
     "AZURE_API_BASE",
@@ -18,7 +17,8 @@ def _clean_cli_env() -> dict[str, str]:
     return {
         key: value
         for key, value in os.environ.items()
-        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+        if key not in _ENV_KEYS
+        and not any(key.startswith(prefix) for prefix in prefixes)
     }
 
 
@@ -60,6 +60,8 @@ def test_doctor_cli_keeps_json_output_when_embedding_auth_fails(tmp_path):
     assert payload["status"] in {"ok", "warn"}
     failed = payload["retrieval_health"]["quality"]["benchmark"]["failed_cases"]
     assert isinstance(failed, list)
-    assert payload["retrieval_health"]["quality"]["benchmark"]["runtime_error"] is None or isinstance(
+    assert payload["retrieval_health"]["quality"]["benchmark"][
+        "runtime_error"
+    ] is None or isinstance(
         payload["retrieval_health"]["quality"]["benchmark"]["runtime_error"], str
     )

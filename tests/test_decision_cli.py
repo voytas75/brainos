@@ -25,30 +25,55 @@ def test_decision_log_get_and_list(tmp_path):
         "--options-json",
         json.dumps(
             [
-                {"option_id": "A", "label": "Fix retrieval credibility first", "summary": "Smallest reversible trust fix"},
+                {
+                    "option_id": "A",
+                    "label": "Fix retrieval credibility first",
+                    "summary": "Smallest reversible trust fix",
+                },
                 {"option_id": "B", "label": "Build dashboard first"},
             ]
         ),
         "--arguments-json",
-        json.dumps([
-            {"option_id": "A", "kind": "support", "text": "Matches the time constraint", "evidence_refs": []}
-        ]),
+        json.dumps(
+            [
+                {
+                    "option_id": "A",
+                    "kind": "support",
+                    "text": "Matches the time constraint",
+                    "evidence_refs": [],
+                }
+            ]
+        ),
         "--counterarguments-json",
-        json.dumps([
-            {"option_id": "A", "kind": "counter", "text": "Does not improve UI immediately"}
-        ]),
+        json.dumps(
+            [
+                {
+                    "option_id": "A",
+                    "kind": "counter",
+                    "text": "Does not improve UI immediately",
+                }
+            ]
+        ),
         "--risks-json",
-        json.dumps([
-            {"option_id": "B", "kind": "risk", "text": "Could polish the wrong layer first"}
-        ]),
+        json.dumps(
+            [
+                {
+                    "option_id": "B",
+                    "kind": "risk",
+                    "text": "Could polish the wrong layer first",
+                }
+            ]
+        ),
         "--missing-information-json",
-        json.dumps([
-            {"text": "Need clearer expected impact estimate for each option"}
-        ]),
+        json.dumps([{"text": "Need clearer expected impact estimate for each option"}]),
         "--uncertainty-notes-json",
-        json.dumps([
-            {"text": "Ranking confidence is medium because options are semantically close"}
-        ]),
+        json.dumps(
+            [
+                {
+                    "text": "Ranking confidence is medium because options are semantically close"
+                }
+            ]
+        ),
         "--metadata-json",
         json.dumps({"entity_id": "brainos"}),
     )
@@ -84,9 +109,7 @@ def test_decision_log_rejects_unknown_recommended_option(tmp_path):
         "--recommended-option-id",
         "Z",
         "--options-json",
-        json.dumps([
-            {"option_id": "A", "label": "Option A"}
-        ]),
+        json.dumps([{"option_id": "A", "label": "Option A"}]),
     )
     assert result.returncode == 2
     assert "recommended_option_id must match one declared option_id" in result.stderr
@@ -101,7 +124,7 @@ def test_decision_log_rejects_invalid_json(tmp_path):
         "not-json",
     )
     assert result.returncode == 2
-    assert 'Expecting value' in result.stderr
+    assert "Expecting value" in result.stderr
 
 
 def test_decision_log_defaults_operator_boundary_and_writes_ledger(tmp_path):
@@ -112,9 +135,7 @@ def test_decision_log_defaults_operator_boundary_and_writes_ledger(tmp_path):
         "--decision-id",
         "dec-ledger",
         "--options-json",
-        json.dumps([
-            {"option_id": "A", "label": "Option A"}
-        ]),
+        json.dumps([{"option_id": "A", "label": "Option A"}]),
     )
     assert result.returncode == 0, result.stderr
     created = json.loads(result.stdout)
@@ -139,9 +160,7 @@ def test_decision_log_update_keeps_identity(tmp_path):
         "--decision-id",
         "dec-keep",
         "--options-json",
-        json.dumps([
-            {"option_id": "A", "label": "Option A"}
-        ]),
+        json.dumps([{"option_id": "A", "label": "Option A"}]),
     )
     assert first.returncode == 0, first.stderr
 
@@ -158,9 +177,7 @@ def test_decision_log_update_keeps_identity(tmp_path):
         "--operator-call-required",
         "false",
         "--options-json",
-        json.dumps([
-            {"option_id": "A", "label": "Option A"}
-        ]),
+        json.dumps([{"option_id": "A", "label": "Option A"}]),
     )
     assert second.returncode == 0, second.stderr
     updated = json.loads(second.stdout)

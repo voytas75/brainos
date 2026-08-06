@@ -19,10 +19,12 @@ def test_inspect_decision_returns_record_and_related_ledger_events(tmp_path):
         "--recommended-option-id",
         "A",
         "--options-json",
-        json.dumps([
-            {"option_id": "A", "label": "Fix retrieval first"},
-            {"option_id": "B", "label": "Build dashboard first"},
-        ]),
+        json.dumps(
+            [
+                {"option_id": "A", "label": "Fix retrieval first"},
+                {"option_id": "B", "label": "Build dashboard first"},
+            ]
+        ),
         "--metadata-json",
         json.dumps({"entity_id": "brainos"}),
     )
@@ -37,7 +39,9 @@ def test_inspect_decision_returns_record_and_related_ledger_events(tmp_path):
     assert payload["record"]["metadata"]["entity_id"] == "brainos"
     assert len(payload["related_ledger_events"]) == 1
     assert payload["related_ledger_events"][0]["layer"] == "decision"
-    assert payload["related_ledger_events"][0]["payload"]["decision_id"] == "dec-inspect"
+    assert (
+        payload["related_ledger_events"][0]["payload"]["decision_id"] == "dec-inspect"
+    )
 
 
 def test_inspect_episode_returns_record_and_related_refs(tmp_path):

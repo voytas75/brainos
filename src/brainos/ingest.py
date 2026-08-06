@@ -8,7 +8,18 @@ CANONICAL_AUTHORITIES = {"canonical", "working", "supporting"}
 LEGACY_KIND_MAP = {
     "other": "note",
 }
-PRESERVE_KINDS = {"graph", "storage", "embedding", "maintenance", "browser", "policy", "ops", "ui", "runtime", "lesson"}
+PRESERVE_KINDS = {
+    "graph",
+    "storage",
+    "embedding",
+    "maintenance",
+    "browser",
+    "policy",
+    "ops",
+    "ui",
+    "runtime",
+    "lesson",
+}
 
 
 def normalize_episode_content(content: str) -> str:
@@ -18,7 +29,14 @@ def normalize_episode_content(content: str) -> str:
     return text
 
 
-def normalize_episode_metadata(metadata: dict[str, Any] | None = None, *, kind: str | None = None, topic: str | None = None, source: str | None = None, authority: str | None = None) -> dict[str, Any]:
+def normalize_episode_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    kind: str | None = None,
+    topic: str | None = None,
+    source: str | None = None,
+    authority: str | None = None,
+) -> dict[str, Any]:
     data = dict(metadata or {})
 
     raw_kind = (kind or data.get("kind") or "").strip().lower()
@@ -52,5 +70,15 @@ def normalize_episode_metadata(metadata: dict[str, Any] | None = None, *, kind: 
     return data
 
 
-def prepare_episode_ingest(content: str, metadata: dict[str, Any] | None = None, *, kind: str | None = None, topic: str | None = None, source: str | None = None, authority: str | None = None) -> tuple[str, dict[str, Any]]:
-    return normalize_episode_content(content), normalize_episode_metadata(metadata, kind=kind, topic=topic, source=source, authority=authority)
+def prepare_episode_ingest(
+    content: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    kind: str | None = None,
+    topic: str | None = None,
+    source: str | None = None,
+    authority: str | None = None,
+) -> tuple[str, dict[str, Any]]:
+    return normalize_episode_content(content), normalize_episode_metadata(
+        metadata, kind=kind, topic=topic, source=source, authority=authority
+    )

@@ -3,7 +3,6 @@ import os
 import subprocess
 from pathlib import Path
 
-
 _ENV_KEYS = {
     "BRAINOS_EMBEDDING_MODEL",
     "AZURE_API_BASE",
@@ -18,7 +17,8 @@ def _clean_cli_env() -> dict[str, str]:
     return {
         key: value
         for key, value in os.environ.items()
-        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+        if key not in _ENV_KEYS
+        and not any(key.startswith(prefix) for prefix in prefixes)
     }
 
 
@@ -58,7 +58,10 @@ def test_embedding_readiness_cli_exposes_runtime_prereqs(tmp_path):
     assert payload["profile_contract"]["profile"] == "brainos-embedding-default"
     assert "embedding_config" in payload
     assert "sqlite_vec_env" in payload
-    assert payload["sqlite_vec_env"]["runtime_origin"] in {"explicit_configured", "not_configured"}
+    assert payload["sqlite_vec_env"]["runtime_origin"] in {
+        "explicit_configured",
+        "not_configured",
+    }
     assert "dependencies" in payload
     assert "capabilities" in payload
     assert isinstance(payload["issues"], list)

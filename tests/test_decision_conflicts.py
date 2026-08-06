@@ -55,14 +55,19 @@ def test_decision_check_clear_when_no_related_active_decisions(tmp_path):
     assert payload["finding_count"] == 0
 
 
-def test_decision_check_conflict_for_shared_entity_and_different_recommendation(tmp_path):
+def test_decision_check_conflict_for_shared_entity_and_different_recommendation(
+    tmp_path,
+):
     log_decision(
         tmp_path,
         "dec-a",
         "Should we improve retrieval credibility before UI work?",
         "retrieval_first",
         [
-            {"option_id": "retrieval_first", "label": "Fix retrieval credibility first"},
+            {
+                "option_id": "retrieval_first",
+                "label": "Fix retrieval credibility first",
+            },
             {"option_id": "dashboard_first", "label": "Build dashboard first"},
         ],
         metadata={"entity_id": "brainos"},
@@ -74,7 +79,10 @@ def test_decision_check_conflict_for_shared_entity_and_different_recommendation(
         "Should we improve retrieval credibility before UI work this week?",
         "dashboard_first",
         [
-            {"option_id": "retrieval_first", "label": "Fix retrieval credibility first"},
+            {
+                "option_id": "retrieval_first",
+                "label": "Fix retrieval credibility first",
+            },
             {"option_id": "dashboard_first", "label": "Build dashboard first"},
         ],
         metadata={"entity_id": "brainos"},
@@ -92,10 +100,15 @@ def test_decision_check_conflict_for_shared_entity_and_different_recommendation(
     assert "shared_entity_id" in finding["strong_signals"]
     assert "active_pair" in finding["strong_signals"]
     assert "different_recommendations" in finding["strong_signals"]
-    assert finding["meaningful_shared_option_ids"] == ["dashboard_first", "retrieval_first"]
+    assert finding["meaningful_shared_option_ids"] == [
+        "dashboard_first",
+        "retrieval_first",
+    ]
 
 
-def test_decision_check_clear_for_different_recommendations_with_only_generic_shared_option_ids(tmp_path):
+def test_decision_check_clear_for_different_recommendations_with_only_generic_shared_option_ids(
+    tmp_path,
+):
     log_decision(
         tmp_path,
         "dec-1",
@@ -135,7 +148,10 @@ def test_decision_check_caution_for_same_scope_and_meaningful_option_overlap(tmp
         "Should we stabilize retrieval credibility before polishing the dashboard?",
         "retrieval_first",
         [
-            {"option_id": "retrieval_first", "label": "Fix retrieval credibility first"},
+            {
+                "option_id": "retrieval_first",
+                "label": "Fix retrieval credibility first",
+            },
             {"option_id": "ui_first", "label": "Polish dashboard first"},
         ],
         metadata={"entity_id": "brainos"},
@@ -166,7 +182,9 @@ def test_decision_check_caution_for_same_scope_and_meaningful_option_overlap(tmp
     assert finding["meaningful_shared_option_ids"] == ["retrieval_first"]
 
 
-def test_decision_check_clear_for_same_scope_without_divergence_or_medium_signals(tmp_path):
+def test_decision_check_clear_for_same_scope_without_divergence_or_medium_signals(
+    tmp_path,
+):
     log_decision(
         tmp_path,
         "dec-1",
@@ -288,7 +306,6 @@ def test_decision_check_ignores_generic_option_id_overlap_for_caution(tmp_path):
     payload = json.loads(result.stdout)
     assert payload["verdict"] == "clear"
     assert payload["finding_count"] == 0
-
 
 
 def test_decision_check_uses_review_after_as_medium_signal_with_shared_scope(tmp_path):
