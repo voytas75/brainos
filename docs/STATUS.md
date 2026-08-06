@@ -43,15 +43,15 @@ The heavier risks are:
 
 ## Current checkpoint
 
-Local stabilization checkpoint, not yet pushed:
-- locked `aiohttp` at `3.14.3`; GitHub alert closure still requires default-branch indexing after push
-- added a pinned, frozen CI workflow for lock consistency and tests; no remote run exists for this local SHA yet
+Remote stabilization checkpoint:
+- locked `aiohttp` at `3.14.3`; Dependabot REST and GraphQL report zero open alerts after a successful dependency-graph run
+- added a pinned, frozen CI workflow for lock consistency and tests; its current default-branch run succeeded
 - made episode promotion rollback-safe when its durable promotion record fails
 - deferred vector-table dimensions to the first successful embedding and kept mismatch detection for later rebuilds
 - isolated the degraded-runtime operator acceptance pack from inherited `BRAINOS_SQLITE_VEC_PATH`
 - current full local test posture: `133 passed`
 
-Remote validation remains intentionally pending: push, current-SHA CI, Dependabot re-check, and any required-check/ruleset decision.
+The only remaining governance decision is whether to require CI through a `main` protection rule/ruleset; it is not active yet.
 
 ## Supporting detail
 
