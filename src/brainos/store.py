@@ -622,7 +622,7 @@ class BrainOSStore:
                 """,
                 (vector_json, limit),
             ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
@@ -663,7 +663,7 @@ class BrainOSStore:
             """,
             (vector_json, limit),
         ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["properties"] = self._decode_json_field(item, "properties") or {}
@@ -1225,7 +1225,7 @@ class BrainOSStore:
                 """,
                 (limit,),
             ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = self._decode_decision_row(row)
             result.append(
@@ -1359,7 +1359,7 @@ class BrainOSStore:
                 """,
                 (limit,),
             ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
@@ -1519,7 +1519,7 @@ class BrainOSStore:
                 fallback_params.append(session_id)
             fallback_params.append(limit)
             rows = self.conn.execute(sql, tuple(fallback_params)).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
@@ -1880,7 +1880,7 @@ class BrainOSStore:
                 "SELECT id, name, description, steps_json, is_active FROM procedures ORDER BY name LIMIT ?",
                 (limit,),
             ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["steps"] = self._decode_json_field(item, "steps_json") or []
