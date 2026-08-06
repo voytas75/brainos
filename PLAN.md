@@ -17,9 +17,9 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 
 ## Quality campaign — approved
 
-- [ ] **P1 — Ruff baseline:** add repository-owned Ruff tooling/configuration and resolve its mechanical baseline before making it blocking.
-- [ ] **P2 — strict Pyright debt:** remove strict typing errors in bounded module batches; do not use suppressions or lower strictness to manufacture a green gate.
-- [ ] **P3 — required quality gate:** add Ruff and strict Pyright to frozen CI only after their full local baseline is green.
+- [x] **P1 — Ruff baseline:** repository-owned Ruff tooling/configuration and its mechanical baseline are green.
+- [x] **P2 — strict Pyright debt:** strict type errors were removed in bounded module batches without suppressions or lowered strictness.
+- [x] **P3 — required quality gate:** this branch's frozen CI requires Ruff lint/format, strict Pyright, and pytest after their full local baseline was green.
 
 ## Deferred / anti-scope
 - New product features, retrieval/scoring work, HTTP/MCP/hosted runtime, and background workers.
