@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from .errors import BrainOSError
 from .retrieval_policy import RETRIEVAL_SCORING_POLICY_V1, RetrievalScoringPolicy
@@ -169,6 +169,11 @@ class RetrievalService:
         authority_triggers = {"ssot", "source", "truth", "canonical", "authoritative"}
         return configured_bonus if query_tokens & authority_triggers else 0.0
 
+    @staticmethod
+    def _metadata(item: dict[str, Any]) -> dict[str, Any]:
+        metadata = item.get("metadata")
+        return cast(dict[str, Any], metadata) if isinstance(metadata, dict) else {}
+
     def _rank_episode_hits(
         self,
         *,
@@ -183,7 +188,7 @@ class RetrievalService:
         procedure_intent = self._procedure_query_intent(query_tokens)
         for idx, item in enumerate(episodes):
             merged = dict(item)
-            metadata = item.get("metadata") or {}
+            metadata = self._metadata(item)
             content = item.get("content", "")
             item_tokens = self.tokenize_for_overlap(content)
             anchor_overlap = len(anchor_terms & item_tokens)
@@ -229,7 +234,7 @@ class RetrievalService:
 
         for idx, item in enumerate(vector_episodes):
             item_id = item["id"]
-            metadata = item.get("metadata") or {}
+            metadata = self._metadata(item)
             content = item.get("content", "")
             distance = float(item.get("distance", 999999.0))
             item_tokens = self.tokenize_for_overlap(content)
@@ -354,13 +359,13 @@ class RetrievalService:
             "are",
             "should",
         }
-        normalized = []
+        normalized: list[str] = []
         for token in RetrievalService.tokenize_for_overlap(query):
             mapped = semantic_aliases.get(token, token)
             if mapped in stopwords:
                 continue
             normalized.append(mapped)
-        deduped = list(dict.fromkeys(normalized))
+        deduped: list[str] = list(dict.fromkeys(normalized))
         return (
             " ".join(deduped)
             if deduped
