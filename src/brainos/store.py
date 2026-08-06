@@ -1032,8 +1032,8 @@ class BrainOSStore:
         states = self.list_vector_index_states(
             object_type=object_type, vector_status=vector_status, limit=limit
         )
-        results = []
-        errors = []
+        results: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
         seen: set[tuple[str, str]] = set()
         for state in states:
             key = (state["object_type"], state["object_id"])
