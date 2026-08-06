@@ -16,26 +16,21 @@ from .logging_utils import suppress_litellm_noise
 
 
 def diagnostic_embedding_contract(config: dict[str, Any]) -> dict[str, Any]:
-    diagnostic_keys = (
-        "profile",
-        "provider_path",
-        "operational_provider",
-        "model",
-        "required_env",
-        "present_env",
-        "missing_env",
-        "config_source",
-        "headers_env",
-    )
-    diagnostic = {key: config[key] for key in diagnostic_keys if key in config}
-    call_params = config.get("call_params") or {}
-    diagnostic["api_key_present"] = bool(call_params.get("api_key", ""))
-    diagnostic["call_params"] = {
-        key: call_params[key]
-        for key in ("model", "api_base", "api_version")
-        if key in call_params
+    config_source = config.get("config_source") or {}
+    model = config.get("model")
+    return {
+        "profile": config.get("profile"),
+        "provider_path": config.get("provider_path"),
+        "operational_provider": config.get("operational_provider"),
+        "model": model,
+        "required_env": config.get("required_env") or [],
+        "present_env": config.get("present_env") or [],
+        "missing_env": config.get("missing_env") or [],
+        "config_source": config_source,
+        "headers_env": config.get("headers_env"),
+        "api_key_present": "api_key" in config_source,
+        "call_params": {"model": model} if model else {},
     }
-    return diagnostic
 
 
 class LiteLLMEmbeddingAdapter:
