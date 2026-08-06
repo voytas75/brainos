@@ -7,7 +7,11 @@ from .embedding_config import (
     ENV_EMBEDDING_MODEL,
     resolve_embedding_config,
 )
-from .errors import EmbeddingRuntimeError, ValidationError
+from .errors import (
+    EmbeddingProviderNotConfiguredError,
+    EmbeddingRuntimeError,
+    ValidationError,
+)
 from .litellm_bootstrap import import_litellm_quietly
 from .logging_utils import suppress_litellm_noise
 
@@ -37,7 +41,7 @@ class LiteLLMEmbeddingAdapter:
     def contract(self) -> dict[str, Any]:
         try:
             return diagnostic_embedding_contract(self._resolve_config())
-        except Exception:
+        except EmbeddingProviderNotConfiguredError:
             return {
                 "profile": self.profile,
                 "provider_path": "litellm",

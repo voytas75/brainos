@@ -8,7 +8,7 @@ from brainos.store import BrainOSStore
 def run_cli(tmp_path, *args):
     db = tmp_path / "brain.db"
     cmd = [sys.executable, "-m", "brainos.cli", "--db", str(db), *args]
-    return subprocess.run(cmd, capture_output=True, text=True)
+    return subprocess.run(cmd, capture_output=True, text=True, check=False)
 
 
 def test_decision_log_get_and_list(tmp_path):

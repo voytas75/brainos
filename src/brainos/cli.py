@@ -158,9 +158,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_decision_history.add_argument("decision_id")
 
-    p_schema_status = sub.add_parser("schema-status", help="Show schema version status")
-    p_capabilities = sub.add_parser("capabilities", help="Show runtime capabilities")
-    p_vec_ready = sub.add_parser(
+    sub.add_parser("schema-status", help="Show schema version status")
+    sub.add_parser("capabilities", help="Show runtime capabilities")
+    sub.add_parser(
         "sqlite-vec-readiness", help="Run sqlite-vec loader and readiness check"
     )
     p_vec_states = sub.add_parser("vector-index-list", help="List vector index states")
@@ -194,7 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
         "retrieval-health", help="Show retrieval/vector subsystem health summary"
     )
     p_health.add_argument("--benchmark-limit", type=int, default=5)
-    p_embed_ready = sub.add_parser(
+    sub.add_parser(
         "embedding-readiness",
         help="Check embedding runtime prerequisites without exposing secrets",
     )
@@ -207,8 +207,8 @@ def build_parser() -> argparse.ArgumentParser:
         "real-corpus-probe", help="Run a small read-only real-corpus retrieval probe"
     )
     p_probe.add_argument("--limit", type=int, default=5)
-    p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
-    p_ledger = sub.add_parser("ledger", help="Print ledger entries")
+    sub.add_parser("ledger-verify", help="Verify ledger integrity")
+    sub.add_parser("ledger", help="Print ledger entries")
 
     return parser
 
@@ -577,13 +577,13 @@ def main() -> None:
             json.dumps(_sqlite_vec_error_payload(exc), ensure_ascii=False, indent=2),
             file=sys.stderr,
         )
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
     except (BrainOSError, json.JSONDecodeError) as exc:
         print(
             json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2),
             file=sys.stderr,
         )
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
     finally:
         store.close()
 

@@ -8,7 +8,7 @@ from typing import Any
 from .benchmark import run_retrieval_benchmark
 from .embedding import LiteLLMEmbeddingAdapter, diagnostic_embedding_contract
 from .embedding_config import resolve_embedding_config
-from .errors import SqliteVecReadinessError
+from .errors import EmbeddingProviderNotConfiguredError, SqliteVecReadinessError
 from .sqlite_vec import configured_sqlite_vec_path
 from .store import BrainOSStore
 
@@ -77,7 +77,7 @@ def _embedding_config_health() -> dict[str, Any]:
         contract = resolve_embedding_config()
         missing: list[str] = []
         present = list(contract.get("present_env", []))
-    except Exception:
+    except EmbeddingProviderNotConfiguredError:
         base_model = os.getenv("BRAINOS_EMBEDDING_MODEL", "").strip()
         provider = (
             base_model.split("/", 1)[0].lower() if "/" in base_model else "unknown"

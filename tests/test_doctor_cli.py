@@ -51,6 +51,7 @@ def test_embedding_readiness_cli_exposes_runtime_prereqs(tmp_path):
         capture_output=True,
         text=True,
         env=_test_env(),
+        check=False,
     )
     payload = _extract_json(proc.stdout or proc.stderr)
     assert payload["status"] in {"ok", "warn"}
@@ -74,6 +75,7 @@ def test_doctor_cli_exposes_compact_operator_checks(tmp_path):
         capture_output=True,
         text=True,
         env=_test_env(),
+        check=False,
     )
     payload = _extract_json(proc.stdout or proc.stderr)
     if "status" not in payload:

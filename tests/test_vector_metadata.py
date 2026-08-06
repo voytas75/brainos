@@ -167,7 +167,7 @@ def test_embedding_contract_is_declared_but_not_executed(tmp_path, monkeypatch):
 
     try:
         store.embed_texts(["hello world"])
-        assert False, "expected embedding configuration or runtime error"
+        raise AssertionError("expected embedding configuration or runtime error")
     except (EmbeddingProviderNotConfiguredError, EmbeddingRuntimeError):
         pass
     store.close()

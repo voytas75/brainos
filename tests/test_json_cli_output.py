@@ -51,6 +51,7 @@ def test_doctor_cli_keeps_json_output_when_embedding_auth_fails(tmp_path):
         capture_output=True,
         text=True,
         env=_test_env(),
+        check=False,
     )
     payload = _extract_json(proc.stdout or proc.stderr)
     if "status" not in payload:

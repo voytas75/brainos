@@ -112,9 +112,13 @@ def decision_conflict_check(
 
         if same_entity and meaningful_shared_option_ids:
             medium_signals.append("option_id_overlap")
-        if same_entity and current.get("review_after") and other.get("review_after"):
-            if current.get("review_after") == other.get("review_after"):
-                medium_signals.append("review_after_overlap")
+        if (
+            same_entity
+            and current.get("review_after")
+            and other.get("review_after")
+            and current.get("review_after") == other.get("review_after")
+        ):
+            medium_signals.append("review_after_overlap")
 
         if question_overlap:
             weak_signals.append("question_text_overlap")

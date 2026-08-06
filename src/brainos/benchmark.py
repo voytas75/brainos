@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sqlite3
 import tempfile
+from contextlib import suppress
 from typing import Any
 
 from .store import BrainOSStore
@@ -252,7 +254,7 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                         "runtime_error": None,
                     }
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - benchmark reports runtime failures as data.
                 benchmark_runtime_error = str(exc)
                 results.append(
                     {
@@ -324,12 +326,8 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
             "runtime_error": benchmark_runtime_error,
         }
     finally:
-        try:
+        with suppress(sqlite3.Error):
             bench_store.close()
-        except Exception:
-            pass
         for path in (temp_db, f"{temp_db}-wal", f"{temp_db}-shm"):
-            try:
+            with suppress(FileNotFoundError):
                 os.remove(path)
-            except FileNotFoundError:
-                pass

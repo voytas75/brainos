@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .store import BrainOSStore
+
 
 def _retrieval_trace(*, payload: dict[str, Any]) -> dict[str, Any]:
     ranked = payload.get("ranked_episodes", [])
@@ -112,9 +114,6 @@ def _operator_summary(*, payload: dict[str, Any]) -> str:
     if payload.get("decisions"):
         return "decision hits returned without ranked episodic support"
     return "no ranked hits returned"
-
-
-from .store import BrainOSStore
 
 
 def _diagnostic_hint(*, payload: dict[str, Any]) -> str:

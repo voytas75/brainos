@@ -149,8 +149,8 @@ class RetrievalService:
             kind = metadata.get("kind")
             if kind == "procedure" or lowered.startswith("next step:"):
                 return 140.0
-            if lowered.startswith("current restart point:") or lowered.startswith(
-                "previous restart point:"
+            if lowered.startswith(
+                ("current restart point:", "previous restart point:")
             ):
                 return -80.0
             return 0.0

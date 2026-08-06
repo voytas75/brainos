@@ -151,6 +151,7 @@ def test_cli_not_found_and_validation_errors(tmp_path):
         ["uv", "run", "brainos", "--db", str(db), "semantic-node-get", "missing"],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert missing_node.returncode == 2
     err = json.loads(missing_node.stderr)
@@ -180,6 +181,7 @@ def test_cli_not_found_and_validation_errors(tmp_path):
         ["uv", "run", "brainos", "--db", str(db), "consolidation-preview", episode_id],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert bad_preview.returncode == 2
     err = json.loads(bad_preview.stderr)
@@ -235,6 +237,7 @@ def test_cli_episode_promotion_get(tmp_path):
         ["uv", "run", "brainos", "--db", str(db), "episode-promotion-get", "missing"],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert missing.returncode == 2
     err = json.loads(missing.stderr)

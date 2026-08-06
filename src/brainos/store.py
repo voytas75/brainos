@@ -16,11 +16,13 @@ from .decisions import validate_decision_payload
 from .embedding import DEFAULT_EMBEDDING_PROFILE, LiteLLMEmbeddingAdapter
 from .errors import (
     BrainOSError,
-    EmbeddingProviderNotConfiguredError as EmbeddingProviderNotConfiguredError,
     NotFoundError,
     PromotionError,
     ValidationError,
     VectorIndexContractError,
+)
+from .errors import (
+    EmbeddingProviderNotConfiguredError as EmbeddingProviderNotConfiguredError,
 )
 from .ingest import prepare_episode_ingest
 from .ledger import canonical_json, compute_event_hash
@@ -1407,8 +1409,8 @@ class BrainOSStore:
             "reindexing": ["reindex", "repair"],
         }
         cleaned_tokens: list[str] = []
-        for token in query.split():
-            token = token.strip()
+        for raw_token in query.split():
+            token = raw_token.strip()
             if not token:
                 continue
             cleaned = re.sub(r"^[^\w]+|[^\w]+$", "", token, flags=re.UNICODE)

@@ -84,7 +84,7 @@ def test_embedding_adapter_requires_env(monkeypatch):
     adapter = LiteLLMEmbeddingAdapter()
     try:
         adapter.embed_texts(["hello"])
-        assert False, "expected EmbeddingProviderNotConfiguredError"
+        raise AssertionError("expected EmbeddingProviderNotConfiguredError")
     except EmbeddingProviderNotConfiguredError as exc:
         assert "missing embedding environment variables" in str(exc)
 
@@ -202,7 +202,7 @@ def test_generate_episode_embedding_records_error_state(monkeypatch, tmp_path):
 
     try:
         store.generate_episode_embedding(episode_id)
-        assert False, "expected EmbeddingProviderNotConfiguredError"
+        raise AssertionError("expected EmbeddingProviderNotConfiguredError")
     except EmbeddingProviderNotConfiguredError:
         pass
 
@@ -292,10 +292,13 @@ def test_generate_episode_embedding_stores_vector_when_sqlite_vec_available(
     created = []
     inserted = []
 
+    def ensure_episode_vec_table(dimensions):
+        created.append(dimensions)
+
     monkeypatch.setattr(
         store,
         "_ensure_episode_vec_table",
-        lambda dimensions: created.append(dimensions),
+        ensure_episode_vec_table,
     )
     monkeypatch.setattr(
         store,
@@ -353,7 +356,7 @@ def test_generate_episode_embedding_fails_fast_on_dimension_mismatch(
 
     try:
         store.generate_episode_embedding(episode_id)
-        assert False, "expected VectorIndexContractError"
+        raise AssertionError("expected VectorIndexContractError")
     except VectorIndexContractError as exc:
         assert "table=episodes_vec" in str(exc)
         assert "expected=1536" in str(exc)

@@ -6,7 +6,7 @@ import sys
 def run_cli(tmp_path, *args):
     db = tmp_path / "brain.db"
     cmd = [sys.executable, "-m", "brainos.cli", "--db", str(db), *args]
-    return subprocess.run(cmd, capture_output=True, text=True)
+    return subprocess.run(cmd, capture_output=True, text=True, check=False)
 
 
 def test_inspect_decision_returns_record_and_related_ledger_events(tmp_path):

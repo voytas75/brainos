@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from contextlib import suppress
 from typing import Any
 
 from .errors import SqliteVecReadinessError
@@ -61,10 +62,8 @@ def sqlite_vec_readiness(
             detail=str(exc),
         ) from exc
     finally:
-        try:
+        with suppress(sqlite3.Error):
             conn.execute("DROP TABLE temp.__brainos_vec_ready")
-        except sqlite3.Error:
-            pass
     return {
         "ok": True,
         "path": loaded_path,

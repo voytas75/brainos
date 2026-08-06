@@ -83,7 +83,7 @@ def test_sqlite_vec_readiness_classifies_missing_path(monkeypatch):
     try:
         try:
             sqlite_vec_readiness(conn)
-            assert False, "expected readiness classification error"
+            raise AssertionError("expected readiness classification error")
         except SqliteVecReadinessError as exc:
             assert exc.error_kind == "path_not_configured"
             assert ENV_SQLITE_VEC_PATH in str(exc)
@@ -106,6 +106,7 @@ def test_sqlite_vec_readiness_cli_returns_json_payload(tmp_path, monkeypatch):
         capture_output=True,
         text=True,
         env={**_clean_cli_env(), "PATH": os.environ.get("PATH", "")},
+        check=False,
     )
     payload_text = proc.stderr if proc.stderr.strip() else proc.stdout
     payload = json.loads(payload_text)

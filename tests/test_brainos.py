@@ -196,7 +196,7 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
 
     try:
         store.promote_episode(procedure_episode_id)
-        assert False, "expected PromotionError"
+        raise AssertionError("expected PromotionError")
     except PromotionError:
         pass
     store.close()
@@ -241,7 +241,7 @@ def test_promotion_rolls_back_target_and_ledger_when_record_insert_fails(tmp_pat
     for episode_id in (procedure_episode_id, semantic_episode_id):
         try:
             store.promote_episode(episode_id)
-            assert False, "expected forced promotion record failure"
+            raise AssertionError("expected forced promotion record failure")
         except sqlite3.IntegrityError:
             pass
 
@@ -507,7 +507,7 @@ def test_validation_errors_for_promotion_metadata(tmp_path):
     for episode_id in [bad_semantic, bad_procedure, bad_type]:
         try:
             store.preview_consolidation(episode_id)
-            assert False, "expected ValidationError"
+            raise AssertionError("expected ValidationError")
         except ValidationError:
             pass
     store.close()
