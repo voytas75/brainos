@@ -35,7 +35,7 @@ def run_real_corpus_probe(store: BrainOSStore, *, limit: int = 5) -> dict[str, A
 
     target_session_id = available_session_ids[0]
     cases = real_corpus_probe_cases(session_id=target_session_id)
-    results = []
+    results: list[dict[str, Any]] = []
     for case in cases:
         recall = store.recall(case["query"], session_id=case["session_id"], limit=limit)
         top_episode = (

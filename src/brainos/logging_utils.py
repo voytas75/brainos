@@ -4,11 +4,11 @@ import contextlib
 import io
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 
 
 @contextlib.contextmanager
-def suppress_litellm_noise() -> Iterator[None]:
+def suppress_litellm_noise() -> Generator[None, None, None]:
     previous_log = os.environ.get("LITELLM_LOG")
     os.environ["LITELLM_LOG"] = "CRITICAL"
 

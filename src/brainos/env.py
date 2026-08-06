@@ -2,6 +2,16 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TypedDict
+
+
+class EnvLoadInfo(TypedDict):
+    loaded: bool
+    path: str | None
+    keys: list[str]
+    cwd: str | None
+    exists: bool
+
 
 # Contract:
 # 1. Start from the supplied cwd (or process cwd).
@@ -12,7 +22,7 @@ from pathlib import Path
 # 6. Report both the original lookup cwd and the resolved env path.
 # 7. If nothing is found, report the nearest candidate path (<cwd>/.env).
 
-_LAST_ENV_LOAD_INFO: dict[str, object] = {
+_LAST_ENV_LOAD_INFO: EnvLoadInfo = {
     "loaded": False,
     "path": None,
     "keys": [],
@@ -21,7 +31,7 @@ _LAST_ENV_LOAD_INFO: dict[str, object] = {
 }
 
 
-def get_last_env_load_info() -> dict[str, object]:
+def get_last_env_load_info() -> EnvLoadInfo:
     return {
         "loaded": bool(_LAST_ENV_LOAD_INFO.get("loaded", False)),
         "path": _LAST_ENV_LOAD_INFO.get("path"),

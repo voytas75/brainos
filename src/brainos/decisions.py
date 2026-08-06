@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from .errors import ValidationError
 
 ALLOWED_DECISION_STATUSES = {"draft", "active", "superseded", "closed"}
 
 
-def _ensure_non_empty_text(value: str, *, field_name: str) -> str:
+def _ensure_non_empty_text(value: object, *, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValidationError(f"{field_name} must be a non-empty string")
     return value.strip()
@@ -16,13 +16,13 @@ def _ensure_non_empty_text(value: str, *, field_name: str) -> str:
 def _ensure_list(value: Any, *, field_name: str) -> list[Any]:
     if not isinstance(value, list):
         raise ValidationError(f"{field_name} must be a JSON array")
-    return value
+    return cast(list[Any], value)
 
 
 def _ensure_dict(value: Any, *, field_name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValidationError(f"{field_name} must be a JSON object")
-    return value
+    return cast(dict[str, Any], value)
 
 
 def _normalize_bool(value: Any, *, field_name: str) -> bool:

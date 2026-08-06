@@ -230,7 +230,7 @@ def _sqlite_vec_error_payload(exc: SqliteVecReadinessError) -> dict[str, object]
 
 def _startup_runtime_context(*, db_path: str) -> dict[str, object]:
     env_info = get_last_env_load_info()
-    env_keys = set(env_info.get("keys", []))
+    env_keys = set(env_info["keys"])
 
     def _var_presence(name: str) -> dict[str, object]:
         value = os.getenv(name, "")

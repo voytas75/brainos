@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from .embedding_config import (
     DEFAULT_EMBEDDING_PROFILE,
@@ -17,7 +17,12 @@ from .logging_utils import suppress_litellm_noise
 
 
 def diagnostic_embedding_contract(config: dict[str, Any]) -> dict[str, Any]:
-    config_source = config.get("config_source") or {}
+    raw_config_source = cast(dict[object, object], config.get("config_source") or {})
+    config_source = {
+        key: value
+        for key, value in raw_config_source.items()
+        if isinstance(key, str) and isinstance(value, str)
+    }
     model = config.get("model")
     return {
         "profile": config.get("profile"),
@@ -52,21 +57,23 @@ class LiteLLMEmbeddingAdapter:
     def _resolve_config(self) -> dict[str, Any]:
         return resolve_embedding_config(profile=self.profile)
 
-    def embed_texts(self, texts: list[str]) -> dict[str, Any]:
-        if not isinstance(texts, list) or any(
-            not isinstance(text, str) for text in texts
-        ):
+    def embed_texts(self, texts: Any) -> dict[str, Any]:
+        if not isinstance(texts, list):
             raise ValidationError("texts must be a list of strings")
-        if not texts:
+        raw_texts = cast(list[object], texts)
+        if any(not isinstance(text, str) for text in raw_texts):
+            raise ValidationError("texts must be a list of strings")
+        if not raw_texts:
             raise ValidationError("texts must not be empty")
 
+        typed_texts = cast(list[str], raw_texts)
         cfg = self._resolve_config()
         litellm = import_litellm_quietly()
 
         try:
             with suppress_litellm_noise():
                 response = litellm.embedding(
-                    input=texts,
+                    input=typed_texts,
                     **cfg["call_params"],
                 )
         except Exception as exc:
@@ -74,7 +81,7 @@ class LiteLLMEmbeddingAdapter:
                 f"embedding provider call failed: {exc}"
             ) from exc
 
-        vectors = [item["embedding"] for item in response.data]
+        vectors = cast(list[list[float]], [item["embedding"] for item in response.data])
         dimensions = len(vectors[0]) if vectors else 0
         return {
             "vectors": vectors,
@@ -82,6 +89,6 @@ class LiteLLMEmbeddingAdapter:
             "provider": cfg["operational_provider"],
             "model": cfg["model"],
             "profile": self.profile,
-            "requested_count": len(texts),
+            "requested_count": len(typed_texts),
             "returned_count": len(vectors),
         }
