@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .benchmark import run_retrieval_benchmark
-from .embedding import LiteLLMEmbeddingAdapter
+from .embedding import LiteLLMEmbeddingAdapter, diagnostic_embedding_contract
 from .embedding_config import resolve_embedding_config
 from .errors import SqliteVecReadinessError
 from .sqlite_vec import configured_sqlite_vec_path
@@ -99,7 +99,7 @@ def _embedding_config_health() -> dict[str, Any]:
         "status": status,
         "issues": issues,
         "action_hint": "set_required_env" if missing else ("fix_invalid_env" if invalid else "noop"),
-        "contract": contract,
+        "contract": diagnostic_embedding_contract(contract),
         "required_env": contract["required_env"],
         "present_env": present,
         "missing_env": missing,

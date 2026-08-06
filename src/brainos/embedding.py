@@ -15,13 +15,21 @@ from .litellm_bootstrap import import_litellm_quietly
 from .logging_utils import suppress_litellm_noise
 
 
+def diagnostic_embedding_contract(config: dict[str, Any]) -> dict[str, Any]:
+    diagnostic = dict(config)
+    call_params = dict(diagnostic.get("call_params") or {})
+    diagnostic["api_key_present"] = bool(call_params.pop("api_key", ""))
+    diagnostic["call_params"] = call_params
+    return diagnostic
+
+
 class LiteLLMEmbeddingAdapter:
     def __init__(self, profile: str = DEFAULT_EMBEDDING_PROFILE):
         self.profile = profile
 
     def contract(self) -> dict[str, Any]:
         try:
-            return resolve_embedding_config(profile=self.profile)
+            return diagnostic_embedding_contract(self._resolve_config())
         except Exception:
             return {
                 "profile": self.profile,

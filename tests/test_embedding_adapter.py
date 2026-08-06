@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 from pathlib import Path
@@ -7,10 +8,14 @@ from brainos.embedding_config import (
     ENV_AZURE_API_BASE,
     ENV_AZURE_API_KEY,
     ENV_AZURE_API_VERSION,
+    ENV_EMBEDDING_API_BASE,
+    ENV_EMBEDDING_API_KEY,
+    ENV_EMBEDDING_API_VERSION,
     ENV_EMBEDDING_MODEL,
     ENV_OPENAI_API_KEY,
 )
 from brainos.errors import EmbeddingProviderNotConfiguredError, VectorIndexContractError
+from brainos.health import _embedding_config_health
 from brainos.store import BrainOSStore
 
 
@@ -38,6 +43,24 @@ def test_embedding_contract_exposes_required_env():
         assert contract["required_env"] == [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION]
     else:
         assert contract["required_env"] == [ENV_EMBEDDING_MODEL]
+
+
+def test_embedding_contract_redacts_api_key_from_diagnostics(monkeypatch):
+    sentinel = "BRAINOS_SYNTHETIC_SENTINEL_NOT_A_SECRET"
+    for name in [ENV_EMBEDDING_API_BASE, ENV_EMBEDDING_API_KEY, ENV_EMBEDDING_API_VERSION]:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(ENV_EMBEDDING_MODEL, "azure/test-embedding")
+    monkeypatch.setenv(ENV_AZURE_API_BASE, "https://example.openai.azure.com")
+    monkeypatch.setenv(ENV_AZURE_API_KEY, sentinel)
+    monkeypatch.setenv(ENV_AZURE_API_VERSION, "2024-10-21")
+
+    contract = LiteLLMEmbeddingAdapter().contract()
+    health = _embedding_config_health()
+
+    assert contract["api_key_present"] is True
+    assert "api_key" not in contract["call_params"]
+    assert sentinel not in json.dumps(contract)
+    assert sentinel not in json.dumps(health)
 
 
 def test_embedding_adapter_requires_env(monkeypatch):
