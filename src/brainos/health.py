@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .benchmark import run_retrieval_benchmark
 from .embedding import LiteLLMEmbeddingAdapter, diagnostic_embedding_contract
@@ -201,7 +201,7 @@ def _runtime_failure_summary(
         "action_hint": "configure_sqlite_vec_path",
     }
     runtime_issue = f"sqlite_vec_runtime:{error_kind}"
-    benchmark = {
+    benchmark: dict[str, Any] = {
         "suite": "retrieval-benchmark-v0",
         "evidence_kind": "seeded_fixture",
         "truthfulness_note": "This benchmark could not complete because sqlite-vec runtime failed before execution.",
@@ -289,28 +289,28 @@ def retrieval_health_summary(
     dependency_health = _dependency_health()
     database_runtime = _database_runtime_health(store)
 
-    runtime_issues = []
+    runtime_issues: list[str] = []
     if not capabilities.get("sqlite_vec"):
         runtime_issues.append("sqlite_vec_unavailable")
-    runtime_issues.extend(embedding_config["issues"])
-    runtime_issues.extend(sqlite_vec_env["issues"])
-    runtime_issues.extend(dependency_health["issues"])
-    runtime_issues.extend(database_runtime["issues"])
+    runtime_issues.extend(cast(list[str], embedding_config["issues"]))
+    runtime_issues.extend(cast(list[str], sqlite_vec_env["issues"]))
+    runtime_issues.extend(cast(list[str], dependency_health["issues"]))
+    runtime_issues.extend(cast(list[str], database_runtime["issues"]))
 
-    freshness_issues = []
+    freshness_issues: list[str] = []
     if counts_by_status.get("stale", 0) > 0:
         freshness_issues.append("stale_vectors_present")
     if counts_by_status.get("error", 0) > 0:
         freshness_issues.append("vector_errors_present")
 
-    freshness_notes = []
+    freshness_notes: list[str] = []
     if counts_by_status.get("missing", 0) > 0:
         freshness_notes.append("missing_vectors_present")
     if counts_by_status.get("disabled", 0) > 0:
         freshness_notes.append("disabled_vectors_present")
 
-    quality_issues = []
-    quality_notes = []
+    quality_issues: list[str] = []
+    quality_notes: list[str] = []
     if low_evidence:
         quality_notes.append("low_evidence_database")
     elif not benchmark.get("ok"):
