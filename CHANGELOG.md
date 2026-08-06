@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added typed episode ingest normalization via `src/brainos/ingest.py` to standardize episode content and metadata before persistence.
+- Added a pinned GitHub Actions CI gate for `uv lock --check` and the full test suite.
+- Added regression coverage for atomic promotion rollback, dynamic vector-table initialization, and operator-acceptance environment isolation.
 - Added CLI support for typed episode fields on `episode-add`, including `--kind`, `--topic`, and `--source`.
 - Added vector runtime preflight in `src/brainos/retrieval_runtime.py` to distinguish runtime misconfiguration from ordinary retrieval misses.
 - Added retrieval smoke coverage via `scripts/retrieval_smoke.sh` and supporting documentation in `docs/retrieval-green-path-smoke-test.md`.
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a post-update regression report in `docs/post-aiohttp-update-regression-check-2026-06-05.md` covering smoke, bounded usage flow, and short real-usage validation after the `aiohttp` security update.
 
 ### Changed
+- Changed `init --enable-vector` to defer vector-table creation until the first successful embedding supplies its dimension.
 - Changed episode persistence in `src/brainos/store.py` so new episodes are normalized on write.
 - Changed retrieval ranking in `src/brainos/retrieval.py` to improve reachability of `decision`, `procedure`, and other typed episodes for action-oriented queries.
 - Changed `src/brainos/explain.py` to expose clearer operator-facing retrieval diagnostics, including runtime status, operator summary, confidence hint, top-hit evidence, comparison hint, and zero-hit reasoning.
@@ -25,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed README and API docs to document the retrieval green-path smoke flow and updated explain diagnostics behavior.
 
 ### Fixed
+- Updated the locked `aiohttp` resolution from `3.14.0` to `3.14.3`.
+- Fixed promotion transactions so a failed durable promotion record rolls back its target object and ledger event.
+- Fixed operator acceptance so inherited `BRAINOS_SQLITE_VEC_PATH` cannot invalidate its degraded-runtime scenario.
 - Fixed the ambiguity between "no good hit" and "vector runtime is misconfigured" by surfacing explicit runtime posture in retrieval outputs.
 - Fixed CLI/test expectations to match the current explain diagnostic behavior for degraded-but-still-lexically-usable retrieval paths.
 

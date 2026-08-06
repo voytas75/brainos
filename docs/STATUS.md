@@ -43,19 +43,15 @@ The heavier risks are:
 
 ## Current checkpoint
 
-Checkpoint after the 2026-06-22 trust-layer closeout:
-- contract/runtime cleanup landed
-- operator acceptance pack landed
-- typed-ingest quality-lever docs/example landed
-- realistic retrieval eval anchor landed
-- current full test posture: `119 passed`
+Local stabilization checkpoint, not yet pushed:
+- locked `aiohttp` at `3.14.3`; GitHub alert closure still requires default-branch indexing after push
+- added a pinned, frozen CI workflow for lock consistency and tests; no remote run exists for this local SHA yet
+- made episode promotion rollback-safe when its durable promotion record fails
+- deferred vector-table dimensions to the first successful embedding and kept mismatch detection for later rebuilds
+- isolated the degraded-runtime operator acceptance pack from inherited `BRAINOS_SQLITE_VEC_PATH`
+- current full local test posture: `133 passed`
 
-Recent commits:
-- `87f477b` — Anchor realistic retrieval eval set
-- `380a450` — Document typed ingest as quality lever
-- `23ce94b` — Add operator acceptance pack
-- `069167e` — Clarify degraded runtime messaging
-- `d661937` — Align runtime contracts and health semantics
+Remote validation remains intentionally pending: push, current-SHA CI, Dependabot re-check, and any required-check/ruleset decision.
 
 ## Supporting detail
 
