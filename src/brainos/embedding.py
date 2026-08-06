@@ -16,10 +16,25 @@ from .logging_utils import suppress_litellm_noise
 
 
 def diagnostic_embedding_contract(config: dict[str, Any]) -> dict[str, Any]:
-    diagnostic = dict(config)
-    call_params = dict(diagnostic.get("call_params") or {})
-    diagnostic["api_key_present"] = bool(call_params.pop("api_key", ""))
-    diagnostic["call_params"] = call_params
+    diagnostic_keys = (
+        "profile",
+        "provider_path",
+        "operational_provider",
+        "model",
+        "required_env",
+        "present_env",
+        "missing_env",
+        "config_source",
+        "headers_env",
+    )
+    diagnostic = {key: config[key] for key in diagnostic_keys if key in config}
+    call_params = config.get("call_params") or {}
+    diagnostic["api_key_present"] = bool(call_params.get("api_key", ""))
+    diagnostic["call_params"] = {
+        key: call_params[key]
+        for key in ("model", "api_base", "api_version")
+        if key in call_params
+    }
     return diagnostic
 
 
