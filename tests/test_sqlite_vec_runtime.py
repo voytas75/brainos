@@ -4,9 +4,19 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from brainos.errors import SqliteVecReadinessError
 from brainos.schema import detect_capabilities
 from brainos.sqlite_vec import ENV_SQLITE_VEC_PATH, configured_sqlite_vec_path, sqlite_vec_readiness
+
+
+def _real_vec_path_or_skip() -> str:
+    vec_path = configured_sqlite_vec_path()
+    if not vec_path or not Path(vec_path).is_file():
+        pytest.skip("requires BRAINOS_SQLITE_VEC_PATH pointing to a real vec0 extension")
+    assert vec_path is not None
+    return vec_path
 
 
 def _clean_cli_env() -> dict[str, str]:
@@ -38,7 +48,7 @@ def test_detect_capabilities_reports_missing_vec_path(monkeypatch):
 
 
 def test_sqlite_vec_readiness_with_real_extension(monkeypatch):
-    vec_path = "/home/voytas/.bun/install/cache/sqlite-vec-linux-x64@0.1.7-dd4d9ab07e99b7ce@@@1/vec0.so"
+    vec_path = _real_vec_path_or_skip()
     monkeypatch.setenv(ENV_SQLITE_VEC_PATH, vec_path)
     conn = sqlite3.connect(":memory:")
     try:
@@ -102,7 +112,7 @@ def test_sqlite_vec_readiness_cli_returns_json_payload(tmp_path, monkeypatch):
 
 
 def test_detect_capabilities_reports_explicit_probe_mode_when_vec_path_configured(monkeypatch):
-    vec_path = "/home/voytas/.bun/install/cache/sqlite-vec-linux-x64@0.1.7-dd4d9ab07e99b7ce@@@1/vec0.so"
+    vec_path = _real_vec_path_or_skip()
     monkeypatch.setenv(ENV_SQLITE_VEC_PATH, vec_path)
     conn = sqlite3.connect(":memory:")
     try:
