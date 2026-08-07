@@ -66,3 +66,23 @@ def test_doctor_cli_keeps_json_output_when_embedding_auth_fails(tmp_path):
     ] is None or isinstance(
         payload["retrieval_health"]["quality"]["benchmark"]["runtime_error"], str
     )
+
+
+def test_diagnostic_cli_never_emits_embedding_api_key_value(tmp_path):
+    sentinel = "BRAINOS_SYNTHETIC_SENTINEL_NOT_A_SECRET"
+    env = {**_test_env(), "AZURE_API_KEY": sentinel}
+
+    for command in (
+        ("retrieval-health", "--benchmark-limit", "1"),
+        ("embedding-readiness",),
+        ("doctor", "--benchmark-limit", "1"),
+    ):
+        proc = subprocess.run(
+            [_brainos_cli(), "--db", str(tmp_path / f"{command[0]}.db"), *command],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        assert sentinel not in proc.stdout
+        assert sentinel not in proc.stderr
