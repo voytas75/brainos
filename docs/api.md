@@ -494,9 +494,17 @@ brainos --db ./brain.db ledger
 
 ---
 
-## CLI UX / error behavior v0
+## CLI output contract v0
 
-Expected user-facing errors return:
+### Success output
+Success output is command-dependent; v0 does not promise universal JSON on stdout.
+- `init` emits a text confirmation with the database path.
+- `wm-set`, `episode-add`, `semantic-node-upsert`, `semantic-edge-upsert`, and `procedure-create` emit one raw identifier for shell chaining.
+- commands that return records, lists, diagnostics, promotions, or verification results emit JSON.
+
+Automation should consume raw writer identifiers as one stdout line and parse JSON only from documented structured commands.
+
+### Error behavior
 - exit code `2`
 - JSON error payload on stderr
 

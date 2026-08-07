@@ -12,7 +12,7 @@ Work only on the accepted stabilization cycle in `PLAN.md` and `BOUNDS.md`.
 
 ## Always
 - Inspect repository state and the relevant control documents before a material change.
-- Keep CLI output machine-readable and errors on stderr with a non-zero exit.
+- Preserve documented CLI success formats; keep JSON outputs machine-readable and errors on stderr with a non-zero exit.
 - Preserve local-first SQLite behavior, provenance, and honest degraded-runtime reporting.
 - Add a focused regression test before changing proven behavior.
 
