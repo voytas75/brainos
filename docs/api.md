@@ -596,8 +596,10 @@ Current recall behavior:
 - `semantic_hits` = semantic node name matches
 
 Fallback behavior:
-- if sqlite-vec runtime is unavailable, `vector_episodes` is empty and `vector_mode` is `disabled`
-- if embedding/query execution fails, `vector_mode` is `error`
+- if vector runtime is `misconfigured`, vector result sets are empty and both per-subsystem modes are `misconfigured`
+- if vector runtime has `runtime_failed`, vector result sets are empty and both per-subsystem modes are `runtime_failed`
+- if query embedding fails, both per-subsystem modes are `vector_error`
+- if only one vector backend fails, only its matching per-subsystem mode is `vector_error`; the other vector path may still contribute hits
 - degraded non-vector retrieval remains a supported bounded mode
 
 
@@ -615,7 +617,7 @@ Current ranking policy is intentionally simple:
 This is a bounded productization step, not a final retrieval-science policy.
 
 Current scoring policy surface:
-- active policy version: `retrieval-scoring-v1`
+- active policy version: `retrieval-scoring-v1b`
 - current ranking constants are now grouped under an explicit retrieval scoring policy surface
 - this slice does not retune behavior; it only makes the active policy more visible
 
