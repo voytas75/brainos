@@ -494,9 +494,17 @@ brainos --db ./brain.db ledger
 
 ---
 
-## CLI UX / error behavior v0
+## CLI output contract v0
 
-Expected user-facing errors return:
+### Success output
+Success output is command-dependent; v0 does not promise universal JSON on stdout.
+- `init` emits a text confirmation with the database path.
+- `wm-set`, `episode-add`, `semantic-node-upsert`, `semantic-edge-upsert`, and `procedure-create` emit one raw identifier for shell chaining.
+- commands that return records, lists, diagnostics, promotions, or verification results emit JSON.
+
+Automation should consume raw writer identifiers as one stdout line and parse JSON only from documented structured commands.
+
+### Error behavior
 - exit code `2`
 - JSON error payload on stderr
 
@@ -596,8 +604,10 @@ Current recall behavior:
 - `semantic_hits` = semantic node name matches
 
 Fallback behavior:
-- if sqlite-vec runtime is unavailable, `vector_episodes` is empty and `vector_mode` is `disabled`
-- if embedding/query execution fails, `vector_mode` is `error`
+- if vector runtime is `misconfigured`, vector result sets are empty and both per-subsystem modes are `misconfigured`
+- if vector runtime has `runtime_failed`, vector result sets are empty and both per-subsystem modes are `runtime_failed`
+- if query embedding fails, both per-subsystem modes are `vector_error`
+- if only one vector backend fails, only its matching per-subsystem mode is `vector_error`; the other vector path may still contribute hits
 - degraded non-vector retrieval remains a supported bounded mode
 
 
@@ -615,7 +625,7 @@ Current ranking policy is intentionally simple:
 This is a bounded productization step, not a final retrieval-science policy.
 
 Current scoring policy surface:
-- active policy version: `retrieval-scoring-v1`
+- active policy version: `retrieval-scoring-v1b`
 - current ranking constants are now grouped under an explicit retrieval scoring policy surface
 - this slice does not retune behavior; it only makes the active policy more visible
 

@@ -504,19 +504,31 @@ class RetrievalService:
         if runtime.get("status") == "ok":
             try:
                 query_vector = self.backend.embed_retrieval_query(query)
-                vector_episodes = self.backend.vector_search_episodes(
-                    query_vector, session_id=session_id, limit=limit
-                )
-                vector_semantic_hits = self.backend.vector_search_semantic_nodes(
-                    query_vector, limit=limit
-                )
-                episode_vector_mode = "sqlite_vec_episode_similarity"
-                semantic_vector_mode = "sqlite_vec_semantic_similarity"
             except Exception as exc:  # noqa: BLE001
                 episode_vector_error = str(exc)
                 semantic_vector_error = str(exc)
                 episode_vector_mode = "vector_error"
                 semantic_vector_mode = "vector_error"
+            else:
+                try:
+                    vector_episodes = self.backend.vector_search_episodes(
+                        query_vector, session_id=session_id, limit=limit
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    episode_vector_error = str(exc)
+                    episode_vector_mode = "vector_error"
+                else:
+                    episode_vector_mode = "sqlite_vec_episode_similarity"
+
+                try:
+                    vector_semantic_hits = self.backend.vector_search_semantic_nodes(
+                        query_vector, limit=limit
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    semantic_vector_error = str(exc)
+                    semantic_vector_mode = "vector_error"
+                else:
+                    semantic_vector_mode = "sqlite_vec_semantic_similarity"
         elif runtime.get("status") == "misconfigured":
             episode_vector_mode = "misconfigured"
             semantic_vector_mode = "misconfigured"

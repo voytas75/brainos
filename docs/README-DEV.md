@@ -262,7 +262,7 @@ Current code includes a real LiteLLM-based embedding adapter boundary.
 
 ### What is still not implemented
 
-- batch refresh workflows
+- scheduled or background batch refresh workflows
 - hosted embedding services owned by BrainOS
 - background workers for continuous vector maintenance
 

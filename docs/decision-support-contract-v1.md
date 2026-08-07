@@ -1,12 +1,11 @@
 # BrainOS decision-support contract v1
 
 ## Status
-Planning / contract draft.
+Current bounded implementation and forward contract.
 
-This document defines the intended product boundary for the future `decision` layer.
-It is not evidence that the CLI/model already exists.
+BrainOS currently provides `decision-log`, `decision-list`, `decision-get`, `decision-check`, and `decision-history` for operator-authored decision-support objects. This document defines the boundary for that implementation and for a future richer `decision-brief` surface.
 
-Use this contract to keep future implementation aligned with the real product promise.
+The full output shape below is aspirational; it is not evidence that automated decision-brief construction already exists.
 
 ## Core claim
 BrainOS decision support helps an operator think and choose more clearly.

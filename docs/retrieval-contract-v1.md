@@ -67,7 +67,7 @@ This contract does not yet define:
 Current retrieval scoring behavior is grouped under an explicit policy surface.
 
 Current active version:
-- `retrieval-scoring-v1`
+- `retrieval-scoring-v1b`
 
 This version label improves explainability and tuning governance without changing retrieval behavior on its own.
 

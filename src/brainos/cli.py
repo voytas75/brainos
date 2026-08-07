@@ -263,7 +263,17 @@ def _parse_bool_arg(value: str) -> bool:
     raise BrainOSError("operator-call-required must be a boolean-like value")
 
 
+def _env_lookup_cwd_for_cli_args(argv: list[str] | None = None) -> str | None:
+    bootstrap_parser = argparse.ArgumentParser(add_help=False)
+    bootstrap_parser.add_argument("--db")
+    bootstrap_args, _ = bootstrap_parser.parse_known_args(argv)
+    if bootstrap_args.db is None:
+        return None
+    return str(Path(bootstrap_args.db).resolve().parent)
+
+
 def main() -> None:
+    load_project_env(cwd=_env_lookup_cwd_for_cli_args(), override=False)
     parser = build_parser()
     args = parser.parse_args()
     load_project_env(cwd=str(Path(args.db).resolve().parent), override=False)

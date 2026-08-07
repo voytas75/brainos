@@ -463,3 +463,55 @@ def test_eval_distinguishes_disabled_runtime_from_stale_data_wording(
     recall = store.recall("disabled vector runtime", session_id="eval", limit=5)
     assert recall["ranked_episodes"][0]["id"] == good_id
     store.close()
+
+
+def test_recall_keeps_semantic_vector_hits_when_episode_vector_search_fails(
+    monkeypatch, tmp_path
+):
+    _mock_runtime_ok(monkeypatch)
+    db = tmp_path / "brain.db"
+    store = BrainOSStore(db)
+    store.initialize()
+
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.1, 0.2, 0.3]],
+            "dimensions": 3,
+            "provider": "azure",
+            "model": "azure/UDTEMBED3L",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": 1,
+            "returned_count": 1,
+        },
+    )
+
+    def fail_episode_search(query_vector, session_id=None, limit=10):
+        raise RuntimeError("episode vector search failed")
+
+    monkeypatch.setattr(store, "vector_search_episodes", fail_episode_search)
+    monkeypatch.setattr(
+        store,
+        "vector_search_semantic_nodes",
+        lambda query_vector, limit=10: [
+            {
+                "id": "sem-recovery",
+                "name": "Semantic Recovery",
+                "type": "Concept",
+                "properties": {},
+                "edges": [],
+                "distance": 0.1,
+            }
+        ],
+    )
+
+    recall = store.recall("semantic recovery", limit=5)
+
+    assert recall["episode_vector_mode"] == "vector_error"
+    assert recall["episode_vector_error"] == "episode vector search failed"
+    assert recall["semantic_vector_mode"] == "sqlite_vec_semantic_similarity"
+    assert recall["semantic_vector_error"] is None
+    assert recall["vector_semantic_hits"][0]["id"] == "sem-recovery"
+    assert recall["ranked_semantic_hits"][0]["id"] == "sem-recovery"
+    store.close()

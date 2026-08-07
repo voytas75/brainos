@@ -5,11 +5,14 @@ Work only on the accepted stabilization cycle in `PLAN.md` and `BOUNDS.md`.
 
 ## Canonical commands
 - `uv lock --check`
+- `uv run --extra dev ruff check .`
+- `uv run --extra dev ruff format --check .`
+- `uv run --extra dev pyright`
 - `uv run --extra dev pytest -q`
 
 ## Always
 - Inspect repository state and the relevant control documents before a material change.
-- Keep CLI output machine-readable and errors on stderr with a non-zero exit.
+- Preserve documented CLI success formats; keep JSON outputs machine-readable and errors on stderr with a non-zero exit.
 - Preserve local-first SQLite behavior, provenance, and honest degraded-runtime reporting.
 - Add a focused regression test before changing proven behavior.
 

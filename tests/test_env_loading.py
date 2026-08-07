@@ -5,6 +5,7 @@ from pathlib import Path
 from brainos.env import load_project_env
 
 _ENV_KEYS = {
+    "BRAINOS_DB_PATH",
     "BRAINOS_EMBEDDING_MODEL",
     "AZURE_API_BASE",
     "AZURE_API_KEY",
@@ -118,6 +119,28 @@ def test_cli_uses_parent_dotenv_when_db_lives_in_nested_directory(tmp_path):
     assert f'"effective_db_path": "{db.resolve()}"' in explain_proc.stdout
     assert f'"cwd": "{db.resolve().parent}"' in explain_proc.stdout
     assert f'"path": "{(project_root / ".env").resolve()}"' in explain_proc.stdout
+
+
+def test_cli_uses_brainos_db_path_from_project_dotenv(tmp_path):
+    db = tmp_path / "via-dotenv.db"
+    (tmp_path / ".env").write_text(
+        f"BRAINOS_DB_PATH={db}\n",
+        encoding="utf-8",
+    )
+    cli = os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos")
+
+    init_proc = subprocess.run(
+        [cli, "init"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**_clean_cli_env(), "PATH": os.environ.get("PATH", "")},
+    )
+
+    assert f"Initialized {db}" in init_proc.stdout
+    assert db.exists()
+    assert not (tmp_path / "brain.db").exists()
 
 
 def test_cli_uses_brainos_db_path_env_for_db_selection(tmp_path):

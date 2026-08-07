@@ -141,11 +141,12 @@ Read current retrieval quality in this order:
 4. eval/benchmark pass-fail
 5. explain output for hit-level diagnosis
 
-## Action priority / current plan
-Current priority is to **close retrieval-layer credibility**, not to expand the “brain” surface.
+## Scope status
+`PLAN.md` and `BOUNDS.md` govern the current stabilization cycle. New retrieval/scoring work is currently deferred; this contract documents existing behavior and regression interpretation, not authorization for further retrieval work.
 
-Current plan:
-1. establish a reliable green path for `sqlite-vec` on this machine,
+## Conditional follow-up plan
+If retrieval work is explicitly reopened, the next plan is:
+1. establish a reliable green path for `sqlite-vec` on the target machine,
 2. keep health interpretation explicitly split into:
    - environment/runtime health
    - retrieval freshness/maintenance health
@@ -172,7 +173,7 @@ Current protected realistic query classes are intentionally small and grouped ar
 This anchor is meant to stay small.
 If it starts growing casually, treat that as drift and re-justify the added classes explicitly.
 
-This plan is intentionally conservative.
+This conditional plan is intentionally conservative.
 It favors trustworthiness of the retrieval layer over broader product breadth.
 
 ## Stability note
