@@ -1,8 +1,11 @@
 import json
 import os
+import sqlite3
 import subprocess
 from pathlib import Path
+from unittest.mock import patch
 
+from brainos.retrieval_runtime import vector_runtime_preflight
 from brainos.store import BrainOSStore
 
 _ENV_KEYS = {
@@ -30,6 +33,30 @@ def _brainos_cli() -> str:
 
 def _test_env() -> dict[str, str]:
     return {**_clean_cli_env(), "PATH": os.environ.get("PATH", "")}
+
+
+def test_vector_runtime_preflight_degrades_when_extension_loading_is_unsupported(
+    monkeypatch,
+):
+    monkeypatch.setenv("BRAINOS_SQLITE_VEC_PATH", "/tmp/sqlite-vec")
+
+    class UnsupportedExtensionConnection:
+        def enable_load_extension(self, enabled: bool) -> None:
+            raise sqlite3.NotSupportedError("extension loading unsupported")
+
+        def close(self) -> None:
+            pass
+
+    with patch(
+        "brainos.retrieval_runtime.sqlite3.connect",
+        return_value=UnsupportedExtensionConnection(),
+    ):
+        payload = vector_runtime_preflight()
+
+    assert payload["status"] == "runtime_failed"
+    assert payload["degraded"] is True
+    assert payload["action_hint"] == "configure_sqlite_vec_path"
+    assert "extension loading unsupported" in payload["detail"]
 
 
 def test_recall_marks_runtime_misconfigured_when_sqlite_vec_missing(

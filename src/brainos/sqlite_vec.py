@@ -23,10 +23,10 @@ def load_sqlite_vec_extension(conn: sqlite3.Connection, path: str | None = None)
             error_kind="path_not_configured",
             detail=f"Set {ENV_SQLITE_VEC_PATH} to a loadable vec0 extension path.",
         )
-    conn.enable_load_extension(True)
     try:
+        conn.enable_load_extension(True)
         conn.load_extension(extension_path)
-    except sqlite3.OperationalError as exc:
+    except sqlite3.Error as exc:
         raise SqliteVecReadinessError(
             f"sqlite-vec extension failed to load: {exc}",
             error_kind="extension_load_failed",
