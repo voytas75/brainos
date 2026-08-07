@@ -103,7 +103,9 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
             "procedure_steps": [{"step": "init-db"}, {"step": "load-state"}],
         },
     )
-    store.add_episode(session_id="s2", content="Different memory fragment", metadata={"kind": "other"})
+    store.add_episode(
+        session_id="s2", content="Different memory fragment", metadata={"kind": "other"}
+    )
 
     listed = store.list_episodes(session_id="s1", limit=10)
     assert len(listed) == 2
@@ -114,7 +116,12 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     assert len(results) == 1
     assert results[0]["metadata"]["kind"] == "graph"
 
-    store.upsert_semantic_node(node_id="semantic-1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
+    store.upsert_semantic_node(
+        node_id="semantic-1",
+        name="Semantic Memory",
+        node_type="Concept",
+        properties={"area": "memory"},
+    )
 
     recall = store.recall("semantic", session_id="s1", limit=5)
     expected_episode_vector_mode = {
@@ -122,7 +129,10 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
         "misconfigured": "misconfigured",
         "runtime_failed": "runtime_failed",
     }[recall["retrieval_runtime"]["status"]]
-    assert recall["mode"] == f"fts_plus_{expected_episode_vector_mode}_plus_semantic_name_match_plus_decision_text"
+    assert (
+        recall["mode"]
+        == f"fts_plus_{expected_episode_vector_mode}_plus_semantic_name_match_plus_decision_text"
+    )
     assert len(recall["episodes"]) == 1
     assert len(recall["semantic_hits"]) == 1
     assert len(recall["vector_episodes"]) == 0
@@ -135,13 +145,19 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     assert recall["ranked_semantic_count"] == 1
     assert recall["ranked_semantic_hits"][0]["id"] == "semantic-1"
     assert recall["ranked_semantic_hits"][0]["match_sources"] == ["name_match"]
-    assert recall["summary"] == "episodes:1, vector_episodes:0, semantic:1, vector_semantic:0, decisions:0"
+    assert (
+        recall["summary"]
+        == "episodes:1, vector_episodes:0, semantic:1, vector_semantic:0, decisions:0"
+    )
     assert recall["decision_count"] == 0
 
     semantic_preview = store.preview_consolidation(semantic_episode_id)
     assert semantic_preview["promotion_type"] == "semantic"
     assert semantic_preview["candidate"]["target_layer"] == "semantic"
-    assert semantic_preview["candidate"]["semantic_node"]["properties"]["topic"] == "memory"
+    assert (
+        semantic_preview["candidate"]["semantic_node"]["properties"]["topic"]
+        == "memory"
+    )
 
     semantic_promote = store.promote_episode(semantic_episode_id)
     assert semantic_promote["ok"] is True
@@ -173,11 +189,14 @@ def test_episode_listing_search_recall_and_consolidation(tmp_path):
     procedure_promotion_record = store.get_episode_promotion(procedure_episode_id)
     assert procedure_promotion_record is not None
     assert procedure_promotion_record["target_layer"] == "procedural"
-    assert procedure_promotion_record["ledger_event_id"] == procedure_promote["ledger_event_id"]
+    assert (
+        procedure_promotion_record["ledger_event_id"]
+        == procedure_promote["ledger_event_id"]
+    )
 
     try:
         store.promote_episode(procedure_episode_id)
-        assert False, "expected PromotionError"
+        raise AssertionError("expected PromotionError")
     except PromotionError:
         pass
     store.close()
@@ -206,7 +225,9 @@ def test_promotion_rolls_back_target_and_ledger_when_record_insert_fails(tmp_pat
             "semantic_type": "Fact",
         },
     )
-    semantic_node_id = store.preview_consolidation(semantic_episode_id)["candidate"]["semantic_node"]["id"]
+    semantic_node_id = store.preview_consolidation(semantic_episode_id)["candidate"][
+        "semantic_node"
+    ]["id"]
     store.conn.execute(
         """
         CREATE TRIGGER reject_episode_promotion
@@ -220,7 +241,7 @@ def test_promotion_rolls_back_target_and_ledger_when_record_insert_fails(tmp_pat
     for episode_id in (procedure_episode_id, semantic_episode_id):
         try:
             store.promote_episode(episode_id)
-            assert False, "expected forced promotion record failure"
+            raise AssertionError("expected forced promotion record failure")
         except sqlite3.IntegrityError:
             pass
 
@@ -240,14 +261,15 @@ def _mock_runtime_ok(monkeypatch):
     )
 
 
-
 def test_recall_returns_vector_episodes_when_vec_path_available(monkeypatch, tmp_path):
     _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
 
-    episode_id = store.add_episode(session_id="s1", content="Azure embedding smoke test for BrainOS.", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1", content="Azure embedding smoke test for BrainOS.", metadata={}
+    )
 
     monkeypatch.setattr(
         store,
@@ -298,7 +320,9 @@ def test_recall_unifies_fts_and_vector_hits_for_same_episode(monkeypatch, tmp_pa
     store = BrainOSStore(db)
     store.initialize()
 
-    episode_id = store.add_episode(session_id="s1", content="semantic embedding overlap", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1", content="semantic embedding overlap", metadata={}
+    )
 
     monkeypatch.setattr(
         store,
@@ -350,7 +374,12 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
     store = BrainOSStore(db)
     store.initialize()
 
-    store.upsert_semantic_node(node_id="n1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
+    store.upsert_semantic_node(
+        node_id="n1",
+        name="Semantic Memory",
+        node_type="Concept",
+        properties={"area": "memory"},
+    )
 
     monkeypatch.setattr(
         store,
@@ -370,7 +399,11 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
             "returned_count": 1,
         },
     )
-    monkeypatch.setattr(store, "vector_search_episodes", lambda query_vector, session_id=None, limit=10: [])
+    monkeypatch.setattr(
+        store,
+        "vector_search_episodes",
+        lambda query_vector, session_id=None, limit=10: [],
+    )
     monkeypatch.setattr(
         store,
         "vector_search_semantic_nodes",
@@ -391,7 +424,10 @@ def test_recall_unifies_semantic_name_and_vector_hits(monkeypatch, tmp_path):
     assert len(recall["vector_semantic_hits"]) == 1
     assert recall["ranked_semantic_count"] == 1
     assert recall["ranked_semantic_hits"][0]["id"] == "n1"
-    assert recall["ranked_semantic_hits"][0]["match_sources"] == ["name_match", "vector"]
+    assert recall["ranked_semantic_hits"][0]["match_sources"] == [
+        "name_match",
+        "vector",
+    ]
     assert recall["ranked_semantic_hits"][0]["vector_distance"] == 0.0
     assert recall["ranked_semantic_hits"][0]["lexical_overlap"] >= 1
     store.close()
@@ -435,7 +471,9 @@ def test_recall_filters_weak_vector_only_hits(monkeypatch, tmp_path):
             }
         ],
     )
-    monkeypatch.setattr(store, "vector_search_semantic_nodes", lambda query_vector, limit=10: [])
+    monkeypatch.setattr(
+        store, "vector_search_semantic_nodes", lambda query_vector, limit=10: []
+    )
 
     recall = store.recall("unrelated", session_id="s1", limit=5)
     assert len(recall["vector_episodes"]) == 1
@@ -469,7 +507,7 @@ def test_validation_errors_for_promotion_metadata(tmp_path):
     for episode_id in [bad_semantic, bad_procedure, bad_type]:
         try:
             store.preview_consolidation(episode_id)
-            assert False, "expected ValidationError"
+            raise AssertionError("expected ValidationError")
         except ValidationError:
             pass
     store.close()
@@ -489,7 +527,10 @@ def test_ledger_verification_detects_tampering(tmp_path):
     verification = store.verify_ledger()
     assert verification["ok"] is False
     assert verification["entry_count"] == 2
-    assert any(problem["kind"] == "crypto_hash_mismatch" for problem in verification["problems"])
+    assert any(
+        problem["kind"] == "crypto_hash_mismatch"
+        for problem in verification["problems"]
+    )
     store.close()
 
 
@@ -498,9 +539,15 @@ def test_semantic_queries_and_procedures(tmp_path):
     store = BrainOSStore(db)
     store.initialize()
 
-    store.upsert_semantic_node(node_id="n1", name="SQLite", node_type="Concept", properties={"kind": "db"})
-    store.upsert_semantic_node(node_id="n2", name="BrainOS", node_type="Entity", properties={"kind": "system"})
-    store.upsert_semantic_node(node_id="n3", name="WAL", node_type="Concept", properties={"kind": "mode"})
+    store.upsert_semantic_node(
+        node_id="n1", name="SQLite", node_type="Concept", properties={"kind": "db"}
+    )
+    store.upsert_semantic_node(
+        node_id="n2", name="BrainOS", node_type="Entity", properties={"kind": "system"}
+    )
+    store.upsert_semantic_node(
+        node_id="n3", name="WAL", node_type="Concept", properties={"kind": "mode"}
+    )
     store.upsert_semantic_edge(source_id="n2", target_id="n1", predicate="USES")
     store.upsert_semantic_edge(source_id="n1", target_id="n3", predicate="SUPPORTS")
 
@@ -539,11 +586,16 @@ def test_semantic_queries_and_procedures(tmp_path):
     assert updated_node["properties"]["tier"] == "core"
     store.close()
 
+
 def test_search_episodes_text_handles_hyphenated_tokens(tmp_path):
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
     store.initialize()
-    episode_id = store.add_episode(session_id="s1", content="explicit sqlite-vec runtime loading works", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1",
+        content="explicit sqlite-vec runtime loading works",
+        metadata={},
+    )
     results = store.search_episodes_text("sqlite-vec", session_id="s1", limit=5)
     assert len(results) == 1
     assert results[0]["id"] == episode_id
@@ -559,7 +611,9 @@ def test_search_episodes_text_handles_question_punctuation(tmp_path):
         content="BrainOS testing posture should prefer bounded usage validation before deeper consistency work.",
         metadata={},
     )
-    results = store.search_episodes_text("What is the BrainOS testing posture?", session_id="s1", limit=5)
+    results = store.search_episodes_text(
+        "What is the BrainOS testing posture?", session_id="s1", limit=5
+    )
     assert len(results) == 1
     assert results[0]["id"] == episode_id
     store.close()

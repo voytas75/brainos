@@ -42,7 +42,9 @@ def doctor_summary(store: BrainOSStore, *, benchmark_limit: int = 5) -> dict[str
     checks = {
         "retrieval_health": health["status"] == "ok",
         "embedding_runtime": embedding["status"] == "ok",
-        "sqlite_vec_capability": health["runtime"]["capabilities"].get("sqlite_vec", False),
+        "sqlite_vec_capability": health["runtime"]["capabilities"].get(
+            "sqlite_vec", False
+        ),
         "sqlite_wal": health["runtime"]["database_runtime"]["status"] == "ok",
         "dependencies": health["runtime"]["dependencies"]["status"] == "ok",
     }

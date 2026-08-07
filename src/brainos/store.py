@@ -5,26 +5,34 @@ import json
 import re
 import sqlite3
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, cast
 
 from .decision_checks import decision_conflict_check
 from .decisions import validate_decision_payload
 from .embedding import DEFAULT_EMBEDDING_PROFILE, LiteLLMEmbeddingAdapter
 from .errors import (
     BrainOSError,
-    EmbeddingProviderNotConfiguredError,
     NotFoundError,
     PromotionError,
     ValidationError,
     VectorIndexContractError,
 )
-from .ledger import canonical_json, compute_event_hash
+from .errors import (
+    EmbeddingProviderNotConfiguredError as EmbeddingProviderNotConfiguredError,
+)
 from .ingest import prepare_episode_ingest
+from .ledger import canonical_json, compute_event_hash
 from .retrieval import RetrievalService
-from .schema import detect_capabilities, get_schema_status, get_vec_table_sql, initialize_schema
+from .schema import (
+    detect_capabilities,
+    get_schema_status,
+    get_vec_table_sql,
+    initialize_schema,
+)
 from .sqlite_vec import load_sqlite_vec_extension, sqlite_vec_readiness
 
 DECISION_RETRIEVAL_STOPWORDS = frozenset(
@@ -74,11 +82,37 @@ DECISION_QUERY_ALIASES: dict[str, tuple[str, ...]] = {
     "recovery": ("recovered", "restored"),
     "trust": ("current", "continue"),
 }
-DECISION_EARLIER_STEP_QUERY_CUES = frozenset({"first", "initial", "earliest", "original", "before"})
-DECISION_CURRENT_DIRECTION_QUERY_CUES = frozenset({"current", "now", "keep", "direction", "restored", "recovered", "passed", "successful"})
+DECISION_EARLIER_STEP_QUERY_CUES = frozenset(
+    {"first", "initial", "earliest", "original", "before"}
+)
+DECISION_CURRENT_DIRECTION_QUERY_CUES = frozenset(
+    {
+        "current",
+        "now",
+        "keep",
+        "direction",
+        "restored",
+        "recovered",
+        "passed",
+        "successful",
+    }
+)
 DECISION_NEXT_STEP_QUERY_CUES = frozenset({"next", "after", "followup", "following"})
-DECISION_CURRENT_DIRECTION_DECISION_CUES = frozenset({"continue", "current", "active", "ongoing", "observation", "successful", "restored", "recovered"})
-DECISION_NEXT_STEP_DECISION_CUES = frozenset({"next", "after", "followup", "following", "rerun"})
+DECISION_CURRENT_DIRECTION_DECISION_CUES = frozenset(
+    {
+        "continue",
+        "current",
+        "active",
+        "ongoing",
+        "observation",
+        "successful",
+        "restored",
+        "recovered",
+    }
+)
+DECISION_NEXT_STEP_DECISION_CUES = frozenset(
+    {"next", "after", "followup", "following", "rerun"}
+)
 
 
 class BrainOSStore:
@@ -109,7 +143,7 @@ class BrainOSStore:
         return detect_capabilities(self.conn)
 
     @contextmanager
-    def transaction(self) -> Iterator[sqlite3.Connection]:
+    def transaction(self) -> Generator[sqlite3.Connection, None, None]:
         is_outermost = self._transaction_depth == 0
         self._transaction_depth += 1
         try:
@@ -127,7 +161,9 @@ class BrainOSStore:
         self.conn.close()
 
     @staticmethod
-    def _decode_json_field(row: dict[str, Any], field: str) -> dict[str, Any] | list[Any] | None:
+    def _decode_json_field(
+        row: dict[str, Any], field: str
+    ) -> dict[str, Any] | list[Any] | None:
         value = row.get(field)
         if value is None:
             return None
@@ -137,13 +173,16 @@ class BrainOSStore:
     def _ensure_dict(value: Any, *, field_name: str) -> dict[str, Any]:
         if not isinstance(value, dict):
             raise ValidationError(f"{field_name} must be a JSON object")
-        return value
+        return cast(dict[str, Any], value)
 
     @staticmethod
     def _ensure_list_of_dicts(value: Any, *, field_name: str) -> list[dict[str, Any]]:
-        if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+        if not isinstance(value, list):
             raise ValidationError(f"{field_name} must be a JSON array of objects")
-        return value
+        items = cast(list[object], value)
+        if any(not isinstance(item, dict) for item in items):
+            raise ValidationError(f"{field_name} must be a JSON array of objects")
+        return [cast(dict[str, Any], item) for item in items]
 
     @staticmethod
     def _text_hash(text: str) -> str:
@@ -155,7 +194,7 @@ class BrainOSStore:
 
     @staticmethod
     def _now_iso() -> str:
-        return datetime.now(UTC).replace(microsecond=0).isoformat()
+        return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
     def _last_ledger_hash(self) -> str | None:
         row = self.conn.execute(
@@ -187,7 +226,15 @@ class BrainOSStore:
             INSERT INTO ledger(event_id, layer, action, payload, causal_event_id, previous_hash, crypto_hash)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (event_id, layer, action, payload_json, causal_event_id, previous_hash, crypto_hash),
+            (
+                event_id,
+                layer,
+                action,
+                payload_json,
+                causal_event_id,
+                previous_hash,
+                crypto_hash,
+            ),
         )
         return event_id
 
@@ -195,7 +242,7 @@ class BrainOSStore:
         return episode["content"]
 
     def _canonical_semantic_node_embedding_text(self, node: dict[str, Any]) -> str:
-        properties = node.get("properties") or {}
+        properties = cast(dict[str, Any], node.get("properties") or {})
         properties_json = json.dumps(properties, ensure_ascii=False, sort_keys=True)
         return f"{node['name']}\nType: {node['type']}\nProperties: {properties_json}"
 
@@ -251,7 +298,9 @@ class BrainOSStore:
             ),
         )
 
-    def get_vector_index_state(self, object_type: str, object_id: str) -> dict[str, Any] | None:
+    def get_vector_index_state(
+        self, object_type: str, object_id: str
+    ) -> dict[str, Any] | None:
         row = self.conn.execute(
             """
             SELECT object_type, object_id, source_text_hash, source_text_preview,
@@ -265,9 +314,13 @@ class BrainOSStore:
         return None if row is None else dict(row)
 
     def list_vector_index_states(
-        self, *, object_type: str | None = None, vector_status: str | None = None, limit: int = 100
+        self,
+        *,
+        object_type: str | None = None,
+        vector_status: str | None = None,
+        limit: int = 100,
     ) -> list[dict[str, Any]]:
-        conditions = []
+        conditions: list[str] = []
         params: list[Any] = []
         if object_type is not None:
             conditions.append("object_type = ?")
@@ -301,8 +354,10 @@ class BrainOSStore:
         embedding = self.embed_texts([query], profile=self.DEFAULT_EMBEDDING_PROFILE)
         return embedding["vectors"][0]
 
-    def semantic_name_hits(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]:
-        semantic_hits = []
+    def semantic_name_hits(
+        self, query: str, *, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        semantic_hits: list[dict[str, Any]] = []
         query_lower = query.lower()
         node_rows = self.conn.execute(
             "SELECT id, name, type, properties FROM semantic_nodes ORDER BY name"
@@ -324,7 +379,7 @@ class BrainOSStore:
             parts.append(str(decision["question"]))
         if decision.get("recommended_option_id"):
             parts.append(f"recommended option {decision['recommended_option_id']}")
-        for option in decision.get("options", []):
+        for option in cast(list[dict[str, Any]], decision.get("options", [])):
             if option.get("option_id"):
                 parts.append(f"option {option['option_id']}")
             if option.get("label"):
@@ -338,15 +393,16 @@ class BrainOSStore:
             "missing_information",
             "uncertainty_notes",
         ):
-            for item in decision.get(field, []):
+            for item in cast(list[object], decision.get(field, [])):
                 if isinstance(item, dict):
+                    detail = cast(dict[str, Any], item)
                     for key in ("text", "kind", "option_id"):
-                        value = item.get(key)
+                        value = detail.get(key)
                         if isinstance(value, str) and value.strip():
                             parts.append(value.strip())
                 elif isinstance(item, str) and item.strip():
                     parts.append(item.strip())
-        metadata = decision.get("metadata") or {}
+        metadata = cast(dict[str, Any], decision.get("metadata") or {})
         for key in ("entity_id", "source_case"):
             value = metadata.get(key)
             if isinstance(value, str) and value.strip():
@@ -356,7 +412,9 @@ class BrainOSStore:
     @staticmethod
     def _decision_retrieval_tokens(text: str) -> set[str]:
         return {
-            token for token in RetrievalService.tokenize_for_overlap(text) if token not in DECISION_RETRIEVAL_STOPWORDS
+            token
+            for token in RetrievalService.tokenize_for_overlap(text)
+            if token not in DECISION_RETRIEVAL_STOPWORDS
         }
 
     @staticmethod
@@ -377,7 +435,9 @@ class BrainOSStore:
             return "next_step"
         return "default"
 
-    def search_decisions_text(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]:
+    def search_decisions_text(
+        self, query: str, *, limit: int = 10
+    ) -> list[dict[str, Any]]:
         query_tokens, expanded_query_tokens = self._decision_query_tokens(query)
         query_intent = self._decision_query_intent(query_tokens)
         query_lower = query.lower()
@@ -405,22 +465,29 @@ class BrainOSStore:
             if item.get("question") and query_lower in question_lower:
                 score += 2.0
             if query_intent == "current_direction":
-                current_overlap = len(DECISION_CURRENT_DIRECTION_DECISION_CUES & projection_tokens)
+                current_overlap = len(
+                    DECISION_CURRENT_DIRECTION_DECISION_CUES & projection_tokens
+                )
                 if current_overlap > 0:
                     score += min(float(current_overlap), 3.0) * 1.75
                 if item.get("status") == "active":
                     score += 2.0
-                if any(phrase in question_lower for phrase in (
-                    "current direction",
-                    "obecny kierunek",
-                    "keep doing",
-                    "kontynuować",
-                    "continue bounded",
-                    "current brainos direction",
-                )):
+                if any(
+                    phrase in question_lower
+                    for phrase in (
+                        "current direction",
+                        "obecny kierunek",
+                        "keep doing",
+                        "kontynuować",
+                        "continue bounded",
+                        "current brainos direction",
+                    )
+                ):
                     score += 3.0
                 if "rerun" in expanded_query_tokens and (
-                    "continue" in projection_tokens or "observation" in projection_tokens or "ongoing" in projection_tokens
+                    "continue" in projection_tokens
+                    or "observation" in projection_tokens
+                    or "ongoing" in projection_tokens
                 ):
                     score += 2.0
                 if {"keep", "doing"} & query_tokens and (
@@ -428,14 +495,25 @@ class BrainOSStore:
                 ):
                     score += 2.0
                 if {"trust", "restored", "recovered"} & expanded_query_tokens and (
-                    "current" in projection_tokens or "continue" in projection_tokens or "active" in projection_tokens
+                    "current" in projection_tokens
+                    or "continue" in projection_tokens
+                    or "active" in projection_tokens
                 ):
                     score += 2.0
             elif query_intent == "next_step":
                 next_overlap = len(DECISION_NEXT_STEP_DECISION_CUES & projection_tokens)
                 if next_overlap > 0:
                     score += min(float(next_overlap), 2.0) * 1.5
-                if any(phrase in question_lower for phrase in ("next step", "następny krok", "po domknięciu", "after the", "follow-up")):
+                if any(
+                    phrase in question_lower
+                    for phrase in (
+                        "next step",
+                        "następny krok",
+                        "po domknięciu",
+                        "after the",
+                        "follow-up",
+                    )
+                ):
                     score += 1.5
             if score <= 0:
                 continue
@@ -444,7 +522,9 @@ class BrainOSStore:
             enriched["match_terms"] = sorted(token_overlap)
             enriched["retrieval_projection"] = projection
             ranked.append((score, enriched))
-        ranked.sort(key=lambda pair: (pair[0], pair[1].get("updated_at", "")), reverse=True)
+        ranked.sort(
+            key=lambda pair: (pair[0], pair[1].get("updated_at", "")), reverse=True
+        )
         return [item for _, item in ranked[:limit]]
 
     def sqlite_vec_readiness(self) -> dict[str, Any]:
@@ -488,7 +568,9 @@ class BrainOSStore:
         ).fetchone()
         return row is not None
 
-    def _upsert_episode_vector(self, episode_id: str, vector: list[float], dimensions: int) -> None:
+    def _upsert_episode_vector(
+        self, episode_id: str, vector: list[float], dimensions: int
+    ) -> None:
         self._ensure_episode_vec_table(dimensions)
         vector_json = json.dumps(vector, ensure_ascii=False)
         self.conn.execute("DELETE FROM episodes_vec WHERE id = ?", (episode_id,))
@@ -497,7 +579,9 @@ class BrainOSStore:
             (episode_id, vector_json),
         )
 
-    def _upsert_semantic_node_vector(self, node_id: str, vector: list[float], dimensions: int) -> None:
+    def _upsert_semantic_node_vector(
+        self, node_id: str, vector: list[float], dimensions: int
+    ) -> None:
         self._ensure_semantic_node_vec_table(dimensions)
         vector_json = json.dumps(vector, ensure_ascii=False)
         self.conn.execute("DELETE FROM semantic_nodes_vec WHERE id = ?", (node_id,))
@@ -507,7 +591,11 @@ class BrainOSStore:
         )
 
     def vector_search_episodes(
-        self, query_vector: list[float], *, session_id: str | None = None, limit: int = 10
+        self,
+        query_vector: list[float],
+        *,
+        session_id: str | None = None,
+        limit: int = 10,
     ) -> list[dict[str, Any]]:
         if not self._vec_table_exists("episodes_vec"):
             return []
@@ -535,7 +623,7 @@ class BrainOSStore:
                 """,
                 (vector_json, limit),
             ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
@@ -549,11 +637,19 @@ class BrainOSStore:
         return result
 
     def _vector_search_episodes(
-        self, query_vector: list[float], *, session_id: str | None = None, limit: int = 10
+        self,
+        query_vector: list[float],
+        *,
+        session_id: str | None = None,
+        limit: int = 10,
     ) -> list[dict[str, Any]]:
-        return self.vector_search_episodes(query_vector, session_id=session_id, limit=limit)
+        return self.vector_search_episodes(
+            query_vector, session_id=session_id, limit=limit
+        )
 
-    def vector_search_semantic_nodes(self, query_vector: list[float], *, limit: int = 10) -> list[dict[str, Any]]:
+    def vector_search_semantic_nodes(
+        self, query_vector: list[float], *, limit: int = 10
+    ) -> list[dict[str, Any]]:
         if not self._vec_table_exists("semantic_nodes_vec"):
             return []
         load_sqlite_vec_extension(self.conn)
@@ -568,7 +664,7 @@ class BrainOSStore:
             """,
             (vector_json, limit),
         ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["properties"] = self._decode_json_field(item, "properties") or {}
@@ -579,11 +675,15 @@ class BrainOSStore:
             result.append(item)
         return result
 
-    def _vector_search_semantic_nodes(self, query_vector: list[float], *, limit: int = 10) -> list[dict[str, Any]]:
+    def _vector_search_semantic_nodes(
+        self, query_vector: list[float], *, limit: int = 10
+    ) -> list[dict[str, Any]]:
         return self.vector_search_semantic_nodes(query_vector, limit=limit)
 
     def get_embedding_profile_contract(self) -> dict[str, Any]:
-        contract = LiteLLMEmbeddingAdapter(profile=self.DEFAULT_EMBEDDING_PROFILE).contract()
+        contract = LiteLLMEmbeddingAdapter(
+            profile=self.DEFAULT_EMBEDDING_PROFILE
+        ).contract()
         contract["text_object_families"] = ["episode", "semantic_node"]
         contract["vector_storage"] = {
             "kind": "sqlite-vec",
@@ -592,11 +692,17 @@ class BrainOSStore:
         }
         return contract
 
-    def embed_texts(self, texts: list[str], profile: str | None = None) -> dict[str, Any]:
-        adapter = LiteLLMEmbeddingAdapter(profile=profile or self.DEFAULT_EMBEDDING_PROFILE)
+    def embed_texts(
+        self, texts: list[str], profile: str | None = None
+    ) -> dict[str, Any]:
+        adapter = LiteLLMEmbeddingAdapter(
+            profile=profile or self.DEFAULT_EMBEDDING_PROFILE
+        )
         return adapter.embed_texts(texts)
 
-    def mark_episode_vector_missing(self, episode_id: str, *, embedding_profile: str | None = None) -> None:
+    def mark_episode_vector_missing(
+        self, episode_id: str, *, embedding_profile: str | None = None
+    ) -> None:
         episode = self.get_episode(episode_id)
         if episode is None:
             raise NotFoundError(f"episode not found: {episode_id}")
@@ -608,7 +714,9 @@ class BrainOSStore:
             vector_status=self.VECTOR_STATUS_MISSING,
         )
 
-    def mark_semantic_node_vector_missing(self, node_id: str, *, embedding_profile: str | None = None) -> None:
+    def mark_semantic_node_vector_missing(
+        self, node_id: str, *, embedding_profile: str | None = None
+    ) -> None:
         node = self.get_semantic_node(node_id)
         if node is None:
             raise NotFoundError(f"semantic node not found: {node_id}")
@@ -620,7 +728,9 @@ class BrainOSStore:
             vector_status=self.VECTOR_STATUS_MISSING,
         )
 
-    def refresh_vector_freshness_for_episode(self, episode_id: str, *, embedding_profile: str | None = None) -> dict[str, Any]:
+    def refresh_vector_freshness_for_episode(
+        self, episode_id: str, *, embedding_profile: str | None = None
+    ) -> dict[str, Any]:
         episode = self.get_episode(episode_id)
         if episode is None:
             raise NotFoundError(f"episode not found: {episode_id}")
@@ -635,7 +745,10 @@ class BrainOSStore:
                 embedding_profile=profile,
                 vector_status=self.VECTOR_STATUS_MISSING,
             )
-        elif state["source_text_hash"] != self._text_hash(source_text) or state["embedding_profile"] != profile:
+        elif (
+            state["source_text_hash"] != self._text_hash(source_text)
+            or state["embedding_profile"] != profile
+        ):
             self._set_vector_index_state(
                 object_type="episode",
                 object_id=episode_id,
@@ -668,7 +781,10 @@ class BrainOSStore:
                 embedding_profile=profile,
                 vector_status=self.VECTOR_STATUS_MISSING,
             )
-        elif state["source_text_hash"] != self._text_hash(source_text) or state["embedding_profile"] != profile:
+        elif (
+            state["source_text_hash"] != self._text_hash(source_text)
+            or state["embedding_profile"] != profile
+        ):
             self._set_vector_index_state(
                 object_type="semantic_node",
                 object_id=node_id,
@@ -684,7 +800,9 @@ class BrainOSStore:
             )
         return self.get_vector_index_state("semantic_node", node_id) or {}
 
-    def generate_episode_embedding(self, episode_id: str, *, embedding_profile: str | None = None) -> dict[str, Any]:
+    def generate_episode_embedding(
+        self, episode_id: str, *, embedding_profile: str | None = None
+    ) -> dict[str, Any]:
         episode = self.get_episode(episode_id)
         if episode is None:
             raise NotFoundError(f"episode not found: {episode_id}")
@@ -721,7 +839,9 @@ class BrainOSStore:
                         "storage_reason": capabilities.get("sqlite_vec_error"),
                     }
 
-                self._upsert_episode_vector(episode_id, result["vectors"][0], result["dimensions"])
+                self._upsert_episode_vector(
+                    episode_id, result["vectors"][0], result["dimensions"]
+                )
                 self._set_vector_index_state(
                     object_type="episode",
                     object_id=episode_id,
@@ -759,7 +879,9 @@ class BrainOSStore:
                 )
             raise
 
-    def generate_semantic_node_embedding(self, node_id: str, *, embedding_profile: str | None = None) -> dict[str, Any]:
+    def generate_semantic_node_embedding(
+        self, node_id: str, *, embedding_profile: str | None = None
+    ) -> dict[str, Any]:
         node = self.get_semantic_node(node_id)
         if node is None:
             raise NotFoundError(f"semantic node not found: {node_id}")
@@ -796,7 +918,9 @@ class BrainOSStore:
                         "storage_reason": capabilities.get("sqlite_vec_error"),
                     }
 
-                self._upsert_semantic_node_vector(node_id, result["vectors"][0], result["dimensions"])
+                self._upsert_semantic_node_vector(
+                    node_id, result["vectors"][0], result["dimensions"]
+                )
                 self._set_vector_index_state(
                     object_type="semantic_node",
                     object_id=node_id,
@@ -843,32 +967,56 @@ class BrainOSStore:
         force: bool = False,
     ) -> dict[str, Any]:
         if object_type == "episode":
-            state = self.refresh_vector_freshness_for_episode(object_id, embedding_profile=embedding_profile)
+            state = self.refresh_vector_freshness_for_episode(
+                object_id, embedding_profile=embedding_profile
+            )
             if force or state.get("vector_status") in {
                 self.VECTOR_STATUS_MISSING,
                 self.VECTOR_STATUS_STALE,
                 self.VECTOR_STATUS_ERROR,
                 self.VECTOR_STATUS_DISABLED,
             }:
-                result = self.generate_episode_embedding(object_id, embedding_profile=embedding_profile)
-                if isinstance(result, dict) and "action_hint" not in result:
+                result = self.generate_episode_embedding(
+                    object_id, embedding_profile=embedding_profile
+                )
+                if "action_hint" not in result:
                     result["action_hint"] = "reindex"
                 return result
-            return {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": state.get("vector_status"), "mode": "noop", "action_hint": "noop", "reason": "already_fresh"}
+            return {
+                "ok": True,
+                "object_type": object_type,
+                "object_id": object_id,
+                "vector_status": state.get("vector_status"),
+                "mode": "noop",
+                "action_hint": "noop",
+                "reason": "already_fresh",
+            }
 
         if object_type == "semantic_node":
-            state = self.refresh_vector_freshness_for_semantic_node(object_id, embedding_profile=embedding_profile)
+            state = self.refresh_vector_freshness_for_semantic_node(
+                object_id, embedding_profile=embedding_profile
+            )
             if force or state.get("vector_status") in {
                 self.VECTOR_STATUS_MISSING,
                 self.VECTOR_STATUS_STALE,
                 self.VECTOR_STATUS_ERROR,
                 self.VECTOR_STATUS_DISABLED,
             }:
-                result = self.generate_semantic_node_embedding(object_id, embedding_profile=embedding_profile)
-                if isinstance(result, dict) and "action_hint" not in result:
+                result = self.generate_semantic_node_embedding(
+                    object_id, embedding_profile=embedding_profile
+                )
+                if "action_hint" not in result:
                     result["action_hint"] = "reindex"
                 return result
-            return {"ok": True, "object_type": object_type, "object_id": object_id, "vector_status": state.get("vector_status"), "mode": "noop", "action_hint": "noop", "reason": "already_fresh"}
+            return {
+                "ok": True,
+                "object_type": object_type,
+                "object_id": object_id,
+                "vector_status": state.get("vector_status"),
+                "mode": "noop",
+                "action_hint": "noop",
+                "reason": "already_fresh",
+            }
 
         raise ValidationError("object_type must be one of: episode, semantic_node")
 
@@ -881,9 +1029,11 @@ class BrainOSStore:
         embedding_profile: str | None = None,
         force: bool = False,
     ) -> dict[str, Any]:
-        states = self.list_vector_index_states(object_type=object_type, vector_status=vector_status, limit=limit)
-        results = []
-        errors = []
+        states = self.list_vector_index_states(
+            object_type=object_type, vector_status=vector_status, limit=limit
+        )
+        results: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
         seen: set[tuple[str, str]] = set()
         for state in states:
             key = (state["object_type"], state["object_id"])
@@ -1046,7 +1196,9 @@ class BrainOSStore:
         ).fetchone()
         return None if row is None else self._decode_decision_row(row)
 
-    def list_decisions(self, *, limit: int = 50, status: str | None = None) -> list[dict[str, Any]]:
+    def list_decisions(
+        self, *, limit: int = 50, status: str | None = None
+    ) -> list[dict[str, Any]]:
         if status is not None:
             rows = self.conn.execute(
                 """
@@ -1074,7 +1226,7 @@ class BrainOSStore:
                 """,
                 (limit,),
             ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = self._decode_decision_row(row)
             result.append(
@@ -1093,7 +1245,9 @@ class BrainOSStore:
             )
         return result
 
-    def set_working_memory(self, key: str, value: dict[str, Any], *, causal_event_id: str | None = None) -> str:
+    def set_working_memory(
+        self, key: str, value: dict[str, Any], *, causal_event_id: str | None = None
+    ) -> str:
         payload_json = json.dumps(value, ensure_ascii=False)
         with self.transaction():
             self.conn.execute(
@@ -1182,7 +1336,9 @@ class BrainOSStore:
         ).fetchone()
         return None if row is None else dict(row)
 
-    def list_episodes(self, *, session_id: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+    def list_episodes(
+        self, *, session_id: str | None = None, limit: int = 20
+    ) -> list[dict[str, Any]]:
         if session_id:
             rows = self.conn.execute(
                 """
@@ -1204,7 +1360,7 @@ class BrainOSStore:
                 """,
                 (limit,),
             ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
@@ -1219,9 +1375,34 @@ class BrainOSStore:
 
     def _normalize_fts_query(self, query: str) -> str:
         question_fillers = {
-            "what", "is", "the", "current", "how", "do", "does", "can", "should", "could",
-            "would", "why", "when", "where", "which", "who", "whats", "please", "tell", "me",
-            "about", "we", "did", "in", "for", "now", "with", "to",
+            "what",
+            "is",
+            "the",
+            "current",
+            "how",
+            "do",
+            "does",
+            "can",
+            "should",
+            "could",
+            "would",
+            "why",
+            "when",
+            "where",
+            "which",
+            "who",
+            "whats",
+            "please",
+            "tell",
+            "me",
+            "about",
+            "we",
+            "did",
+            "in",
+            "for",
+            "now",
+            "with",
+            "to",
         }
         fts_aliases = {
             "fix": ["repair", "reindex"],
@@ -1230,38 +1411,61 @@ class BrainOSStore:
             "reindexing": ["reindex", "repair"],
         }
         cleaned_tokens: list[str] = []
-        for token in query.split():
-            token = token.strip()
+        for raw_token in query.split():
+            token = raw_token.strip()
             if not token:
                 continue
             cleaned = re.sub(r"^[^\w]+|[^\w]+$", "", token, flags=re.UNICODE)
             if not cleaned:
                 continue
             cleaned_tokens.append(cleaned)
-        filtered_tokens = [token for token in cleaned_tokens if token.lower() not in question_fillers]
+        filtered_tokens = [
+            token for token in cleaned_tokens if token.lower() not in question_fillers
+        ]
         lowered = [token.lower() for token in filtered_tokens]
         lowered_set = set(lowered)
 
         class_terms: list[str] = []
-        if "resume" in lowered_set or "leave" in lowered_set or ("restart" in lowered_set and "point" in lowered_set):
+        if (
+            "resume" in lowered_set
+            or "leave" in lowered_set
+            or ("restart" in lowered_set and "point" in lowered_set)
+        ):
             class_terms.append('"restart point"')
-        elif "front" in lowered_set or "active" in lowered_set or "direction" in lowered_set:
+        elif (
+            "front" in lowered_set
+            or "active" in lowered_set
+            or "direction" in lowered_set
+        ):
             class_terms.append('"current direction"')
-        elif "next" in lowered_set or "continue" in lowered_set or "continuation" in lowered_set or "step" in lowered_set:
+        elif (
+            "next" in lowered_set
+            or "continue" in lowered_set
+            or "continuation" in lowered_set
+            or "step" in lowered_set
+        ):
             class_terms.append('"next step"')
 
         preferred_tokens: list[str] = []
         for token in filtered_tokens or cleaned_tokens:
             lowered_token = token.lower()
-            if class_terms == ['"restart point"'] and lowered_token in {"brainos", "restart", "point", "resume", "leave"}:
-                preferred_tokens.append(token)
-            elif class_terms == ['"current direction"'] and lowered_token in {"brainos", "current", "direction", "front", "active"}:
-                preferred_tokens.append(token)
-            elif class_terms == ['"next step"'] and lowered_token in {"brainos", "next", "step", "continue", "continuation"}:
+            if (
+                class_terms == ['"restart point"']
+                and lowered_token in {"brainos", "restart", "point", "resume", "leave"}
+                or class_terms == ['"current direction"']
+                and lowered_token
+                in {"brainos", "current", "direction", "front", "active"}
+                or class_terms == ['"next step"']
+                and lowered_token
+                in {"brainos", "next", "step", "continue", "continuation"}
+            ):
                 preferred_tokens.append(token)
 
         if class_terms:
-            terms = class_terms + [f'"{token}"' if any(ch in token for ch in ('-', ':', '/')) else token for token in preferred_tokens]
+            terms = class_terms + [
+                f'"{token}"' if any(ch in token for ch in ("-", ":", "/")) else token
+                for token in preferred_tokens
+            ]
             return " OR ".join(dict.fromkeys(terms))
 
         base_tokens = filtered_tokens or cleaned_tokens
@@ -1275,7 +1479,10 @@ class BrainOSStore:
                 expanded_tokens.extend(aliases)
 
         fallback_tokens = expanded_tokens or base_tokens
-        terms = [f'"{token}"' if any(ch in token for ch in ('-', ':', '/')) else token for token in fallback_tokens]
+        terms = [
+            f'"{token}"' if any(ch in token for ch in ("-", ":", "/")) else token
+            for token in fallback_tokens
+        ]
         if not terms:
             return query
         joiner = " OR " if alias_applied else " "
@@ -1303,15 +1510,17 @@ class BrainOSStore:
         try:
             rows = self.conn.execute(sql, tuple(params)).fetchall()
         except sqlite3.OperationalError:
-            fallback_query = " ".join(part for part in re.findall(r"[\w]+", query, flags=re.UNICODE) if part)
+            fallback_query = " ".join(
+                part for part in re.findall(r"[\w]+", query, flags=re.UNICODE) if part
+            )
             if not fallback_query or fallback_query == normalized_query:
                 raise
-            fallback_params = [fallback_query]
+            fallback_params: list[Any] = [fallback_query]
             if session_id:
                 fallback_params.append(session_id)
             fallback_params.append(limit)
             rows = self.conn.execute(sql, tuple(fallback_params)).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["metadata"] = self._decode_json_field(item, "metadata") or {}
@@ -1333,8 +1542,12 @@ class BrainOSStore:
             raise ValidationError("promotion_type must be one of: semantic, procedure")
         return promotion_type
 
-    def _build_procedure_candidate(self, episode: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
-        procedure_name = metadata.get("procedure_name") or f"procedure_from_{episode['id'][:8]}"
+    def _build_procedure_candidate(
+        self, episode: dict[str, Any], metadata: dict[str, Any]
+    ) -> dict[str, Any]:
+        procedure_name = (
+            metadata.get("procedure_name") or f"procedure_from_{episode['id'][:8]}"
+        )
         raw_steps = metadata.get("procedure_steps")
         if raw_steps is None:
             steps = [{"step": episode["content"]}]
@@ -1344,12 +1557,15 @@ class BrainOSStore:
             "target_layer": "procedural",
             "procedure": {
                 "name": procedure_name,
-                "description": metadata.get("description") or f"Promoted from episode {episode['id']}",
+                "description": metadata.get("description")
+                or f"Promoted from episode {episode['id']}",
                 "steps": steps,
             },
         }
 
-    def _build_semantic_candidate(self, episode: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+    def _build_semantic_candidate(
+        self, episode: dict[str, Any], metadata: dict[str, Any]
+    ) -> dict[str, Any]:
         node_id = metadata.get("semantic_node_id") or f"sem_{episode['id'][:8]}"
         node_name = metadata.get("semantic_name") or episode["content"][:80]
         node_type = metadata.get("semantic_type") or "Fact"
@@ -1362,7 +1578,9 @@ class BrainOSStore:
         if raw_properties is None:
             extra_properties = {}
         else:
-            extra_properties = self._ensure_dict(raw_properties, field_name="semantic_properties")
+            extra_properties = self._ensure_dict(
+                raw_properties, field_name="semantic_properties"
+            )
         properties.update(extra_properties)
         return {
             "target_layer": "semantic",
@@ -1389,7 +1607,7 @@ class BrainOSStore:
                 "message": "episode has already been promoted",
             }
 
-        metadata = episode["metadata"] or {}
+        metadata = cast(dict[str, Any], episode["metadata"] or {})
         promotion_type = self._validate_promotion_metadata(metadata)
 
         if promotion_type == "procedure":
@@ -1411,17 +1629,20 @@ class BrainOSStore:
             raise PromotionError("episode has already been promoted")
 
         preview = self.preview_consolidation(episode_id)
-        candidate = preview["candidate"]
+        candidate = cast(dict[str, Any], preview["candidate"])
 
         if candidate["target_layer"] == "procedural":
-            procedure = candidate["procedure"]
+            procedure = cast(dict[str, Any], candidate["procedure"])
             with self.transaction():
-                procedure_result = self.create_procedure(
-                    name=procedure["name"],
-                    description=procedure["description"],
-                    steps=procedure["steps"],
-                    causal_event_id=episode_id,
-                    return_ledger_event_id=True,
+                procedure_result = cast(
+                    dict[str, Any],
+                    self.create_procedure(
+                        name=procedure["name"],
+                        description=procedure["description"],
+                        steps=procedure["steps"],
+                        causal_event_id=episode_id,
+                        return_ledger_event_id=True,
+                    ),
                 )
                 procedure_id = procedure_result["procedure_id"]
                 event_id = procedure_result["ledger_event_id"]
@@ -1438,7 +1659,7 @@ class BrainOSStore:
                 "mode": "promoted",
             }
 
-        semantic_node = candidate["semantic_node"]
+        semantic_node = cast(dict[str, Any], candidate["semantic_node"])
         with self.transaction():
             event_id = self.upsert_semantic_node(
                 node_id=semantic_node["id"],
@@ -1460,7 +1681,9 @@ class BrainOSStore:
             "mode": "promoted",
         }
 
-    def recall(self, query: str, *, session_id: str | None = None, limit: int = 10) -> dict[str, Any]:
+    def recall(
+        self, query: str, *, session_id: str | None = None, limit: int = 10
+    ) -> dict[str, Any]:
         return self.retrieval.recall(query, session_id=session_id, limit=limit)
 
     def upsert_semantic_node(
@@ -1488,10 +1711,20 @@ class BrainOSStore:
             event_id = self._append_ledger(
                 layer="semantic",
                 action="UPDATE",
-                payload={"id": node_id, "name": name, "type": node_type, "properties": properties},
+                payload={
+                    "id": node_id,
+                    "name": name,
+                    "type": node_type,
+                    "properties": properties,
+                },
                 causal_event_id=causal_event_id,
             )
-            node = {"id": node_id, "name": name, "type": node_type, "properties": properties}
+            node = {
+                "id": node_id,
+                "name": name,
+                "type": node_type,
+                "properties": properties,
+            }
             existing_state = self.get_vector_index_state("semantic_node", node_id)
             if existing_state is None:
                 self._set_vector_index_state(
@@ -1562,7 +1795,9 @@ class BrainOSStore:
                 causal_event_id=causal_event_id,
             )
 
-    def list_semantic_edges(self, node_id: str, *, direction: str = "both") -> list[dict[str, Any]]:
+    def list_semantic_edges(
+        self, node_id: str, *, direction: str = "both"
+    ) -> list[dict[str, Any]]:
         if direction == "out":
             rows = self.conn.execute(
                 "SELECT source_id, target_id, predicate, weight FROM semantic_edges WHERE source_id = ? ORDER BY target_id, predicate",
@@ -1602,7 +1837,12 @@ class BrainOSStore:
         with self.transaction():
             self.conn.execute(
                 "INSERT INTO procedures(id, name, description, steps_json) VALUES (?, ?, ?, ?)",
-                (procedure_id, name, description, json.dumps(steps, ensure_ascii=False)),
+                (
+                    procedure_id,
+                    name,
+                    description,
+                    json.dumps(steps, ensure_ascii=False),
+                ),
             )
             event_id = self._append_ledger(
                 layer="procedural",
@@ -1631,7 +1871,9 @@ class BrainOSStore:
         del item["steps_json"]
         return item
 
-    def list_procedures(self, *, active_only: bool = True, limit: int = 50) -> list[dict[str, Any]]:
+    def list_procedures(
+        self, *, active_only: bool = True, limit: int = 50
+    ) -> list[dict[str, Any]]:
         if active_only:
             rows = self.conn.execute(
                 "SELECT id, name, description, steps_json, is_active FROM procedures WHERE is_active = 1 ORDER BY name LIMIT ?",
@@ -1642,7 +1884,7 @@ class BrainOSStore:
                 "SELECT id, name, description, steps_json, is_active FROM procedures ORDER BY name LIMIT ?",
                 (limit,),
             ).fetchall()
-        result = []
+        result: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["steps"] = self._decode_json_field(item, "steps_json") or []
@@ -1656,12 +1898,14 @@ class BrainOSStore:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def ledger_events_for_object(self, *, layer: str, object_id_field: str, object_id: str) -> list[dict[str, Any]]:
-        events = []
+    def ledger_events_for_object(
+        self, *, layer: str, object_id_field: str, object_id: str
+    ) -> list[dict[str, Any]]:
+        events: list[dict[str, Any]] = []
         for entry in self.list_ledger():
             if entry.get("layer") != layer:
                 continue
-            payload = json.loads(entry["payload"])
+            payload = cast(dict[str, Any], json.loads(entry["payload"]))
             if payload.get(object_id_field) != object_id:
                 continue
             enriched = dict(entry)
@@ -1670,8 +1914,10 @@ class BrainOSStore:
         return events
 
     @staticmethod
-    def _decision_history_changed_fields(current: dict[str, Any], previous: dict[str, Any]) -> list[str]:
-        changed = []
+    def _decision_history_changed_fields(
+        current: dict[str, Any], previous: dict[str, Any]
+    ) -> list[str]:
+        changed: list[str] = []
         for field in (
             "question",
             "status",
@@ -1700,10 +1946,10 @@ class BrainOSStore:
             object_id_field="decision_id",
             object_id=decision_id,
         )
-        revisions = []
-        snapshots = []
+        revisions: list[dict[str, Any]] = []
+        snapshots: list[dict[str, Any]] = []
         for event in events:
-            payload = event["payload"]
+            payload = cast(dict[str, Any], event["payload"])
             snapshot = {
                 "decision_id": payload.get("decision_id"),
                 "question": payload.get("question"),
@@ -1731,7 +1977,11 @@ class BrainOSStore:
             )
 
         previous = snapshots[-2] if len(snapshots) >= 2 else None
-        changed_fields = [] if previous is None else self._decision_history_changed_fields(current, previous)
+        changed_fields = (
+            []
+            if previous is None
+            else self._decision_history_changed_fields(current, previous)
+        )
 
         return {
             "decision_id": decision_id,

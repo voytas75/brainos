@@ -4,7 +4,6 @@ from pathlib import Path
 
 from brainos.store import BrainOSStore
 
-
 DB_PATH = Path(__file__).resolve().parent / "tmp" / "working_memory_flow.db"
 
 
@@ -32,7 +31,9 @@ def main() -> None:
     print(store.get_working_memory("agent_state"))
 
     print("\nNote: BrainOS stored and returned the state values.")
-    print("It did not decide when to start or finish the task; that logic lives above BrainOS.")
+    print(
+        "It did not decide when to start or finish the task; that logic lives above BrainOS."
+    )
 
     store.close()
 

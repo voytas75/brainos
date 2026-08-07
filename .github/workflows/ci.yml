@@ -22,5 +22,8 @@ jobs:
         with:
           version: "0.8.23"
       - run: uv lock --check
-      - run: uv sync --extra dev --frozen
-      - run: uv run --extra dev --frozen pytest -q
+      - run: uv sync --extra dev --group dev --frozen
+      - run: uv run --extra dev --group dev --frozen ruff check .
+      - run: uv run --extra dev --group dev --frozen ruff format --check .
+      - run: uv run --extra dev --group dev --frozen pyright
+      - run: uv run --extra dev --group dev --frozen pytest -q

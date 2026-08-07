@@ -1,5 +1,5 @@
-from brainos.store import BrainOSStore
 from brainos.explain import explain_recall
+from brainos.store import BrainOSStore
 
 
 def seed_decision_continuity_store(store: BrainOSStore) -> None:
@@ -12,7 +12,11 @@ def seed_decision_continuity_store(store: BrainOSStore) -> None:
             {"option_id": "A", "label": "Close docs / closeout first"},
         ],
         arguments=[
-            {"option_id": "A", "kind": "support", "text": "The safe immediate move is to close the docs / closeout first."},
+            {
+                "option_id": "A",
+                "kind": "support",
+                "text": "The safe immediate move is to close the docs / closeout first.",
+            },
         ],
         counterarguments=[],
         risks=[],
@@ -29,7 +33,11 @@ def seed_decision_continuity_store(store: BrainOSStore) -> None:
             {"option_id": "A", "label": "Rerun bounded real-data usage test"},
         ],
         arguments=[
-            {"option_id": "A", "kind": "support", "text": "This is the next bounded step after the closeout."},
+            {
+                "option_id": "A",
+                "kind": "support",
+                "text": "This is the next bounded step after the closeout.",
+            },
         ],
         counterarguments=[],
         risks=[],
@@ -46,7 +54,11 @@ def seed_decision_continuity_store(store: BrainOSStore) -> None:
             {"option_id": "A", "label": "Continue bounded real usage with observation"},
         ],
         arguments=[
-            {"option_id": "A", "kind": "support", "text": "Trust has recovered enough to continue the bounded observation loop."},
+            {
+                "option_id": "A",
+                "kind": "support",
+                "text": "Trust has recovered enough to continue the bounded observation loop.",
+            },
         ],
         counterarguments=[],
         risks=[],
@@ -103,7 +115,11 @@ def test_explain_surfaces_compact_decisions(tmp_path):
             {"option_id": "B", "label": "No, UI first"},
         ],
         arguments=[
-            {"option_id": "A", "kind": "support", "text": "UI polish does not fix weak retrieval"}
+            {
+                "option_id": "A",
+                "kind": "support",
+                "text": "UI polish does not fix weak retrieval",
+            }
         ],
         counterarguments=[],
         risks=[],
@@ -131,39 +147,80 @@ def test_decision_recall_handles_naturalish_backlog_paraphrase(tmp_path):
         status="active",
         recommended_option_id="A",
         options=[
-            {"option_id": "A", "label": "Calibrate decision-check from real usage before broader feature expansion"},
-            {"option_id": "B", "label": "Jump to broader operational objects like entity and focus now"},
-            {"option_id": "C", "label": "Add autonomous decision behavior and generated briefs"},
+            {
+                "option_id": "A",
+                "label": "Calibrate decision-check from real usage before broader feature expansion",
+            },
+            {
+                "option_id": "B",
+                "label": "Jump to broader operational objects like entity and focus now",
+            },
+            {
+                "option_id": "C",
+                "label": "Add autonomous decision behavior and generated briefs",
+            },
         ],
         arguments=[
-            {"option_id": "A", "kind": "support", "text": "Post-usage backlog note explicitly prioritizes decision-check calibration first."},
-            {"option_id": "A", "kind": "support", "text": "Decision-layer review says future changes should be driven by observed operator friction, not roadmap excitement."},
+            {
+                "option_id": "A",
+                "kind": "support",
+                "text": "Post-usage backlog note explicitly prioritizes decision-check calibration first.",
+            },
+            {
+                "option_id": "A",
+                "kind": "support",
+                "text": "Decision-layer review says future changes should be driven by observed operator friction, not roadmap excitement.",
+            },
         ],
         counterarguments=[
-            {"option_id": "B", "kind": "counter", "text": "Broader operational objects are explicitly deferred until repeated operator need appears."},
-            {"option_id": "C", "kind": "counter", "text": "Autonomous decision behavior and generated briefs are explicitly deprioritized."},
+            {
+                "option_id": "B",
+                "kind": "counter",
+                "text": "Broader operational objects are explicitly deferred until repeated operator need appears.",
+            },
+            {
+                "option_id": "C",
+                "kind": "counter",
+                "text": "Autonomous decision behavior and generated briefs are explicitly deprioritized.",
+            },
         ],
         risks=[
-            {"option_id": "B", "kind": "risk", "text": "Would widen the operational layer before current decision support is validated enough."},
-            {"option_id": "C", "kind": "risk", "text": "Would overclaim the product boundary and damage trustworthiness."},
+            {
+                "option_id": "B",
+                "kind": "risk",
+                "text": "Would widen the operational layer before current decision support is validated enough.",
+            },
+            {
+                "option_id": "C",
+                "kind": "risk",
+                "text": "Would overclaim the product boundary and damage trustworthiness.",
+            },
         ],
         missing_information=[
-            {"text": "Need more real usage to decide whether decision-history readability or decision-check calibration should dominate next."},
+            {
+                "text": "Need more real usage to decide whether decision-history readability or decision-check calibration should dominate next."
+            },
         ],
         uncertainty_notes=[
-            {"text": "Decision-check calibration is clearly first, but the ordering of the next two follow-ups may still depend on real usage friction."},
+            {
+                "text": "Decision-check calibration is clearly first, but the ordering of the next two follow-ups may still depend on real usage friction."
+            },
         ],
         metadata={"entity_id": "brainos", "source_case": "post-usage-backlog-note"},
     )
 
-    recall = store.recall("What should return to the BrainOS queue after usage?", limit=5)
+    recall = store.recall(
+        "What should return to the BrainOS queue after usage?", limit=5
+    )
     assert recall["decision_count"] == 1
     assert recall["decisions"][0]["decision_id"] == "dec-backlog"
 
     explain = explain_recall(store, "broader operational objects", limit=5)
     assert explain["top_decisions"][0]["decision_id"] == "dec-backlog"
 
-    explain_risk = explain_recall(store, "autonomous decision behavior generated briefs", limit=5)
+    explain_risk = explain_recall(
+        store, "autonomous decision behavior generated briefs", limit=5
+    )
     assert explain_risk["top_decisions"][0]["decision_id"] == "dec-backlog"
     store.close()
 
@@ -174,10 +231,17 @@ def test_decision_recall_preserves_earlier_step_query_order(tmp_path):
     store.initialize()
     seed_decision_continuity_store(store)
 
-    recall = store.recall("What was the first safe step after the false conflict in decision-check?", limit=5)
+    recall = store.recall(
+        "What was the first safe step after the false conflict in decision-check?",
+        limit=5,
+    )
     assert recall["decisions"][0]["decision_id"] == "dec-fix-first"
 
-    explain = explain_recall(store, "What was the first safe step after the false conflict in decision-check?", limit=5)
+    explain = explain_recall(
+        store,
+        "What was the first safe step after the false conflict in decision-check?",
+        limit=5,
+    )
     assert explain["top_decisions"][0]["decision_id"] == "dec-fix-first"
     store.close()
 

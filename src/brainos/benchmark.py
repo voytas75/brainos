@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sqlite3
 import tempfile
-from typing import Any
+from contextlib import suppress
+from typing import Any, cast
 
-from .errors import BrainOSError
 from .store import BrainOSStore
 
 
@@ -14,10 +15,13 @@ def _benchmark_mode(store: BrainOSStore) -> str:
     return "vector-ready" if capabilities.get("sqlite_vec") else "degraded-non-vector"
 
 
-def _classify_benchmark_failure(*, mode: str, result: dict[str, Any]) -> str:
+def _classify_benchmark_failure(*, mode: str, result: dict[str, object]) -> str:
     if mode != "vector-ready":
         return "likely_runtime_related"
-    if result.get("episode_vector_mode") != "sqlite_vec_episode_similarity" or result.get("semantic_vector_mode") != "sqlite_vec_semantic_similarity":
+    if (
+        result.get("episode_vector_mode") != "sqlite_vec_episode_similarity"
+        or result.get("semantic_vector_mode") != "sqlite_vec_semantic_similarity"
+    ):
         return "likely_runtime_or_benchmark_seed_path_related"
     return "likely_quality_regression"
 
@@ -31,7 +35,7 @@ def _failed_case_next_debug(*, query: str) -> dict[str, Any]:
 
 
 def seed_benchmark_store(store: BrainOSStore) -> dict[str, str]:
-    ids = {}
+    ids: dict[str, str] = {}
     ids["ep_sqlite_wal"] = store.add_episode(
         session_id="bench",
         content="SQLite WAL mode helps BrainOS keep local writes safe and concurrent.",
@@ -100,61 +104,81 @@ def benchmark_cases(ids: dict[str, str]) -> list[dict[str, str]]:
         {
             "query": "sqlite wal durability",
             "expected_episode_id": ids["ep_sqlite_wal"],
-            "expected_episode_hash": _text_hash("SQLite WAL mode helps BrainOS keep local writes safe and concurrent."),
+            "expected_episode_hash": _text_hash(
+                "SQLite WAL mode helps BrainOS keep local writes safe and concurrent."
+            ),
             "expected_semantic_id": "sem-wal",
         },
         {
             "query": "what helps BrainOS keep local writes safe?",
             "expected_episode_id": ids["ep_sqlite_wal"],
-            "expected_episode_hash": _text_hash("SQLite WAL mode helps BrainOS keep local writes safe and concurrent."),
+            "expected_episode_hash": _text_hash(
+                "SQLite WAL mode helps BrainOS keep local writes safe and concurrent."
+            ),
             "expected_semantic_id": "sem-wal",
         },
         {
             "query": "azure embedding model",
             "expected_episode_id": ids["ep_embedding_azure"],
-            "expected_episode_hash": _text_hash("Azure embeddings are executed through LiteLLM in the current BrainOS path."),
+            "expected_episode_hash": _text_hash(
+                "Azure embeddings are executed through LiteLLM in the current BrainOS path."
+            ),
             "expected_semantic_id": "sem-azure-embed",
         },
         {
             "query": "what is the current BrainOS embedding path?",
             "expected_episode_id": ids["ep_embedding_azure"],
-            "expected_episode_hash": _text_hash("Azure embeddings are executed through LiteLLM in the current BrainOS path."),
+            "expected_episode_hash": _text_hash(
+                "Azure embeddings are executed through LiteLLM in the current BrainOS path."
+            ),
             "expected_semantic_id": "sem-azure-embed",
         },
         {
             "query": "how to repair stale vectors",
             "expected_episode_id": ids["ep_reindex_runtime"],
-            "expected_episode_hash": _text_hash("Reindex stale vectors after runtime changes or source text updates."),
+            "expected_episode_hash": _text_hash(
+                "Reindex stale vectors after runtime changes or source text updates."
+            ),
             "expected_semantic_id": "sem-reindex",
         },
         {
             "query": "what should I do after runtime changes to vectors?",
             "expected_episode_id": ids["ep_reindex_runtime"],
-            "expected_episode_hash": _text_hash("Reindex stale vectors after runtime changes or source text updates."),
+            "expected_episode_hash": _text_hash(
+                "Reindex stale vectors after runtime changes or source text updates."
+            ),
             "expected_semantic_id": "sem-reindex",
         },
         {
             "query": "disabled vector runtime",
             "expected_episode_id": ids["ep_disabled_runtime"],
-            "expected_episode_hash": _text_hash("Disabled vector state usually points to sqlite-vec runtime unavailability, not stale data."),
+            "expected_episode_hash": _text_hash(
+                "Disabled vector state usually points to sqlite-vec runtime unavailability, not stale data."
+            ),
             "expected_semantic_id": "sem-disabled-runtime",
         },
         {
             "query": "what does disabled vector state usually point to?",
             "expected_episode_id": ids["ep_disabled_runtime"],
-            "expected_episode_hash": _text_hash("Disabled vector state usually points to sqlite-vec runtime unavailability, not stale data."),
+            "expected_episode_hash": _text_hash(
+                "Disabled vector state usually points to sqlite-vec runtime unavailability, not stale data."
+            ),
             "expected_semantic_id": "sem-disabled-runtime",
         },
         {
             "query": "policy version explain",
             "expected_episode_id": ids["ep_policy_version"],
-            "expected_episode_hash": _text_hash("Retrieval explain output should show the active scoring policy version."),
+            "expected_episode_hash": _text_hash(
+                "Retrieval explain output should show the active scoring policy version."
+            ),
             "expected_semantic_id": "sem-policy-version",
         },
         {
             "query": "what should retrieval explain show?",
             "expected_episode_id": ids["ep_policy_version"],
-            "expected_episode_hash": _text_hash("Retrieval explain output should show the active scoring policy version."),
+            "expected_episode_hash": _text_hash(
+                "Retrieval explain output should show the active scoring policy version."
+            ),
             "expected_semantic_id": "sem-policy-version",
         },
     ]
@@ -164,18 +188,22 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
     mode = _benchmark_mode(store)
     fd, temp_db = tempfile.mkstemp(prefix="brainos-bench-", suffix=".db")
     os.close(fd)
+    bench_store: BrainOSStore | None = None
     try:
         bench_store = BrainOSStore(temp_db, enable_vector=False)
         bench_store.initialize()
         ids = seed_benchmark_store(bench_store)
-        for object_type, vector_status in (("episode", "missing"), ("semantic_node", "missing")):
+        for object_type, vector_status in (
+            ("episode", "missing"),
+            ("semantic_node", "missing"),
+        ):
             bench_store.sync_vector_index_batch(
                 object_type=object_type,
                 vector_status=vector_status,
                 limit=100,
             )
         cases = benchmark_cases(ids)
-        results = []
+        results: list[dict[str, object]] = []
         overall_passed = 0
         episode_passed = 0
         semantic_passed = 0
@@ -183,11 +211,21 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
         benchmark_runtime_error = None
         for case in cases:
             try:
-                recall = bench_store.recall(case["query"], session_id="bench", limit=limit)
-                top_episode_row = recall["ranked_episodes"][0] if recall["ranked_episodes"] else None
+                recall = bench_store.recall(
+                    case["query"], session_id="bench", limit=limit
+                )
+                top_episode_row = (
+                    recall["ranked_episodes"][0] if recall["ranked_episodes"] else None
+                )
                 top_episode = top_episode_row["id"] if top_episode_row else None
-                top_episode_hash = _text_hash(top_episode_row["content"]) if top_episode_row else None
-                top_semantic = recall["ranked_semantic_hits"][0]["id"] if recall["ranked_semantic_hits"] else None
+                top_episode_hash = (
+                    _text_hash(top_episode_row["content"]) if top_episode_row else None
+                )
+                top_semantic = (
+                    recall["ranked_semantic_hits"][0]["id"]
+                    if recall["ranked_semantic_hits"]
+                    else None
+                )
                 episode_ok = (
                     top_episode == case["expected_episode_id"]
                     or top_episode_hash == case["expected_episode_hash"]
@@ -217,7 +255,7 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                         "runtime_error": None,
                     }
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - benchmark reports runtime failures as data.
                 benchmark_runtime_error = str(exc)
                 results.append(
                     {
@@ -239,13 +277,15 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
 
         degraded = mode != "vector-ready"
         degraded_reason = None if not degraded else "sqlite_vec_unavailable"
-        failed_cases = []
+        failed_cases: list[dict[str, object]] = []
         for result in results:
             if not result["ok"]:
                 failed_cases.append(
                     {
                         "query": result["query"],
-                        "failure_hint": _classify_benchmark_failure(mode=mode, result=result),
+                        "failure_hint": _classify_benchmark_failure(
+                            mode=mode, result=result
+                        ),
                         "episode_ok": result["episode_ok"],
                         "semantic_ok": result["semantic_ok"],
                         "expected_episode_id": result["expected_episode_id"],
@@ -254,10 +294,16 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
                         "expected_episode_hash": result.get("expected_episode_hash"),
                         "top_episode_hash": result.get("top_episode_hash"),
                         "top_semantic_id": result["top_semantic_id"],
-                        "next_debug": _failed_case_next_debug(query=result["query"]),
+                        "next_debug": _failed_case_next_debug(
+                            query=cast(str, result["query"])
+                        ),
                         "recommended_fix": {
-                            "action_hint": "configure_sqlite_vec_path" if result.get("runtime_error") else "inspect_retrieval_explain",
-                            "target": "BRAINOS_SQLITE_VEC_PATH" if result.get("runtime_error") else "retrieval-explain",
+                            "action_hint": "configure_sqlite_vec_path"
+                            if result.get("runtime_error")
+                            else "inspect_retrieval_explain",
+                            "target": "BRAINOS_SQLITE_VEC_PATH"
+                            if result.get("runtime_error")
+                            else "retrieval-explain",
                         },
                         "runtime_error": result.get("runtime_error"),
                     }
@@ -283,12 +329,9 @@ def run_retrieval_benchmark(store: BrainOSStore, *, limit: int = 5) -> dict[str,
             "runtime_error": benchmark_runtime_error,
         }
     finally:
-        try:
-            bench_store.close()
-        except Exception:
-            pass
+        if bench_store is not None:
+            with suppress(sqlite3.Error):
+                bench_store.close()
         for path in (temp_db, f"{temp_db}-wal", f"{temp_db}-shm"):
-            try:
+            with suppress(FileNotFoundError):
                 os.remove(path)
-            except FileNotFoundError:
-                pass

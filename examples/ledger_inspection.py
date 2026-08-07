@@ -4,7 +4,6 @@ from pathlib import Path
 
 from brainos.store import BrainOSStore
 
-
 DB_PATH = Path(__file__).resolve().parent / "tmp" / "ledger_inspection.db"
 
 
@@ -33,7 +32,9 @@ def main() -> None:
             f"event_id={entry['event_id']} causal_event_id={entry['causal_event_id']}"
         )
 
-    print("\nNote: ledger inspection shows that BrainOS keeps an auditable write trail.")
+    print(
+        "\nNote: ledger inspection shows that BrainOS keeps an auditable write trail."
+    )
     store.close()
 
 

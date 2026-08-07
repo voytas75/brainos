@@ -14,7 +14,12 @@ def test_prepare_episode_ingest_applies_defaults():
 def test_prepare_episode_ingest_preserves_optional_fields_and_falls_back_unknown_kind():
     content, metadata = prepare_episode_ingest(
         "  Decision note  ",
-        {"kind": "weird-kind", "topic": "brainos", "source": "web", "authority": "canonical"},
+        {
+            "kind": "weird-kind",
+            "topic": "brainos",
+            "source": "web",
+            "authority": "canonical",
+        },
     )
     assert content == "Decision note"
     assert metadata["kind"] == "note"

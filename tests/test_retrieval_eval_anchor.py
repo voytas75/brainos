@@ -1,6 +1,5 @@
 from brainos.benchmark import benchmark_cases
 
-
 EXPECTED_REALISTIC_QUERY_CLASSES = {
     "sqlite wal durability",
     "what helps BrainOS keep local writes safe?",
@@ -42,10 +41,22 @@ def test_benchmark_cases_anchor_stays_bounded_by_design() -> None:
     assert len(cases) <= 12
 
     unique_prefix_groups = {
-        "storage": {"sqlite wal durability", "what helps BrainOS keep local writes safe?"},
-        "embedding": {"azure embedding model", "what is the current BrainOS embedding path?"},
-        "maintenance": {"how to repair stale vectors", "what should I do after runtime changes to vectors?"},
-        "runtime": {"disabled vector runtime", "what does disabled vector state usually point to?"},
+        "storage": {
+            "sqlite wal durability",
+            "what helps BrainOS keep local writes safe?",
+        },
+        "embedding": {
+            "azure embedding model",
+            "what is the current BrainOS embedding path?",
+        },
+        "maintenance": {
+            "how to repair stale vectors",
+            "what should I do after runtime changes to vectors?",
+        },
+        "runtime": {
+            "disabled vector runtime",
+            "what does disabled vector state usually point to?",
+        },
         "policy": {"policy version explain", "what should retrieval explain show?"},
     }
     queries = {item["query"] for item in cases}

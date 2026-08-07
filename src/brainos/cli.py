@@ -6,10 +6,10 @@ import os
 import sys
 from pathlib import Path
 
-from .env import get_last_env_load_info, load_project_env
-from .errors import BrainOSError, SqliteVecReadinessError
 from .benchmark import run_retrieval_benchmark
 from .doctor import doctor_summary, embedding_readiness_summary
+from .env import get_last_env_load_info, load_project_env
+from .errors import BrainOSError, SqliteVecReadinessError
 from .explain import explain_recall
 from .health import retrieval_health_summary
 from .real_corpus_probe import run_real_corpus_probe
@@ -23,7 +23,9 @@ def _default_db_path() -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="brainos")
-    parser.add_argument("--db", default=_default_db_path(), help="Path to SQLite database")
+    parser.add_argument(
+        "--db", default=_default_db_path(), help="Path to SQLite database"
+    )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -50,13 +52,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_ep_list.add_argument("--session-id")
     p_ep_list.add_argument("--limit", type=int, default=20)
 
-    p_ep_preview = sub.add_parser("consolidation-preview", help="Preview promotion candidate for one episode")
+    p_ep_preview = sub.add_parser(
+        "consolidation-preview", help="Preview promotion candidate for one episode"
+    )
     p_ep_preview.add_argument("episode_id")
 
-    p_ep_promotion_get = sub.add_parser("episode-promotion-get", help="Get promotion state for one episode")
+    p_ep_promotion_get = sub.add_parser(
+        "episode-promotion-get", help="Get promotion state for one episode"
+    )
     p_ep_promotion_get.add_argument("episode_id")
 
-    p_ep_promote = sub.add_parser("promote-episode", help="Promote one episode into semantic or procedural layer")
+    p_ep_promote = sub.add_parser(
+        "promote-episode", help="Promote one episode into semantic or procedural layer"
+    )
     p_ep_promote.add_argument("episode_id")
 
     p_ep_search = sub.add_parser("episode-search", help="Search episodes with FTS5")
@@ -69,7 +77,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_recall.add_argument("--session-id")
     p_recall.add_argument("--limit", type=int, default=10)
 
-    p_sem_node_upsert = sub.add_parser("semantic-node-upsert", help="Create or update semantic node")
+    p_sem_node_upsert = sub.add_parser(
+        "semantic-node-upsert", help="Create or update semantic node"
+    )
     p_sem_node_upsert.add_argument("node_id")
     p_sem_node_upsert.add_argument("name")
     p_sem_node_upsert.add_argument("node_type")
@@ -78,15 +88,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_sem_node_get = sub.add_parser("semantic-node-get", help="Get semantic node")
     p_sem_node_get.add_argument("node_id")
 
-    p_sem_edge_upsert = sub.add_parser("semantic-edge-upsert", help="Create or update semantic edge")
+    p_sem_edge_upsert = sub.add_parser(
+        "semantic-edge-upsert", help="Create or update semantic edge"
+    )
     p_sem_edge_upsert.add_argument("source_id")
     p_sem_edge_upsert.add_argument("target_id")
     p_sem_edge_upsert.add_argument("predicate")
     p_sem_edge_upsert.add_argument("--weight", type=float, default=1.0)
 
-    p_sem_edges_list = sub.add_parser("semantic-edges-list", help="List semantic edges for a node")
+    p_sem_edges_list = sub.add_parser(
+        "semantic-edges-list", help="List semantic edges for a node"
+    )
     p_sem_edges_list.add_argument("node_id")
-    p_sem_edges_list.add_argument("--direction", choices=["out", "in", "both"], default="both")
+    p_sem_edges_list.add_argument(
+        "--direction", choices=["out", "in", "both"], default="both"
+    )
 
     p_proc_create = sub.add_parser("procedure-create", help="Create procedure")
     p_proc_create.add_argument("name")
@@ -100,7 +116,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_proc_get = sub.add_parser("procedure-get", help="Get procedure")
     p_proc_get.add_argument("procedure_id")
 
-    p_decision_log = sub.add_parser("decision-log", help="Create or update decision-support object")
+    p_decision_log = sub.add_parser(
+        "decision-log", help="Create or update decision-support object"
+    )
     p_decision_log.add_argument("question")
     p_decision_log.add_argument("--decision-id")
     p_decision_log.add_argument("--status", default="draft")
@@ -115,54 +133,82 @@ def build_parser() -> argparse.ArgumentParser:
     p_decision_log.add_argument("--metadata-json", default="{}")
     p_decision_log.add_argument("--review-after")
 
-    p_decision_list = sub.add_parser("decision-list", help="List decision-support objects")
+    p_decision_list = sub.add_parser(
+        "decision-list", help="List decision-support objects"
+    )
     p_decision_list.add_argument("--status")
     p_decision_list.add_argument("--limit", type=int, default=50)
 
     p_decision_get = sub.add_parser("decision-get", help="Get decision-support object")
     p_decision_get.add_argument("decision_id")
 
-    p_inspect = sub.add_parser("inspect", help="Inspect one stored object with related provenance")
+    p_inspect = sub.add_parser(
+        "inspect", help="Inspect one stored object with related provenance"
+    )
     p_inspect.add_argument("object_type", choices=["decision", "episode"])
     p_inspect.add_argument("object_id")
 
-    p_decision_check = sub.add_parser("decision-check", help="Check one decision for caution/conflict signals")
+    p_decision_check = sub.add_parser(
+        "decision-check", help="Check one decision for caution/conflict signals"
+    )
     p_decision_check.add_argument("decision_id")
 
-    p_decision_history = sub.add_parser("decision-history", help="Show decision revision/history view")
+    p_decision_history = sub.add_parser(
+        "decision-history", help="Show decision revision/history view"
+    )
     p_decision_history.add_argument("decision_id")
 
-    p_schema_status = sub.add_parser("schema-status", help="Show schema version status")
-    p_capabilities = sub.add_parser("capabilities", help="Show runtime capabilities")
-    p_vec_ready = sub.add_parser("sqlite-vec-readiness", help="Run sqlite-vec loader and readiness check")
+    sub.add_parser("schema-status", help="Show schema version status")
+    sub.add_parser("capabilities", help="Show runtime capabilities")
+    sub.add_parser(
+        "sqlite-vec-readiness", help="Run sqlite-vec loader and readiness check"
+    )
     p_vec_states = sub.add_parser("vector-index-list", help="List vector index states")
     p_vec_states.add_argument("--object-type", choices=["episode", "semantic_node"])
     p_vec_states.add_argument("--vector-status")
     p_vec_states.add_argument("--limit", type=int, default=100)
-    p_vec_sync_one = sub.add_parser("vector-index-sync", help="Refresh and sync one vectorized object")
+    p_vec_sync_one = sub.add_parser(
+        "vector-index-sync", help="Refresh and sync one vectorized object"
+    )
     p_vec_sync_one.add_argument("object_type", choices=["episode", "semantic_node"])
     p_vec_sync_one.add_argument("object_id")
     p_vec_sync_one.add_argument("--force", action="store_true")
-    p_vec_sync_batch = sub.add_parser("vector-index-sync-batch", help="Refresh and sync a batch of vectorized objects")
+    p_vec_sync_batch = sub.add_parser(
+        "vector-index-sync-batch", help="Refresh and sync a batch of vectorized objects"
+    )
     p_vec_sync_batch.add_argument("--object-type", choices=["episode", "semantic_node"])
     p_vec_sync_batch.add_argument("--vector-status")
     p_vec_sync_batch.add_argument("--limit", type=int, default=100)
     p_vec_sync_batch.add_argument("--force", action="store_true")
-    p_bench = sub.add_parser("retrieval-benchmark", help="Run local retrieval benchmark suite")
+    p_bench = sub.add_parser(
+        "retrieval-benchmark", help="Run local retrieval benchmark suite"
+    )
     p_bench.add_argument("--limit", type=int, default=5)
-    p_explain = sub.add_parser("retrieval-explain", help="Explain ranked recall results for one query")
+    p_explain = sub.add_parser(
+        "retrieval-explain", help="Explain ranked recall results for one query"
+    )
     p_explain.add_argument("query")
     p_explain.add_argument("--session-id")
     p_explain.add_argument("--limit", type=int, default=5)
-    p_health = sub.add_parser("retrieval-health", help="Show retrieval/vector subsystem health summary")
+    p_health = sub.add_parser(
+        "retrieval-health", help="Show retrieval/vector subsystem health summary"
+    )
     p_health.add_argument("--benchmark-limit", type=int, default=5)
-    p_embed_ready = sub.add_parser("embedding-readiness", help="Check embedding runtime prerequisites without exposing secrets")
-    p_doctor = sub.add_parser("doctor", help="Run a compact operator check for critical BrainOS runtime prerequisites")
+    sub.add_parser(
+        "embedding-readiness",
+        help="Check embedding runtime prerequisites without exposing secrets",
+    )
+    p_doctor = sub.add_parser(
+        "doctor",
+        help="Run a compact operator check for critical BrainOS runtime prerequisites",
+    )
     p_doctor.add_argument("--benchmark-limit", type=int, default=5)
-    p_probe = sub.add_parser("real-corpus-probe", help="Run a small read-only real-corpus retrieval probe")
+    p_probe = sub.add_parser(
+        "real-corpus-probe", help="Run a small read-only real-corpus retrieval probe"
+    )
     p_probe.add_argument("--limit", type=int, default=5)
-    p_ledger_verify = sub.add_parser("ledger-verify", help="Verify ledger integrity")
-    p_ledger = sub.add_parser("ledger", help="Print ledger entries")
+    sub.add_parser("ledger-verify", help="Verify ledger integrity")
+    sub.add_parser("ledger", help="Print ledger entries")
 
     return parser
 
@@ -184,13 +230,15 @@ def _sqlite_vec_error_payload(exc: SqliteVecReadinessError) -> dict[str, object]
 
 def _startup_runtime_context(*, db_path: str) -> dict[str, object]:
     env_info = get_last_env_load_info()
-    env_keys = set(env_info.get("keys", []))
+    env_keys = set(env_info["keys"])
 
     def _var_presence(name: str) -> dict[str, object]:
         value = os.getenv(name, "")
         return {
             "present": bool(value.strip()),
-            "source": "loaded_env_file" if name in env_keys else ("process_env" if value.strip() else "missing"),
+            "source": "loaded_env_file"
+            if name in env_keys
+            else ("process_env" if value.strip() else "missing"),
         }
 
     return {
@@ -256,7 +304,13 @@ def main() -> None:
             print(json.dumps(results, ensure_ascii=False, indent=2))
         elif args.command == "consolidation-preview":
             store.initialize()
-            print(json.dumps(store.preview_consolidation(args.episode_id), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.preview_consolidation(args.episode_id),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "episode-promotion-get":
             store.initialize()
             promotion = store.get_episode_promotion(args.episode_id)
@@ -265,14 +319,22 @@ def main() -> None:
             print(json.dumps(promotion, ensure_ascii=False, indent=2))
         elif args.command == "promote-episode":
             store.initialize()
-            print(json.dumps(store.promote_episode(args.episode_id), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.promote_episode(args.episode_id), ensure_ascii=False, indent=2
+                )
+            )
         elif args.command == "episode-search":
             store.initialize()
-            results = store.search_episodes_text(args.query, session_id=args.session_id, limit=args.limit)
+            results = store.search_episodes_text(
+                args.query, session_id=args.session_id, limit=args.limit
+            )
             print(json.dumps(results, ensure_ascii=False, indent=2))
         elif args.command == "recall":
             store.initialize()
-            results = store.recall(args.query, session_id=args.session_id, limit=args.limit)
+            results = store.recall(
+                args.query, session_id=args.session_id, limit=args.limit
+            )
             print(json.dumps(results, ensure_ascii=False, indent=2))
         elif args.command == "semantic-node-upsert":
             store.initialize()
@@ -300,7 +362,13 @@ def main() -> None:
             print(event_id)
         elif args.command == "semantic-edges-list":
             store.initialize()
-            print(json.dumps(store.list_semantic_edges(args.node_id, direction=args.direction), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.list_semantic_edges(args.node_id, direction=args.direction),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "procedure-create":
             store.initialize()
             procedure_id = store.create_procedure(
@@ -311,7 +379,13 @@ def main() -> None:
             print(procedure_id)
         elif args.command == "procedure-list":
             store.initialize()
-            print(json.dumps(store.list_procedures(active_only=not args.all, limit=args.limit), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.list_procedures(active_only=not args.all, limit=args.limit),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "procedure-get":
             store.initialize()
             procedure = store.get_procedure(args.procedure_id)
@@ -338,7 +412,13 @@ def main() -> None:
             print(json.dumps(decision, ensure_ascii=False, indent=2))
         elif args.command == "decision-list":
             store.initialize()
-            print(json.dumps(store.list_decisions(status=args.status, limit=args.limit), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.list_decisions(status=args.status, limit=args.limit),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "decision-get":
             store.initialize()
             decision = store.get_decision(args.decision_id)
@@ -347,13 +427,29 @@ def main() -> None:
             print(json.dumps(decision, ensure_ascii=False, indent=2))
         elif args.command == "inspect":
             store.initialize()
-            print(json.dumps(store.inspect_object(args.object_type, args.object_id), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.inspect_object(args.object_type, args.object_id),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "decision-check":
             store.initialize()
-            print(json.dumps(store.decision_check(args.decision_id), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.decision_check(args.decision_id), ensure_ascii=False, indent=2
+                )
+            )
         elif args.command == "decision-history":
             store.initialize()
-            print(json.dumps(store.decision_history(args.decision_id), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.decision_history(args.decision_id),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "schema-status":
             store.initialize()
             print(json.dumps(store.schema_status(), ensure_ascii=False, indent=2))
@@ -363,38 +459,111 @@ def main() -> None:
         elif args.command == "sqlite-vec-readiness":
             try:
                 store.initialize()
-                print(json.dumps(store.sqlite_vec_readiness(), ensure_ascii=False, indent=2))
+                print(
+                    json.dumps(
+                        store.sqlite_vec_readiness(), ensure_ascii=False, indent=2
+                    )
+                )
             except SqliteVecReadinessError as exc:
-                print(json.dumps(_sqlite_vec_error_payload(exc), ensure_ascii=False, indent=2))
+                print(
+                    json.dumps(
+                        _sqlite_vec_error_payload(exc), ensure_ascii=False, indent=2
+                    )
+                )
         elif args.command == "vector-index-list":
             store.initialize()
-            print(json.dumps(store.list_vector_index_states(object_type=args.object_type, vector_status=args.vector_status, limit=args.limit), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.list_vector_index_states(
+                        object_type=args.object_type,
+                        vector_status=args.vector_status,
+                        limit=args.limit,
+                    ),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "vector-index-sync":
             store.initialize()
-            print(json.dumps(store.sync_vector_index(object_type=args.object_type, object_id=args.object_id, force=args.force), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.sync_vector_index(
+                        object_type=args.object_type,
+                        object_id=args.object_id,
+                        force=args.force,
+                    ),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "vector-index-sync-batch":
             store.initialize()
-            print(json.dumps(store.sync_vector_index_batch(object_type=args.object_type, vector_status=args.vector_status, limit=args.limit, force=args.force), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    store.sync_vector_index_batch(
+                        object_type=args.object_type,
+                        vector_status=args.vector_status,
+                        limit=args.limit,
+                        force=args.force,
+                    ),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "retrieval-benchmark":
             store.initialize()
-            print(json.dumps(run_retrieval_benchmark(store, limit=args.limit), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    run_retrieval_benchmark(store, limit=args.limit),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "retrieval-explain":
             store.initialize()
-            payload = explain_recall(store, args.query, session_id=args.session_id, limit=args.limit)
-            payload["startup_runtime_context"] = _startup_runtime_context(db_path=args.db)
+            payload = explain_recall(
+                store, args.query, session_id=args.session_id, limit=args.limit
+            )
+            payload["startup_runtime_context"] = _startup_runtime_context(
+                db_path=args.db
+            )
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         elif args.command == "retrieval-health":
             store.initialize()
-            print(json.dumps(retrieval_health_summary(store, benchmark_limit=args.benchmark_limit), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    retrieval_health_summary(
+                        store, benchmark_limit=args.benchmark_limit
+                    ),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "embedding-readiness":
             store.initialize()
-            print(json.dumps(embedding_readiness_summary(store), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    embedding_readiness_summary(store), ensure_ascii=False, indent=2
+                )
+            )
         elif args.command == "doctor":
             store.initialize()
-            print(json.dumps(doctor_summary(store, benchmark_limit=args.benchmark_limit), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    doctor_summary(store, benchmark_limit=args.benchmark_limit),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "real-corpus-probe":
             store.initialize()
-            print(json.dumps(run_real_corpus_probe(store, limit=args.limit), ensure_ascii=False, indent=2))
+            print(
+                json.dumps(
+                    run_real_corpus_probe(store, limit=args.limit),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.command == "ledger-verify":
             store.initialize()
             print(json.dumps(store.verify_ledger(), ensure_ascii=False, indent=2))
@@ -404,11 +573,17 @@ def main() -> None:
         else:
             parser.error(f"Unknown command: {args.command}")
     except SqliteVecReadinessError as exc:
-        print(json.dumps(_sqlite_vec_error_payload(exc), ensure_ascii=False, indent=2), file=sys.stderr)
-        raise SystemExit(2)
+        print(
+            json.dumps(_sqlite_vec_error_payload(exc), ensure_ascii=False, indent=2),
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
     except (BrainOSError, json.JSONDecodeError) as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2), file=sys.stderr)
-        raise SystemExit(2)
+        print(
+            json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2),
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
     finally:
         store.close()
 

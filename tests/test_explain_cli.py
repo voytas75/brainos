@@ -3,7 +3,6 @@ import os
 import subprocess
 from pathlib import Path
 
-
 _ENV_KEYS = {
     "BRAINOS_EMBEDDING_MODEL",
     "AZURE_API_BASE",
@@ -18,7 +17,8 @@ def _clean_cli_env() -> dict[str, str]:
     return {
         key: value
         for key, value in os.environ.items()
-        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+        if key not in _ENV_KEYS
+        and not any(key.startswith(prefix) for prefix in prefixes)
     }
 
 
@@ -32,7 +32,13 @@ def _test_env() -> dict[str, str]:
 
 def test_retrieval_explain_cli_runs(tmp_path):
     db = tmp_path / "brain.db"
-    subprocess.run([_brainos_cli(), "--db", str(db), "init"], check=True, capture_output=True, text=True, env=_test_env())
+    subprocess.run(
+        [_brainos_cli(), "--db", str(db), "init"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_test_env(),
+    )
     subprocess.run(
         [
             _brainos_cli(),
@@ -50,7 +56,15 @@ def test_retrieval_explain_cli_runs(tmp_path):
         env=_test_env(),
     )
     proc = subprocess.run(
-        [_brainos_cli(), "--db", str(db), "retrieval-explain", "Azure embeddings", "--session-id", "s1"],
+        [
+            _brainos_cli(),
+            "--db",
+            str(db),
+            "retrieval-explain",
+            "Azure embeddings",
+            "--session-id",
+            "s1",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -59,13 +73,22 @@ def test_retrieval_explain_cli_runs(tmp_path):
     payload = json.loads(proc.stdout)
     assert payload["query"] == "Azure embeddings"
     assert payload["scoring_policy_version"] == "retrieval-scoring-v1b"
-    assert payload["diagnostic_hint"] in {"dual_source_agreement", "lexical_grounded_top_hit", "vector_led_top_hit", "vector_primary_with_lexical_support", "inspect_score_components", "inspect_vector_participation"}
+    assert payload["diagnostic_hint"] in {
+        "dual_source_agreement",
+        "lexical_grounded_top_hit",
+        "vector_led_top_hit",
+        "vector_primary_with_lexical_support",
+        "inspect_score_components",
+        "inspect_vector_participation",
+    }
     assert "operator_summary" in payload
     assert "confidence_hint" in payload
     assert "top_hit_evidence" in payload
     assert "comparison_hint" in payload
     assert "retrieval_trace" in payload
-    assert payload["retrieval_trace"]["candidate_generation"]["episodes_text_count"] >= 1
+    assert (
+        payload["retrieval_trace"]["candidate_generation"]["episodes_text_count"] >= 1
+    )
     assert "top_ranked_episodes" in payload
     assert "top_ranked_semantic_hits" in payload
     assert "top_decisions" in payload
@@ -73,7 +96,13 @@ def test_retrieval_explain_cli_runs(tmp_path):
 
 def test_retrieval_explain_cli_accepts_question_query(tmp_path):
     db = tmp_path / "brain.db"
-    subprocess.run([_brainos_cli(), "--db", str(db), "init"], check=True, capture_output=True, text=True, env=_test_env())
+    subprocess.run(
+        [_brainos_cli(), "--db", str(db), "init"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_test_env(),
+    )
     subprocess.run(
         [
             _brainos_cli(),
@@ -91,7 +120,15 @@ def test_retrieval_explain_cli_accepts_question_query(tmp_path):
         env=_test_env(),
     )
     proc = subprocess.run(
-        [_brainos_cli(), "--db", str(db), "retrieval-explain", "What is the BrainOS testing posture?", "--session-id", "s1"],
+        [
+            _brainos_cli(),
+            "--db",
+            str(db),
+            "retrieval-explain",
+            "What is the BrainOS testing posture?",
+            "--session-id",
+            "s1",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -99,13 +136,22 @@ def test_retrieval_explain_cli_accepts_question_query(tmp_path):
     )
     payload = json.loads(proc.stdout)
     assert payload["query"] == "What is the BrainOS testing posture?"
-    assert payload["summary"] == "episodes:1, vector_episodes:0, semantic:0, vector_semantic:0, decisions:0"
+    assert (
+        payload["summary"]
+        == "episodes:1, vector_episodes:0, semantic:0, vector_semantic:0, decisions:0"
+    )
     assert len(payload["top_ranked_episodes"]) >= 1
 
 
 def test_retrieval_explain_cli_accepts_slash_query(tmp_path):
     db = tmp_path / "brain.db"
-    subprocess.run([_brainos_cli(), "--db", str(db), "init"], check=True, capture_output=True, text=True, env=_test_env())
+    subprocess.run(
+        [_brainos_cli(), "--db", str(db), "init"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_test_env(),
+    )
     subprocess.run(
         [
             _brainos_cli(),
@@ -123,7 +169,15 @@ def test_retrieval_explain_cli_accepts_slash_query(tmp_path):
         env=_test_env(),
     )
     proc = subprocess.run(
-        [_brainos_cli(), "--db", str(db), "retrieval-explain", "What is the current Google Workspace / gwork posture?", "--session-id", "s1"],
+        [
+            _brainos_cli(),
+            "--db",
+            str(db),
+            "retrieval-explain",
+            "What is the current Google Workspace / gwork posture?",
+            "--session-id",
+            "s1",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -136,7 +190,13 @@ def test_retrieval_explain_cli_accepts_slash_query(tmp_path):
 
 def test_retrieval_explain_cli_reports_runtime_misconfiguration_summary(tmp_path):
     db = tmp_path / "brain.db"
-    subprocess.run([_brainos_cli(), "--db", str(db), "init"], check=True, capture_output=True, text=True, env=_test_env())
+    subprocess.run(
+        [_brainos_cli(), "--db", str(db), "init"],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_test_env(),
+    )
     subprocess.run(
         [
             _brainos_cli(),
@@ -154,7 +214,15 @@ def test_retrieval_explain_cli_reports_runtime_misconfiguration_summary(tmp_path
         env=_test_env(),
     )
     proc = subprocess.run(
-        [_brainos_cli(), "--db", str(db), "retrieval-explain", "runtime drift", "--session-id", "s1"],
+        [
+            _brainos_cli(),
+            "--db",
+            str(db),
+            "retrieval-explain",
+            "runtime drift",
+            "--session-id",
+            "s1",
+        ],
         capture_output=True,
         text=True,
         check=True,

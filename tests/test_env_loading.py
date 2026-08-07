@@ -4,7 +4,6 @@ from pathlib import Path
 
 from brainos.env import load_project_env
 
-
 _ENV_KEYS = {
     "BRAINOS_EMBEDDING_MODEL",
     "AZURE_API_BASE",
@@ -19,11 +18,14 @@ def _clean_cli_env() -> dict[str, str]:
     return {
         key: value
         for key, value in os.environ.items()
-        if key not in _ENV_KEYS and not any(key.startswith(prefix) for prefix in prefixes)
+        if key not in _ENV_KEYS
+        and not any(key.startswith(prefix) for prefix in prefixes)
     }
 
 
-def test_load_project_env_reads_dotenv_without_overriding_existing_env(tmp_path, monkeypatch):
+def test_load_project_env_reads_dotenv_without_overriding_existing_env(
+    tmp_path, monkeypatch
+):
     env_file = tmp_path / ".env"
     env_file.write_text(
         "BRAINOS_EMBEDDING_MODEL=azure/from-dotenv\nAZURE_API_BASE=https://example.openai.azure.com\nAZURE_API_KEY=dotenv-key\nAZURE_API_VERSION=2024-10-21\n",
@@ -48,7 +50,14 @@ def test_cli_honors_project_dotenv_for_embedding_readiness(tmp_path):
         encoding="utf-8",
     )
     proc = subprocess.run(
-        [os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"), "--db", str(db), "embedding-readiness"],
+        [
+            os.fspath(
+                Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos"
+            ),
+            "--db",
+            str(db),
+            "embedding-readiness",
+        ],
         cwd=str(tmp_path),
         capture_output=True,
         text=True,
@@ -74,7 +83,6 @@ def test_load_project_env_falls_back_to_parent_dotenv(tmp_path, monkeypatch):
     assert result["loaded"] is True
     assert result["path"] == str((project_root / ".env").resolve())
     assert os.environ["BRAINOS_EMBEDDING_MODEL"] == "azure/from-parent"
-
 
 
 def test_cli_uses_parent_dotenv_when_db_lives_in_nested_directory(tmp_path):
@@ -112,7 +120,6 @@ def test_cli_uses_parent_dotenv_when_db_lives_in_nested_directory(tmp_path):
     assert f'"path": "{(project_root / ".env").resolve()}"' in explain_proc.stdout
 
 
-
 def test_cli_uses_brainos_db_path_env_for_db_selection(tmp_path):
     db = tmp_path / "via-env.db"
     env_file = tmp_path / ".env"
@@ -121,7 +128,11 @@ def test_cli_uses_brainos_db_path_env_for_db_selection(tmp_path):
         encoding="utf-8",
     )
     cli = os.fspath(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "brainos")
-    env = {**_clean_cli_env(), "PATH": os.environ.get("PATH", ""), "BRAINOS_DB_PATH": str(db)}
+    env = {
+        **_clean_cli_env(),
+        "PATH": os.environ.get("PATH", ""),
+        "BRAINOS_DB_PATH": str(db),
+    }
 
     init_proc = subprocess.run(
         [cli, "init"],

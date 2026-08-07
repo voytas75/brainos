@@ -4,7 +4,6 @@ from pathlib import Path
 
 from brainos.store import BrainOSStore
 
-
 DB_PATH = Path(__file__).resolve().parent / "tmp" / "episode_recall_flow.db"
 
 
@@ -37,13 +36,17 @@ def main() -> None:
     print("\nRecall query: retrieval")
     results = store.recall("retrieval", session_id="demo-session", limit=5)
     for idx, item in enumerate(results["ranked_episodes"], start=1):
-        print(f"{idx}. {item['content']} (sources={','.join(item.get('match_sources', []))})")
+        print(
+            f"{idx}. {item['content']} (sources={','.join(item.get('match_sources', []))})"
+        )
 
     print("\nSummary:")
     print(results["summary"])
 
     print("\nNote: episodic memory keeps searchable history.")
-    print("Use this for events and observations, not for the current one-key runtime state.")
+    print(
+        "Use this for events and observations, not for the current one-key runtime state."
+    )
 
     store.close()
 

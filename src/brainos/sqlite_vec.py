@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from contextlib import suppress
 from typing import Any
 
 from .errors import SqliteVecReadinessError
@@ -34,12 +35,22 @@ def load_sqlite_vec_extension(conn: sqlite3.Connection, path: str | None = None)
     return extension_path
 
 
-def sqlite_vec_readiness(conn: sqlite3.Connection, path: str | None = None) -> dict[str, Any]:
+def sqlite_vec_readiness(
+    conn: sqlite3.Connection, path: str | None = None
+) -> dict[str, Any]:
     loaded_path = load_sqlite_vec_extension(conn, path=path)
     try:
-        conn.execute("CREATE VIRTUAL TABLE temp.__brainos_vec_ready USING vec0(id INTEGER PRIMARY KEY, embedding FLOAT[3])")
-        conn.execute("INSERT INTO temp.__brainos_vec_ready(id, embedding) VALUES (?, ?)", (1, "[0.1,0.2,0.3]"))
-        conn.execute("INSERT INTO temp.__brainos_vec_ready(id, embedding) VALUES (?, ?)", (2, "[0.4,0.5,0.6]"))
+        conn.execute(
+            "CREATE VIRTUAL TABLE temp.__brainos_vec_ready USING vec0(id INTEGER PRIMARY KEY, embedding FLOAT[3])"
+        )
+        conn.execute(
+            "INSERT INTO temp.__brainos_vec_ready(id, embedding) VALUES (?, ?)",
+            (1, "[0.1,0.2,0.3]"),
+        )
+        conn.execute(
+            "INSERT INTO temp.__brainos_vec_ready(id, embedding) VALUES (?, ?)",
+            (2, "[0.4,0.5,0.6]"),
+        )
         rows = conn.execute(
             "SELECT id, distance FROM temp.__brainos_vec_ready WHERE embedding MATCH ? ORDER BY distance LIMIT 2",
             ("[0.1,0.2,0.3]",),
@@ -51,10 +62,8 @@ def sqlite_vec_readiness(conn: sqlite3.Connection, path: str | None = None) -> d
             detail=str(exc),
         ) from exc
     finally:
-        try:
+        with suppress(sqlite3.Error):
             conn.execute("DROP TABLE temp.__brainos_vec_ready")
-        except sqlite3.Error:
-            pass
     return {
         "ok": True,
         "path": loaded_path,

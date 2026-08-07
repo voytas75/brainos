@@ -3,7 +3,11 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from .sqlite_vec import ENV_SQLITE_VEC_PATH, configured_sqlite_vec_path, load_sqlite_vec_extension
+from .sqlite_vec import (
+    ENV_SQLITE_VEC_PATH,
+    configured_sqlite_vec_path,
+    load_sqlite_vec_extension,
+)
 
 SCHEMA_VERSION = 4
 
@@ -119,6 +123,7 @@ CREATE INDEX IF NOT EXISTS idx_episode_promotions_target ON episode_promotions(t
 CREATE INDEX IF NOT EXISTS idx_vector_index_status ON vector_index_state(vector_status, object_type);
 """
 
+
 def get_vec_table_sql(dimensions: int, table_name: str = "episodes_vec") -> str:
     return f"""
 CREATE VIRTUAL TABLE IF NOT EXISTS {table_name} USING vec0(
@@ -146,7 +151,9 @@ def detect_capabilities(conn: sqlite3.Connection) -> dict[str, Any]:
     vec_probe_mode = "explicit_path" if vec_path else "disabled_without_explicit_path"
 
     try:
-        conn.execute("CREATE VIRTUAL TABLE temp.__brainos_fts_probe USING fts5(content);")
+        conn.execute(
+            "CREATE VIRTUAL TABLE temp.__brainos_fts_probe USING fts5(content);"
+        )
         conn.execute("DROP TABLE temp.__brainos_fts_probe;")
     except sqlite3.Error:
         fts5_available = False

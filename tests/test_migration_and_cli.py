@@ -93,12 +93,20 @@ def test_enable_vector_defers_tables_until_first_embedding(monkeypatch, tmp_path
     vec_path = "/tmp/vec0.so"
     loaded_paths = []
     monkeypatch.setenv(ENV_SQLITE_VEC_PATH, vec_path)
-    monkeypatch.setattr("brainos.schema.load_sqlite_vec_extension", lambda conn, path: loaded_paths.append(path))
+    monkeypatch.setattr(
+        "brainos.schema.load_sqlite_vec_extension",
+        lambda conn, path: loaded_paths.append(path),
+    )
 
     store = BrainOSStore(db, enable_vector=True)
     store.initialize()
 
-    tables = {row[0] for row in store.conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+    tables = {
+        row[0]
+        for row in store.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
     assert loaded_paths == [vec_path]
     assert "episodes_vec" not in tables
     assert "semantic_nodes_vec" not in tables
@@ -119,7 +127,12 @@ def test_cli_enable_vector_defers_tables_when_runtime_is_unconfigured(tmp_path):
     )
 
     conn = sqlite3.connect(db)
-    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+    tables = {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
     conn.close()
     assert "episodes_vec" not in tables
     assert "semantic_nodes_vec" not in tables
@@ -127,12 +140,18 @@ def test_cli_enable_vector_defers_tables_when_runtime_is_unconfigured(tmp_path):
 
 def test_cli_not_found_and_validation_errors(tmp_path):
     db = tmp_path / "brain.db"
-    subprocess.run(["uv", "run", "brainos", "--db", str(db), "init"], check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["uv", "run", "brainos", "--db", str(db), "init"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
     missing_node = subprocess.run(
         ["uv", "run", "brainos", "--db", str(db), "semantic-node-get", "missing"],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert missing_node.returncode == 2
     err = json.loads(missing_node.stderr)
@@ -162,6 +181,7 @@ def test_cli_not_found_and_validation_errors(tmp_path):
         ["uv", "run", "brainos", "--db", str(db), "consolidation-preview", episode_id],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert bad_preview.returncode == 2
     err = json.loads(bad_preview.stderr)
@@ -171,7 +191,12 @@ def test_cli_not_found_and_validation_errors(tmp_path):
 
 def test_cli_episode_promotion_get(tmp_path):
     db = tmp_path / "brain.db"
-    subprocess.run(["uv", "run", "brainos", "--db", str(db), "init"], check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["uv", "run", "brainos", "--db", str(db), "init"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     episode = subprocess.run(
         [
             "uv",
@@ -212,6 +237,7 @@ def test_cli_episode_promotion_get(tmp_path):
         ["uv", "run", "brainos", "--db", str(db), "episode-promotion-get", "missing"],
         capture_output=True,
         text=True,
+        check=False,
     )
     assert missing.returncode == 2
     err = json.loads(missing.stderr)

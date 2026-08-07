@@ -2,6 +2,15 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TypedDict
+
+
+class EnvLoadInfo(TypedDict):
+    loaded: bool
+    path: str | None
+    keys: list[str]
+    cwd: str | None
+    exists: bool
 
 
 # Contract:
@@ -13,7 +22,7 @@ from pathlib import Path
 # 6. Report both the original lookup cwd and the resolved env path.
 # 7. If nothing is found, report the nearest candidate path (<cwd>/.env).
 
-_LAST_ENV_LOAD_INFO: dict[str, object] = {
+_LAST_ENV_LOAD_INFO: EnvLoadInfo = {
     "loaded": False,
     "path": None,
     "keys": [],
@@ -22,7 +31,7 @@ _LAST_ENV_LOAD_INFO: dict[str, object] = {
 }
 
 
-def get_last_env_load_info() -> dict[str, object]:
+def get_last_env_load_info() -> EnvLoadInfo:
     return {
         "loaded": bool(_LAST_ENV_LOAD_INFO.get("loaded", False)),
         "path": _LAST_ENV_LOAD_INFO.get("path"),
@@ -32,7 +41,9 @@ def get_last_env_load_info() -> dict[str, object]:
     }
 
 
-def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[str, object]:
+def load_project_env(
+    *, cwd: str | None = None, override: bool = False
+) -> dict[str, object]:
     base = Path(cwd or os.getcwd()).resolve()
     loaded: list[str] = []
 
@@ -67,7 +78,7 @@ def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[
         if not line or line.startswith("#"):
             continue
         if line.startswith("export "):
-            line = line[len("export "):].strip()
+            line = line[len("export ") :].strip()
         if "=" not in line:
             continue
         key, value = line.split("=", 1)
@@ -75,7 +86,12 @@ def load_project_env(*, cwd: str | None = None, override: bool = False) -> dict[
         value = value.strip()
         if not key:
             continue
-        if value and len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        if (
+            value
+            and len(value) >= 2
+            and value[0] == value[-1]
+            and value[0] in {'"', "'"}
+        ):
             value = value[1:-1]
         if override or key not in os.environ:
             os.environ[key] = value

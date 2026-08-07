@@ -47,7 +47,11 @@ def test_recall_repair_alias_bridge_prefers_procedure(monkeypatch, tmp_path):
                 "session_id": "ops",
                 "timestamp": "2026-05-22 00:00:00",
                 "content": "If vectors look odd, you can inspect retrieval-explain first, but that does not replace reindexing stale vectors after runtime changes.",
-                "metadata": {"kind": "note", "topic": "reindex", "authority": "secondary"},
+                "metadata": {
+                    "kind": "note",
+                    "topic": "reindex",
+                    "authority": "secondary",
+                },
                 "distance": 0.06,
             },
             {
@@ -55,13 +59,21 @@ def test_recall_repair_alias_bridge_prefers_procedure(monkeypatch, tmp_path):
                 "session_id": "ops",
                 "timestamp": "2026-05-22 00:00:00",
                 "content": "To repair stale vectors after runtime changes, run vector-index-sync-batch for objects in missing, stale, or error state and verify they return to fresh status.",
-                "metadata": {"kind": "procedure", "topic": "reindex", "authority": "current"},
+                "metadata": {
+                    "kind": "procedure",
+                    "topic": "reindex",
+                    "authority": "current",
+                },
                 "distance": 0.14,
             },
         ],
     )
 
-    for query in ("fix stale vectors", "reindex stale vectors", "how to fix stale vectors"):
+    for query in (
+        "fix stale vectors",
+        "reindex stale vectors",
+        "how to fix stale vectors",
+    ):
         recall = store.recall(query, session_id="ops", limit=5)
         assert recall["ranked_episodes"], f"expected ranked episodes for {query!r}"
         assert recall["ranked_episodes"][0]["id"] == procedure_id

@@ -79,7 +79,6 @@ def _mock_runtime_ok(monkeypatch):
     )
 
 
-
 def test_eval_recall_expected_hits(monkeypatch, tmp_path):
     _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
@@ -230,7 +229,7 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
                 "properties": {"area": "noise"},
                 "edges": [],
                 "distance": 0.09,
-            }
+            },
         ],
         "nonsense request": [
             {
@@ -266,7 +265,9 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
         store,
         "vector_search_episodes",
         lambda query_vector, session_id=None, limit=10: [
-            item for item in vector_episode_map.get(current_query[0], []) if session_id is None or item["session_id"] == session_id
+            item
+            for item in vector_episode_map.get(current_query[0], [])
+            if session_id is None or item["session_id"] == session_id
         ],
     )
     monkeypatch.setattr(
@@ -313,8 +314,14 @@ def test_eval_recall_expected_hits(monkeypatch, tmp_path):
     for case in cases:
         current_query[0] = case["query"]
         recall = store.recall(case["query"], session_id=case["session_id"], limit=5)
-        top_episode = recall["ranked_episodes"][0]["id"] if recall["ranked_episodes"] else None
-        top_semantic = recall["ranked_semantic_hits"][0]["id"] if recall["ranked_semantic_hits"] else None
+        top_episode = (
+            recall["ranked_episodes"][0]["id"] if recall["ranked_episodes"] else None
+        )
+        top_semantic = (
+            recall["ranked_semantic_hits"][0]["id"]
+            if recall["ranked_semantic_hits"]
+            else None
+        )
         report.append((case["query"], top_episode, top_semantic))
         assert top_episode == case["expected_episode_id"]
         assert top_semantic == case["expected_semantic_id"]
@@ -377,15 +384,22 @@ def test_eval_prefers_overlap_when_similar_vector_hits_compete(monkeypatch, tmp_
             },
         ],
     )
-    monkeypatch.setattr(store, "vector_search_semantic_nodes", lambda query_vector, limit=10: [])
+    monkeypatch.setattr(
+        store, "vector_search_semantic_nodes", lambda query_vector, limit=10: []
+    )
 
     recall = store.recall("reset runtime data", session_id="eval", limit=5)
     assert recall["ranked_episodes"][0]["id"] == ids["ep_similar_good"]
-    assert recall["ranked_episodes"][0]["lexical_overlap"] > recall["ranked_episodes"][1]["lexical_overlap"]
+    assert (
+        recall["ranked_episodes"][0]["lexical_overlap"]
+        > recall["ranked_episodes"][1]["lexical_overlap"]
+    )
     store.close()
 
 
-def test_eval_distinguishes_disabled_runtime_from_stale_data_wording(monkeypatch, tmp_path):
+def test_eval_distinguishes_disabled_runtime_from_stale_data_wording(
+    monkeypatch, tmp_path
+):
     _mock_runtime_ok(monkeypatch)
     db = tmp_path / "brain.db"
     store = BrainOSStore(db)
@@ -402,7 +416,11 @@ def test_eval_distinguishes_disabled_runtime_from_stale_data_wording(monkeypatch
         metadata={"kind": "maintenance"},
     )
 
-    monkeypatch.setattr(store, "sqlite_vec_capability", lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None})
+    monkeypatch.setattr(
+        store,
+        "sqlite_vec_capability",
+        lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
+    )
     monkeypatch.setattr(
         store,
         "embed_texts",
@@ -438,7 +456,9 @@ def test_eval_distinguishes_disabled_runtime_from_stale_data_wording(monkeypatch
             },
         ],
     )
-    monkeypatch.setattr(store, "vector_search_semantic_nodes", lambda query_vector, limit=10: [])
+    monkeypatch.setattr(
+        store, "vector_search_semantic_nodes", lambda query_vector, limit=10: []
+    )
 
     recall = store.recall("disabled vector runtime", session_id="eval", limit=5)
     assert recall["ranked_episodes"][0]["id"] == good_id

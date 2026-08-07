@@ -1,5 +1,4 @@
 import json
-import os
 import sqlite3
 from pathlib import Path
 
@@ -40,14 +39,23 @@ def test_embedding_contract_exposes_required_env():
     assert contract["provider_path"] == "litellm"
     assert contract["operational_provider"] in {"unknown", "azure"}
     if contract["operational_provider"] == "azure":
-        assert contract["required_env"] == [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION]
+        assert contract["required_env"] == [
+            ENV_EMBEDDING_MODEL,
+            ENV_AZURE_API_BASE,
+            ENV_AZURE_API_KEY,
+            ENV_AZURE_API_VERSION,
+        ]
     else:
         assert contract["required_env"] == [ENV_EMBEDDING_MODEL]
 
 
 def test_embedding_contract_redacts_api_key_from_diagnostics(monkeypatch):
     sentinel = "BRAINOS_SYNTHETIC_SENTINEL_NOT_A_SECRET"
-    for name in [ENV_EMBEDDING_API_BASE, ENV_EMBEDDING_API_KEY, ENV_EMBEDDING_API_VERSION]:
+    for name in [
+        ENV_EMBEDDING_API_BASE,
+        ENV_EMBEDDING_API_KEY,
+        ENV_EMBEDDING_API_VERSION,
+    ]:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(ENV_EMBEDDING_MODEL, "azure/test-embedding")
     monkeypatch.setenv(ENV_AZURE_API_BASE, "https://example.openai.azure.com")
@@ -64,13 +72,19 @@ def test_embedding_contract_redacts_api_key_from_diagnostics(monkeypatch):
 
 
 def test_embedding_adapter_requires_env(monkeypatch):
-    for name in [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION, ENV_OPENAI_API_KEY]:
+    for name in [
+        ENV_EMBEDDING_MODEL,
+        ENV_AZURE_API_BASE,
+        ENV_AZURE_API_KEY,
+        ENV_AZURE_API_VERSION,
+        ENV_OPENAI_API_KEY,
+    ]:
         monkeypatch.delenv(name, raising=False)
 
     adapter = LiteLLMEmbeddingAdapter()
     try:
         adapter.embed_texts(["hello"])
-        assert False, "expected EmbeddingProviderNotConfiguredError"
+        raise AssertionError("expected EmbeddingProviderNotConfiguredError")
     except EmbeddingProviderNotConfiguredError as exc:
         assert "missing embedding environment variables" in str(exc)
 
@@ -173,14 +187,22 @@ def test_generate_episode_embedding_records_error_state(monkeypatch, tmp_path):
     create_v3_database(db)
     store = BrainOSStore(db)
     store.initialize()
-    episode_id = store.add_episode(session_id="s1", content="Needs embedding", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1", content="Needs embedding", metadata={}
+    )
 
-    for name in [ENV_EMBEDDING_MODEL, ENV_AZURE_API_BASE, ENV_AZURE_API_KEY, ENV_AZURE_API_VERSION, ENV_OPENAI_API_KEY]:
+    for name in [
+        ENV_EMBEDDING_MODEL,
+        ENV_AZURE_API_BASE,
+        ENV_AZURE_API_KEY,
+        ENV_AZURE_API_VERSION,
+        ENV_OPENAI_API_KEY,
+    ]:
         monkeypatch.delenv(name, raising=False)
 
     try:
         store.generate_episode_embedding(episode_id)
-        assert False, "expected EmbeddingProviderNotConfiguredError"
+        raise AssertionError("expected EmbeddingProviderNotConfiguredError")
     except EmbeddingProviderNotConfiguredError:
         pass
 
@@ -191,12 +213,16 @@ def test_generate_episode_embedding_records_error_state(monkeypatch, tmp_path):
     store.close()
 
 
-def test_generate_episode_embedding_marks_disabled_when_sqlite_vec_unavailable(monkeypatch, tmp_path):
+def test_generate_episode_embedding_marks_disabled_when_sqlite_vec_unavailable(
+    monkeypatch, tmp_path
+):
     db = tmp_path / "brain_v3_disabled.db"
     create_v3_database(db)
     store = BrainOSStore(db)
     store.initialize()
-    episode_id = store.add_episode(session_id="s1", content="Needs vector storage", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1", content="Needs vector storage", metadata={}
+    )
 
     monkeypatch.setattr(
         store,
@@ -214,7 +240,11 @@ def test_generate_episode_embedding_marks_disabled_when_sqlite_vec_unavailable(m
     monkeypatch.setattr(
         store,
         "_sqlite_vec_capability",
-        lambda: {"fts5": True, "sqlite_vec": False, "sqlite_vec_error": "no such module: vec0"},
+        lambda: {
+            "fts5": True,
+            "sqlite_vec": False,
+            "sqlite_vec_error": "no such module: vec0",
+        },
     )
 
     result = store.generate_episode_embedding(episode_id)
@@ -229,12 +259,16 @@ def test_generate_episode_embedding_marks_disabled_when_sqlite_vec_unavailable(m
     store.close()
 
 
-def test_generate_episode_embedding_stores_vector_when_sqlite_vec_available(monkeypatch, tmp_path):
+def test_generate_episode_embedding_stores_vector_when_sqlite_vec_available(
+    monkeypatch, tmp_path
+):
     db = tmp_path / "brain_v3_store.db"
     create_v3_database(db)
     store = BrainOSStore(db)
     store.initialize()
-    episode_id = store.add_episode(session_id="s1", content="Store this vector", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1", content="Store this vector", metadata={}
+    )
 
     monkeypatch.setattr(
         store,
@@ -258,7 +292,14 @@ def test_generate_episode_embedding_stores_vector_when_sqlite_vec_available(monk
     created = []
     inserted = []
 
-    monkeypatch.setattr(store, "_ensure_episode_vec_table", lambda dimensions: created.append(dimensions))
+    def ensure_episode_vec_table(dimensions):
+        created.append(dimensions)
+
+    monkeypatch.setattr(
+        store,
+        "_ensure_episode_vec_table",
+        ensure_episode_vec_table,
+    )
     monkeypatch.setattr(
         store,
         "_upsert_episode_vector",
@@ -278,12 +319,16 @@ def test_generate_episode_embedding_stores_vector_when_sqlite_vec_available(monk
     store.close()
 
 
-def test_generate_episode_embedding_fails_fast_on_dimension_mismatch(monkeypatch, tmp_path):
+def test_generate_episode_embedding_fails_fast_on_dimension_mismatch(
+    monkeypatch, tmp_path
+):
     db = tmp_path / "brain_v3_dimension_mismatch.db"
     create_v3_database(db)
     store = BrainOSStore(db)
     store.initialize()
-    episode_id = store.add_episode(session_id="s1", content="Dimension-sensitive vector", metadata={})
+    episode_id = store.add_episode(
+        session_id="s1", content="Dimension-sensitive vector", metadata={}
+    )
 
     monkeypatch.setattr(
         store,
@@ -303,11 +348,15 @@ def test_generate_episode_embedding_fails_fast_on_dimension_mismatch(monkeypatch
         "_sqlite_vec_capability",
         lambda: {"fts5": True, "sqlite_vec": True, "sqlite_vec_error": None},
     )
-    monkeypatch.setattr(store, "_vec_table_dimensions", lambda table_name: 1536 if table_name == "episodes_vec" else None)
+    monkeypatch.setattr(
+        store,
+        "_vec_table_dimensions",
+        lambda table_name: 1536 if table_name == "episodes_vec" else None,
+    )
 
     try:
         store.generate_episode_embedding(episode_id)
-        assert False, "expected VectorIndexContractError"
+        raise AssertionError("expected VectorIndexContractError")
     except VectorIndexContractError as exc:
         assert "table=episodes_vec" in str(exc)
         assert "expected=1536" in str(exc)
@@ -320,12 +369,19 @@ def test_generate_episode_embedding_fails_fast_on_dimension_mismatch(monkeypatch
     store.close()
 
 
-def test_generate_semantic_node_embedding_stores_vector_when_sqlite_vec_available(monkeypatch, tmp_path):
+def test_generate_semantic_node_embedding_stores_vector_when_sqlite_vec_available(
+    monkeypatch, tmp_path
+):
     db = tmp_path / "brain_v3_semantic_store.db"
     create_v3_database(db)
     store = BrainOSStore(db)
     store.initialize()
-    store.upsert_semantic_node(node_id="n1", name="Semantic Memory", node_type="Concept", properties={"area": "memory"})
+    store.upsert_semantic_node(
+        node_id="n1",
+        name="Semantic Memory",
+        node_type="Concept",
+        properties={"area": "memory"},
+    )
 
     monkeypatch.setattr(
         store,
