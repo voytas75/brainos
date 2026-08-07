@@ -49,7 +49,7 @@ Remote stabilization checkpoint:
 - made episode promotion rollback-safe when its durable promotion record fails
 - deferred vector-table dimensions to the first successful embedding and kept mismatch detection for later rebuilds
 - isolated the degraded-runtime operator acceptance pack from inherited `BRAINOS_SQLITE_VEC_PATH`
-- current full local test posture: `137 passed`
+- current full local test posture: `138 passed`
 - enabled secret scanning with push protection; CodeQL is active and has zero open alerts
 
 `main` requires the strict `Lock and tests` check, including for repository administrators; review approval is not required.

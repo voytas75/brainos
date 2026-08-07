@@ -13,6 +13,7 @@ from brainos.sqlite_vec import (
     configured_sqlite_vec_path,
     sqlite_vec_readiness,
 )
+from brainos.store import BrainOSStore
 
 
 def _real_vec_path_or_skip() -> str:
@@ -75,6 +76,45 @@ def test_sqlite_vec_readiness_with_real_extension(monkeypatch):
         assert ready["action_hint"] == "noop"
     finally:
         conn.close()
+
+
+def test_store_vector_searches_with_real_extension_and_mock_embedding(
+    monkeypatch, tmp_path
+):
+    vec_path = _real_vec_path_or_skip()
+    monkeypatch.setenv(ENV_SQLITE_VEC_PATH, vec_path)
+    store = BrainOSStore(tmp_path / "brain.db")
+    store.initialize()
+    episode_id = store.add_episode(
+        session_id="s1", content="Vector episode", metadata={}
+    )
+    store.upsert_semantic_node(
+        node_id="node-1", name="Vector node", node_type="Concept", properties={}
+    )
+    monkeypatch.setattr(
+        store,
+        "embed_texts",
+        lambda texts, profile=None: {
+            "vectors": [[0.1, 0.2, 0.3] for _ in texts],
+            "dimensions": 3,
+            "provider": "mock",
+            "model": "mock/embedding",
+            "profile": profile or "brainos-embedding-default",
+            "requested_count": len(texts),
+            "returned_count": len(texts),
+        },
+    )
+
+    episode_sync = store.generate_episode_embedding(episode_id)
+    node_sync = store.generate_semantic_node_embedding("node-1")
+    episode_hits = store.vector_search_episodes([0.1, 0.2, 0.3], session_id="s1")
+    node_hits = store.vector_search_semantic_nodes([0.1, 0.2, 0.3])
+
+    assert episode_sync["storage"] == "sqlite-vec"
+    assert node_sync["storage"] == "sqlite-vec"
+    assert episode_hits[0]["id"] == episode_id
+    assert node_hits[0]["id"] == "node-1"
+    store.close()
 
 
 def test_sqlite_vec_readiness_classifies_missing_path(monkeypatch):
