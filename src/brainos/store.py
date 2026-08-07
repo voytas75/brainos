@@ -30,10 +30,10 @@ from .retrieval import RetrievalService
 from .schema import (
     detect_capabilities,
     get_schema_status,
-    get_vec_table_sql,
     initialize_schema,
 )
 from .sqlite_vec import load_sqlite_vec_extension, sqlite_vec_readiness
+from .vector_index import VectorIndexStorage
 
 DECISION_RETRIEVAL_STOPWORDS = frozenset(
     {
@@ -530,29 +530,24 @@ class BrainOSStore:
     def sqlite_vec_readiness(self) -> dict[str, Any]:
         return sqlite_vec_readiness(self.conn)
 
+    def _vector_index_storage(self) -> VectorIndexStorage:
+        return VectorIndexStorage(self.conn)
+
     def _vec_table_dimensions(self, table_name: str) -> int | None:
-        row = self.conn.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
-            (table_name,),
-        ).fetchone()
-        if row is None or row[0] is None:
-            return None
-        sql = str(row[0])
-        marker = "embedding FLOAT["
-        if marker not in sql:
-            return None
-        tail = sql.split(marker, 1)[1]
-        dim_text = tail.split("]", 1)[0].strip()
-        return int(dim_text)
+        return self._vector_index_storage().vec_table_dimensions(table_name)
 
     def _ensure_vec_table_contract(self, table_name: str, dimensions: int) -> None:
         current_dimensions = self._vec_table_dimensions(table_name)
         if current_dimensions is None:
-            self.conn.execute(get_vec_table_sql(dimensions, table_name=table_name))
+            self._vector_index_storage().ensure_vec_table_contract(
+                table_name, dimensions
+            )
             return
         if current_dimensions != dimensions:
             raise VectorIndexContractError(
-                f"vector index dimension mismatch: table={table_name}, expected={current_dimensions}, got={dimensions}; rebuild required"
+                "vector index dimension mismatch: "
+                f"table={table_name}, expected={current_dimensions}, got={dimensions}; "
+                "rebuild required"
             )
 
     def _ensure_episode_vec_table(self, dimensions: int) -> None:
@@ -562,32 +557,30 @@ class BrainOSStore:
         self._ensure_vec_table_contract("semantic_nodes_vec", dimensions)
 
     def _vec_table_exists(self, table_name: str) -> bool:
-        row = self.conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
-            (table_name,),
-        ).fetchone()
-        return row is not None
+        return self._vector_index_storage().vec_table_exists(table_name)
 
     def _upsert_episode_vector(
         self, episode_id: str, vector: list[float], dimensions: int
     ) -> None:
         self._ensure_episode_vec_table(dimensions)
-        vector_json = json.dumps(vector, ensure_ascii=False)
-        self.conn.execute("DELETE FROM episodes_vec WHERE id = ?", (episode_id,))
-        self.conn.execute(
-            "INSERT INTO episodes_vec(id, embedding) VALUES (?, ?)",
-            (episode_id, vector_json),
+        self._vector_index_storage().upsert_vector(
+            table_name="episodes_vec",
+            object_id=episode_id,
+            vector=vector,
+            dimensions=dimensions,
+            ensure_contract=False,
         )
 
     def _upsert_semantic_node_vector(
         self, node_id: str, vector: list[float], dimensions: int
     ) -> None:
         self._ensure_semantic_node_vec_table(dimensions)
-        vector_json = json.dumps(vector, ensure_ascii=False)
-        self.conn.execute("DELETE FROM semantic_nodes_vec WHERE id = ?", (node_id,))
-        self.conn.execute(
-            "INSERT INTO semantic_nodes_vec(id, embedding) VALUES (?, ?)",
-            (node_id, vector_json),
+        self._vector_index_storage().upsert_vector(
+            table_name="semantic_nodes_vec",
+            object_id=node_id,
+            vector=vector,
+            dimensions=dimensions,
+            ensure_contract=False,
         )
 
     def vector_search_episodes(

@@ -1,5 +1,8 @@
+import sqlite3
+
 from brainos.errors import VectorIndexContractError
 from brainos.store import BrainOSStore
+from brainos.vector_index import VectorIndexStorage
 
 
 def test_refresh_vector_freshness_for_semantic_node_marks_stale(tmp_path):
@@ -177,6 +180,23 @@ def test_vector_search_semantic_nodes_returns_empty_when_vec_table_absent(tmp_pa
     results = store.vector_search_semantic_nodes([0.1, 0.2, 0.3], limit=5)
     assert results == []
     store.close()
+
+
+def test_vector_index_storage_rejects_dimension_mismatch():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE episodes_vec (id TEXT PRIMARY KEY, embedding FLOAT[3])")
+    storage = VectorIndexStorage(conn)
+
+    assert storage.vec_table_dimensions("episodes_vec") == 3
+    try:
+        storage.ensure_vec_table_contract("episodes_vec", 4)
+        raise AssertionError("expected VectorIndexContractError")
+    except VectorIndexContractError as exc:
+        assert "table=episodes_vec" in str(exc)
+        assert "expected=3" in str(exc)
+        assert "got=4" in str(exc)
+    finally:
+        conn.close()
 
 
 def test_sync_vector_index_batch_dedupes_duplicate_source_text_states(
