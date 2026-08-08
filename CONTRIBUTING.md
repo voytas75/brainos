@@ -16,13 +16,13 @@ Please:
 Install dependencies:
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev --group dev --frozen
 ```
 
 Run tests:
 
 ```bash
-uv run pytest -q
+uv run --extra dev --group dev --frozen pytest -q
 ```
 
 Run a minimal local smoke path:

@@ -5,10 +5,10 @@ Work only on the accepted stabilization cycle in `PLAN.md` and `BOUNDS.md`.
 
 ## Canonical commands
 - `uv lock --check`
-- `uv run --extra dev ruff check .`
-- `uv run --extra dev ruff format --check .`
-- `uv run --extra dev pyright`
-- `uv run --extra dev pytest -q`
+- `uv run --extra dev --group dev --frozen ruff check .`
+- `uv run --extra dev --group dev --frozen ruff format --check .`
+- `uv run --extra dev --group dev --frozen pyright`
+- `uv run --extra dev --group dev --frozen pytest -q`
 
 ## Always
 - Inspect repository state and the relevant control documents before a material change.
