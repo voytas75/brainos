@@ -58,4 +58,4 @@ Remote stabilization checkpoint:
 
 - Current runtime and operator notes: [`docs/README-DEV.md`](./README-DEV.md)
 - API and CLI reference: [`docs/api.md`](./api.md)
-- Historical working notes: [`docs/_archive_working/`](./_archive_working/)
+- Historical implementation context: [`docs/implementation-notes.md`](./implementation-notes.md)

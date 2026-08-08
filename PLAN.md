@@ -29,6 +29,12 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 - [x] **P1 — Adapter and documentation integrity:** validate malformed embedding responses; synchronize current contracts, SSOT roles, and tracked documentation links.
 - [x] **P2 — Controlled follow-up:** vector freshness is model-aware; LiteLLM remains mandatory pending an explicit optional-dependency transition with a BrainOS-specific missing-dependency error, core-only install matrix, isolated provider tests, and approved manifest/lock changes.
 
+## Maintenance-only cycle — approved
+
+- [x] **P0.1 — Developer setup alignment:** contributor and agent commands now install/run the same `uv` dependency groups as CI.
+- [x] **P0.2 — Tracked documentation integrity:** public active documentation no longer links to local-only archives or a missing regression-report artifact.
+- [ ] **P1.1 — Evidence-gated maintenance intake:** accept only confirmed integrity, documentation, CI/test, or dependency-hygiene corrections with a deterministic reproduction or direct control-document conflict. No product features, scoring work, broad refactors, or provider-backed evaluation.
+
 ## Deferred / anti-scope
 - New product features, retrieval/scoring work, HTTP/MCP/hosted runtime, and background workers.
 - Broad `store.py` refactor, scalability/concurrency claims, and unsolicited provider-backed runs.
