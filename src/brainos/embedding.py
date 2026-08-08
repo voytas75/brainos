@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import isfinite
 from typing import Any, cast
 
 from .embedding_config import (
@@ -37,6 +38,45 @@ def diagnostic_embedding_contract(config: dict[str, Any]) -> dict[str, Any]:
         "api_key_present": "api_key" in config_source,
         "call_params": {"model": model} if model else {},
     }
+
+
+def _invalid_embedding_response(detail: str) -> EmbeddingRuntimeError:
+    return EmbeddingRuntimeError(f"invalid embedding provider response: {detail}")
+
+
+def _validated_embedding_vectors(
+    response: Any, expected_count: int
+) -> list[list[float]]:
+    raw_data = getattr(response, "data", None)
+    if not isinstance(raw_data, list):
+        raise _invalid_embedding_response("unexpected data")
+    data = cast(list[object], raw_data)
+    if len(data) != expected_count:
+        raise _invalid_embedding_response("unexpected data")
+
+    vectors: list[list[float]] = []
+    dimensions: int | None = None
+    for item in data:
+        try:
+            raw_vector = cast(Any, item)["embedding"]
+        except (AttributeError, KeyError, TypeError):
+            raise _invalid_embedding_response("invalid item") from None
+        if not isinstance(raw_vector, list) or not raw_vector:
+            raise _invalid_embedding_response("invalid vector")
+        vector = cast(list[object], raw_vector)
+        if any(type(value) not in (int, float) for value in vector):
+            raise _invalid_embedding_response("invalid vector")
+        try:
+            typed_vector = [float(cast(float, value)) for value in vector]
+        except (OverflowError, ValueError):
+            raise _invalid_embedding_response("invalid vector") from None
+        if not all(isfinite(value) for value in typed_vector):
+            raise _invalid_embedding_response("invalid vector")
+        if dimensions is not None and len(typed_vector) != dimensions:
+            raise _invalid_embedding_response("dimension mismatch")
+        dimensions = len(typed_vector)
+        vectors.append(typed_vector)
+    return vectors
 
 
 class LiteLLMEmbeddingAdapter:
@@ -81,8 +121,8 @@ class LiteLLMEmbeddingAdapter:
                 f"embedding provider call failed: {exc}"
             ) from exc
 
-        vectors = cast(list[list[float]], [item["embedding"] for item in response.data])
-        dimensions = len(vectors[0]) if vectors else 0
+        vectors = _validated_embedding_vectors(response, len(typed_texts))
+        dimensions = len(vectors[0])
         return {
             "vectors": vectors,
             "dimensions": dimensions,

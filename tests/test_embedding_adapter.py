@@ -2,6 +2,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+from litellm.types.utils import Embedding
+
 from brainos.embedding import LiteLLMEmbeddingAdapter
 from brainos.embedding_config import (
     ENV_AZURE_API_BASE,
@@ -13,23 +15,30 @@ from brainos.embedding_config import (
     ENV_EMBEDDING_MODEL,
     ENV_OPENAI_API_KEY,
 )
-from brainos.errors import EmbeddingProviderNotConfiguredError, VectorIndexContractError
+from brainos.errors import (
+    EmbeddingProviderNotConfiguredError,
+    EmbeddingRuntimeError,
+    VectorIndexContractError,
+)
 from brainos.health import _embedding_config_health
 from brainos.store import BrainOSStore
 
 
 class _DummyEmbeddingResponse:
-    def __init__(self, vectors):
-        self.data = [{"embedding": v} for v in vectors]
+    def __init__(self, data):
+        self.data = data
 
 
 class _CaptureLiteLLM:
     last_kwargs = None
+    response = None
 
     @staticmethod
     def embedding(**kwargs):
         _CaptureLiteLLM.last_kwargs = kwargs
-        return _DummyEmbeddingResponse([[0.1, 0.2, 0.3]])
+        return _CaptureLiteLLM.response or _DummyEmbeddingResponse(
+            [Embedding(embedding=[0.1, 0.2, 0.3], index=0, object="embedding")]
+        )
 
 
 def test_embedding_contract_exposes_required_env():
@@ -105,6 +114,37 @@ def test_embedding_adapter_openai_path_uses_openai_key_without_azure_env(monkeyp
     assert _CaptureLiteLLM.last_kwargs["api_key"] == "openai-key"
     assert "api_base" not in _CaptureLiteLLM.last_kwargs
     assert "api_version" not in _CaptureLiteLLM.last_kwargs
+
+
+def test_embedding_adapter_rejects_malformed_provider_responses(monkeypatch):
+    monkeypatch.setattr(
+        LiteLLMEmbeddingAdapter,
+        "_resolve_config",
+        lambda _self: {
+            "call_params": {},
+            "operational_provider": "test",
+            "model": "test",
+        },
+    )
+    monkeypatch.setitem(__import__("sys").modules, "litellm", _CaptureLiteLLM)
+    for texts, response in [
+        (["a"], object()),
+        (["a"], _DummyEmbeddingResponse([])),
+        (["a", "b"], _DummyEmbeddingResponse([{"embedding": [0.1, 0.2]}])),
+        (["a"], _DummyEmbeddingResponse([{}])),
+        (
+            ["a", "b"],
+            _DummyEmbeddingResponse([{"embedding": [0.1]}, {"embedding": [0.2, 0.3]}]),
+        ),
+        (["a"], _DummyEmbeddingResponse([{"embedding": [0.1, "bad"]}])),
+        (["a"], _DummyEmbeddingResponse([{"embedding": [True, float("nan")]}])),
+    ]:
+        monkeypatch.setattr(_CaptureLiteLLM, "response", response)
+        try:
+            LiteLLMEmbeddingAdapter().embed_texts(texts)
+            raise AssertionError("expected invalid embedding response")
+        except EmbeddingRuntimeError as exc:
+            assert "invalid embedding provider response" in str(exc)
 
 
 def create_v3_database(path: Path) -> None:

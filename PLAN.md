@@ -21,6 +21,14 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 - [x] **P2 — strict Pyright debt:** strict type errors were removed in bounded module batches without suppressions or lowered strictness.
 - [x] **P3 — required quality gate:** this branch's frozen CI requires Ruff lint/format, strict Pyright, and pytest after their full local baseline was green.
 
+## Integrity closure — accepted
+
+- [x] **P0.1 — Network-free diagnostics:** `retrieval-health`, `embedding-readiness`, `doctor`, and the default canonical walkthrough must not invoke an embedding provider. Provider-backed retrieval evaluation remains an explicit, separately approved action.
+- [x] **P0.2 — Schema fail-closed:** an existing unknown or incomplete `user_version=0` SQLite database must not be reported as current.
+- [x] **P0.3 — Canonical regression guard:** prove the default canonical walkthrough stays offline even when provider-like environment variables are present.
+- [x] **P1 — Adapter and documentation integrity:** validate malformed embedding responses; synchronize current contracts, SSOT roles, and tracked documentation links.
+- [x] **P2 — Controlled follow-up:** vector freshness is model-aware; LiteLLM remains mandatory pending an explicit optional-dependency transition with a BrainOS-specific missing-dependency error, core-only install matrix, isolated provider tests, and approved manifest/lock changes.
+
 ## Deferred / anti-scope
 - New product features, retrieval/scoring work, HTTP/MCP/hosted runtime, and background workers.
 - Broad `store.py` refactor, scalability/concurrency claims, and unsolicited provider-backed runs.

@@ -1,54 +1,51 @@
-# Runtime posture contract v1
+# sqlite-vec runtime posture contract v1
 
 ## Purpose
-This document defines the current difference between **ambient runtime capability** and **explicit-path runtime readiness** in BrainOS vector operation.
 
-These two signals may differ without either one being a bug on its own.
+This document defines the current `sqlite-vec` runtime interpretation for BrainOS. It is an operator contract, not proof that vector retrieval is broadly healthy.
 
-## Ambient runtime capability
-Ambient runtime capability answers:
-- can this process use sqlite-vec without performing an explicit readiness-style load step first?
+## Authority
 
-Current surfaces that report this posture:
-- `brainos capabilities`
-- `retrieval-health.runtime.capabilities`
+The implementation anchors are `src/brainos/sqlite_vec.py` and `src/brainos/schema.py`. If this document conflicts with those sources or their tests, code and tests win until this contract is corrected.
 
-Current interpretation:
-- `sqlite_vec=true` means vec0 is available to the process in its ordinary capability path
-- `sqlite_vec=false` means vec0 is not currently available in that ambient path
-- `sqlite_vec_probe_mode=ambient` means this posture was evaluated without an explicit configured-path load step
+## Explicit-path only
 
-## Explicit-path runtime readiness
-Explicit-path readiness answers:
-- if BrainOS is given an explicit configured sqlite-vec extension path, can it successfully load it and execute a real probe query?
+BrainOS does **not** probe ambient `sqlite-vec` availability. A usable vector runtime requires an explicit `BRAINOS_SQLITE_VEC_PATH`.
 
-Current surface that reports this posture:
-- `brainos sqlite-vec-readiness`
+- No configured path → `sqlite_vec=false` with runtime origin `disabled_without_explicit_path`.
+- Configured path → BrainOS attempts to load that exact extension path and run a temporary vec0 probe.
+- Load or probe failure → `sqlite_vec=false` with the reported runtime error.
 
-Current interpretation:
-- `ok=true` means BrainOS can explicitly load the configured vec0 extension path and execute the readiness probe successfully
-- this is stronger than a mere config echo, but narrower than claiming ambient availability
+This avoids treating inherited extensions or host-specific ambient state as BrainOS configuration.
 
-## Why these can differ
-A system may validly report:
-- ambient capability = unavailable
-- explicit readiness = available
+## Surfaces
 
-because the runtime can require an explicit extension path/load step that ordinary ambient capability detection does not assume.
+### `capabilities`
 
-## Current operator rule
-Read runtime posture in this order:
-1. `sqlite-vec-readiness` for explicit configured-path truth
-2. `capabilities` / `retrieval-health.runtime.capabilities` for ambient process truth
-3. `retrieval-health` overall for operational consequences in the current surface design
+`brainos capabilities` reports the capability posture for the current process. Its `sqlite_vec_runtime_origin` is either:
 
-## Current surface contract
-- `capabilities` currently reports ambient posture
-- `retrieval-health.runtime.capabilities` currently mirrors ambient posture
-- `sqlite-vec-readiness` currently reports explicit-path readiness posture
+- `explicit_path`
+- `disabled_without_explicit_path`
 
-So if these differ, the correct reading is not automatically contradiction.
-The correct reading is usually: explicit loading works, but ambient process availability is not yet established.
+It never claims an ambient probe result.
+
+### `sqlite-vec-readiness`
+
+`brainos sqlite-vec-readiness` loads the configured extension path and exercises a temporary vec0 table with a small query.
+
+- `ok=true` means the configured path loaded and the readiness probe completed.
+- `path_not_configured`, `extension_load_failed`, and `readiness_probe_failed` identify the relevant failure class.
+
+### Diagnostics
+
+`embedding-readiness`, `retrieval-health`, and `doctor` expose runtime context and remediation hints. They are local diagnostics: they do not run `retrieval-benchmark` or an embedding provider.
+
+## Operator rule
+
+1. Run `sqlite-vec-readiness` to validate an explicitly configured extension.
+2. Read `capabilities` and diagnostic runtime fields for the process posture.
+3. Interpret retrieval quality only through an explicit `retrieval-benchmark` run and its bounded evidence contract.
 
 ## Stability note
-This contract should remain stable until BrainOS intentionally changes which runtime posture is treated as the primary operational source of truth.
+
+Keep this contract aligned with explicit-path-only behavior. Any future ambient-probe design requires an intentional code, test, and contract change.

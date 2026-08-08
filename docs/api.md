@@ -129,13 +129,14 @@ Runs FTS5 search against episodic memory.
 
 Returns recall results based on:
 - episodic FTS hits
+- decision-text hits
 - optional session filter
 - lightweight semantic node name matching
 - semantic edge enrichment for matched nodes
 
 Current recall mode:
-- `fts_plus_semantic_name_match`
-- optional vector participation for episodes and semantic nodes when runtime readiness permits it
+- `fts_plus_<episode-vector-mode>_plus_semantic_name_match_plus_decision_text`
+- `<episode-vector-mode>` is runtime-dependent; vector participation is optional and requires configured sqlite-vec plus embedding readiness.
 
 ---
 
@@ -404,6 +405,8 @@ brainos --db ./brain.db retrieval-explain 'canonical retrieval demo health' --se
 brainos --db ./brain.db retrieval-health --benchmark-limit 5
 ```
 
+This is a local diagnostics command. It does not run `retrieval-benchmark` or an embedding provider; its quality payload reports `benchmark.mode: "not_evaluated"`. `--benchmark-limit` remains accepted for CLI compatibility but is not used for evaluation.
+
 #### `real-corpus-probe`
 ```bash
 brainos --db ./brain.db real-corpus-probe --limit 5
@@ -423,6 +426,8 @@ brainos --db ./brain.db sqlite-vec-readiness
 ```bash
 brainos --db ./brain.db doctor --benchmark-limit 5
 ```
+
+`doctor` composes local health and readiness diagnostics. Its nested retrieval-health payload also reports the benchmark as `not_evaluated`; `--benchmark-limit` is compatibility-only.
 
 ### Consolidation / promotion
 
@@ -697,20 +702,18 @@ Current sqlite-vec readiness failure semantics:
 
 Current vector-state contract reference:
 - `docs/vector-state-contract-v1.md`
-- `fresh` means sync may legitimately return `mode=noop`
+- `fresh` means the stored vector matches source/profile/provider/model identity, so sync may legitimately return `mode=noop`
 - `disabled` is capability-gated, not the same class of signal as `stale` or `error`
 
 Current maintenance/readiness interpretation hints:
-- retrieval health now exposes a compact top-level `summary` plus bounded `action_hint` fields
-- retrieval health quality may now report `status=low_evidence` when the database is too empty for ordinary quality interpretation
+- retrieval health exposes a compact top-level `summary` plus bounded `action_hint` fields
+- retrieval health quality reports `benchmark.mode=not_evaluated`; run `retrieval-benchmark` explicitly for bounded evaluation and failed-case drilldown
 - sqlite-vec readiness success returns `action_hint=noop`
-- sqlite-vec readiness errors now classify likely next action, e.g. `runtime_fix` or `retry_or_runtime_fix`
-- vector sync `mode=noop` now also returns `action_hint=noop` and `reason=already_fresh`
-- benchmark output now includes `failed_cases` with compact `failure_hint` classification
-- retrieval health quality output surfaces the same `failed_cases` drilldown
-- failed benchmark cases now include `next_debug` handoff metadata (`tool`, `query`, `session_id`) for explain-side follow-up
-- retrieval explain output now includes bounded `diagnostic_hint` classification for top-hit interpretation
-- mixed vector-led wins with lexical support now classify as `vector_primary_with_lexical_support` so explain diagnostics stay aligned with `operator_summary`
+- sqlite-vec readiness errors classify likely next action, e.g. `runtime_fix` or `retry_or_runtime_fix`
+- vector sync `mode=noop` also returns `action_hint=noop` and `reason=already_fresh`
+- explicit benchmark failures include `failed_cases` with compact `failure_hint` classification and `next_debug` handoff metadata
+- retrieval explain includes bounded `diagnostic_hint` classification for top-hit interpretation
+- mixed vector-led wins with lexical support classify as `vector_primary_with_lexical_support` so explain diagnostics stay aligned with `operator_summary`
 
 
 ## real-corpus retrieval quality probe v1
@@ -727,5 +730,5 @@ Current semantics:
 
 Current contract reference:
 - `docs/runtime-posture-contract-v1.md`
-- ambient capability and explicit-path readiness are intentionally different operator signals
-- differing results are not automatically a bug when explicit loading is required
+- BrainOS treats sqlite-vec as explicit-path-only; ambient probing is disabled.
+- `capabilities` and `sqlite-vec-readiness` report different checks over the configured path, not competing ambient and explicit signals.

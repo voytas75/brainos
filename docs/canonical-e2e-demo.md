@@ -39,9 +39,9 @@ Main outputs:
 
 ## Optional vector-ready pass
 
-The default run does not force vector sync, because that can require real embedding credentials and may trigger remote embedding calls.
+The default run clears embedding-provider configuration for every demo command and does not force vector sync. It therefore proves the local core without sending embedding requests, even when the calling shell has provider credentials.
 
-If your local `.env` is already configured for embeddings and `sqlite-vec`, you can ask the demo to include vector sync:
+If your local `.env` is already configured for embeddings and `sqlite-vec`, and you explicitly approve a provider-backed run, you can ask the demo to include vector sync:
 
 ```bash
 BRAINOS_CANONICAL_E2E_ENABLE_VECTOR_SYNC=1 ./scripts/canonical_e2e_demo.sh

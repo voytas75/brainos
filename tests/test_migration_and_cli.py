@@ -4,6 +4,7 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
+from brainos.errors import BrainOSError
 from brainos.schema import get_schema_version
 from brainos.sqlite_vec import ENV_SQLITE_VEC_PATH
 from brainos.store import BrainOSStore
@@ -70,6 +71,54 @@ def create_v1_database(path: Path) -> None:
     conn.execute("PRAGMA user_version=1")
     conn.commit()
     conn.close()
+
+
+def create_incomplete_v0_database(path: Path) -> None:
+    conn = sqlite3.connect(path)
+    conn.execute(
+        """
+        CREATE TABLE episodes (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            content TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute("PRAGMA user_version=0")
+    conn.commit()
+    conn.close()
+
+
+def _assert_unversioned_database_is_rejected(db: Path) -> None:
+    store = BrainOSStore(db)
+    try:
+        try:
+            store.initialize()
+            raise AssertionError("expected incomplete unversioned schema rejection")
+        except BrainOSError as exc:
+            assert "unversioned database already contains schema objects" in str(exc)
+        assert store.schema_status()["current_version"] == 0
+    finally:
+        store.close()
+
+
+def test_rejects_incomplete_unversioned_database(tmp_path):
+    db = tmp_path / "incomplete_v0.db"
+    create_incomplete_v0_database(db)
+
+    _assert_unversioned_database_is_rejected(db)
+
+
+def test_rejects_unversioned_database_with_sqlite_like_user_table(tmp_path):
+    db = tmp_path / "sqlite_like_v0.db"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE sqliteX_untrusted (id TEXT PRIMARY KEY)")
+    conn.execute("PRAGMA user_version=0")
+    conn.commit()
+    conn.close()
+
+    _assert_unversioned_database_is_rejected(db)
 
 
 def test_migrates_v1_to_current(tmp_path):
