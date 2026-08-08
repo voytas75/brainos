@@ -685,6 +685,19 @@ class BrainOSStore:
         }
         return contract
 
+    def _embedding_identity_changed(self, state: dict[str, Any], profile: str) -> bool:
+        contract = LiteLLMEmbeddingAdapter(profile=profile).contract()
+        provider = contract.get("operational_provider")
+        model = contract.get("model")
+        return (
+            isinstance(provider, str)
+            and provider != "unknown"
+            and isinstance(model, str)
+            and bool(model)
+            and (state.get("embedding_provider"), state.get("embedding_model"))
+            != (provider, model)
+        )
+
     def embed_texts(
         self, texts: list[str], profile: str | None = None
     ) -> dict[str, Any]:
@@ -741,6 +754,10 @@ class BrainOSStore:
         elif (
             state["source_text_hash"] != self._text_hash(source_text)
             or state["embedding_profile"] != profile
+            or (
+                state["vector_status"] == self.VECTOR_STATUS_FRESH
+                and self._embedding_identity_changed(state, profile)
+            )
         ):
             self._set_vector_index_state(
                 object_type="episode",
@@ -777,6 +794,10 @@ class BrainOSStore:
         elif (
             state["source_text_hash"] != self._text_hash(source_text)
             or state["embedding_profile"] != profile
+            or (
+                state["vector_status"] == self.VECTOR_STATUS_FRESH
+                and self._embedding_identity_changed(state, profile)
+            )
         ):
             self._set_vector_index_state(
                 object_type="semantic_node",
