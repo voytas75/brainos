@@ -17,6 +17,23 @@ else
   BRAINOS_CMD=("uv" "run" "brainos")
 fi
 
+if [ "$ENABLE_VECTOR_SYNC" != "1" ]; then
+  BRAINOS_CMD=(
+    "env"
+    "BRAINOS_EMBEDDING_MODEL="
+    "BRAINOS_EMBEDDING_PROVIDER="
+    "BRAINOS_EMBEDDING_API_BASE="
+    "BRAINOS_EMBEDDING_API_KEY="
+    "BRAINOS_EMBEDDING_API_VERSION="
+    "BRAINOS_EMBEDDING_HEADERS_JSON="
+    "AZURE_API_BASE="
+    "AZURE_API_KEY="
+    "AZURE_API_VERSION="
+    "OPENAI_API_KEY="
+    "${BRAINOS_CMD[@]}"
+  )
+fi
+
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 rm -f "$DB_PATH"
