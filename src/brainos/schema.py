@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from .errors import BrainOSError
 from .sqlite_vec import (
     ENV_SQLITE_VEC_PATH,
     configured_sqlite_vec_path,
@@ -253,8 +254,26 @@ def run_migrations(conn: sqlite3.Connection, current_version: int) -> int:
     return version
 
 
+def _has_existing_schema_objects(conn: sqlite3.Connection) -> bool:
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type IN ('table', 'view', 'trigger', 'index')
+          AND substr(name, 1, 7) != 'sqlite_'
+        LIMIT 1
+        """
+    ).fetchone()
+    return row is not None
+
+
 def initialize_schema(conn: sqlite3.Connection, *, enable_vector: bool = False) -> None:
     current_version = get_schema_version(conn)
+    if current_version == 0 and _has_existing_schema_objects(conn):
+        raise BrainOSError(
+            "unversioned database already contains schema objects; "
+            "refusing to mark an unknown schema as current"
+        )
     conn.executescript(SCHEMA_SQL)
     migrated_version = run_migrations(conn, current_version)
     if enable_vector:
