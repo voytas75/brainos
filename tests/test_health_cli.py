@@ -3,6 +3,11 @@ import os
 import subprocess
 from pathlib import Path
 
+from brainos.doctor import doctor_summary, embedding_readiness_summary
+from brainos.errors import SqliteVecReadinessError
+from brainos.health import retrieval_health_summary
+from brainos.store import BrainOSStore
+
 _ENV_KEYS = {
     "BRAINOS_EMBEDDING_MODEL",
     "AZURE_API_BASE",
@@ -53,6 +58,57 @@ def _extract_json(stdout: str) -> dict:
     return json.loads(stdout[start:])
 
 
+def test_diagnostics_do_not_run_provider_benchmark(monkeypatch, tmp_path):
+    calls: list[object] = []
+
+    def _provider_embedding_forbidden(*args: object, **kwargs: object) -> None:
+        calls.append((args, kwargs))
+        raise AssertionError("provider-backed embedding must not run from diagnostics")
+
+    monkeypatch.setattr(
+        "brainos.health.run_retrieval_benchmark",
+        _provider_embedding_forbidden,
+        raising=False,
+    )
+    monkeypatch.setattr(BrainOSStore, "embed_texts", _provider_embedding_forbidden)
+    store = BrainOSStore(tmp_path / "brain.db")
+    store.initialize()
+    try:
+        health = retrieval_health_summary(store)
+        embedding = embedding_readiness_summary(store)
+        doctor = doctor_summary(store)
+    finally:
+        store.close()
+
+    assert calls == []
+    assert health["quality"]["benchmark"]["mode"] == "not_evaluated"
+    assert embedding["status"] in {"ok", "warn"}
+    assert doctor["retrieval_health"]["quality"]["benchmark"]["mode"] == (
+        "not_evaluated"
+    )
+
+
+def test_runtime_probe_failure_stays_not_evaluated(monkeypatch, tmp_path):
+    store = BrainOSStore(tmp_path / "brain.db")
+    store.initialize()
+
+    def _runtime_failure() -> dict[str, object]:
+        raise SqliteVecReadinessError(
+            "sqlite-vec probe failed", error_kind="readiness_probe_failed"
+        )
+
+    monkeypatch.setattr(store, "capabilities", _runtime_failure)
+    try:
+        summary = retrieval_health_summary(store)
+    finally:
+        store.close()
+
+    benchmark = summary["quality"]["benchmark"]
+    assert benchmark["mode"] == "not_evaluated"
+    assert benchmark["runtime_error"] == "sqlite-vec probe failed"
+    assert summary["quality"]["status"] == "not_evaluated"
+
+
 def test_retrieval_health_cli_runs(tmp_path):
     db = tmp_path / "brain.db"
     proc = subprocess.run(
@@ -77,16 +133,13 @@ def test_retrieval_health_cli_runs(tmp_path):
     assert "vector_index" in payload["freshness"]
     assert "benchmark" in payload["quality"]
     assert "notes" in payload["freshness"]
-    assert payload["quality"]["benchmark"]["mode"] in {
-        "vector-ready",
-        "degraded-non-vector",
-    }
+    assert payload["quality"]["benchmark"]["mode"] == "not_evaluated"
     assert "degraded" in payload["quality"]["benchmark"]
     assert "degraded_reason" in payload["quality"]["benchmark"]
     assert "recommended_fix" in payload["quality"]["benchmark"]
     assert (
         payload["quality"]["benchmark"]["recommended_fix"]["action_hint"]
-        == "configure_sqlite_vec_path"
+        == "run_retrieval_benchmark"
     )
 
 
@@ -109,6 +162,7 @@ def test_retrieval_health_cli_exposes_action_hints(tmp_path):
     }
     assert payload["quality"]["action_hint"] in {
         "seed_or_ingest_more_data",
+        "run_retrieval_benchmark",
         "inspect_benchmark_failure",
         "accept_degraded_or_fix_runtime",
         "noop",
@@ -130,40 +184,6 @@ def test_retrieval_health_cli_exposes_action_hints(tmp_path):
         "fix_sqlite_runtime",
         "noop",
     }
-
-
-def test_retrieval_health_cli_exposes_benchmark_failed_case_drilldown(tmp_path):
-    db = tmp_path / "brain.db"
-    proc = subprocess.run(
-        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
-        capture_output=True,
-        text=True,
-        check=True,
-        env=_test_env(),
-    )
-    payload = _extract_json(proc.stdout)
-    assert "failed_cases" in payload["quality"]["benchmark"]
-    assert isinstance(payload["quality"]["benchmark"]["failed_cases"], list)
-
-
-def test_retrieval_health_failed_cases_expose_next_debug_handoff(tmp_path):
-    db = tmp_path / "brain.db"
-    proc = subprocess.run(
-        [_brainos_cli(), "--db", str(db), "retrieval-health", "--benchmark-limit", "5"],
-        capture_output=True,
-        text=True,
-        check=True,
-        env=_test_env(),
-    )
-    payload = _extract_json(proc.stdout)
-    for item in payload["quality"]["benchmark"]["failed_cases"]:
-        assert item["next_debug"]["tool"] == "retrieval-explain"
-        assert item["next_debug"]["query"] == item["query"]
-        assert item["next_debug"]["session_id"] == "bench"
-        assert item["recommended_fix"]["action_hint"] in {
-            "configure_sqlite_vec_path",
-            "inspect_retrieval_explain",
-        }
 
 
 def test_retrieval_health_cli_summary_is_compact_string(tmp_path):
@@ -192,11 +212,9 @@ def test_retrieval_health_cli_degraded_benchmark_summary_is_explicit_not_generic
         env=_test_env(),
     )
     payload = _extract_json(proc.stdout)
-    assert payload["quality"]["benchmark"]["degraded"] is True
-    assert payload["quality"]["benchmark"]["mode"] in {
-        "degraded-non-vector",
-        "runtime_error",
-    }
+    assert payload["quality"]["benchmark"]["degraded"] is False
+    assert payload["quality"]["benchmark"]["mode"] == "not_evaluated"
+    assert "low_evidence_database" in payload["quality"]["notes"]
     assert payload["action_hint"] == "runtime_fix"
 
 

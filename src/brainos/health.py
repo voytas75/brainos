@@ -5,7 +5,6 @@ import re
 from pathlib import Path
 from typing import Any, cast
 
-from .benchmark import run_retrieval_benchmark
 from .embedding import LiteLLMEmbeddingAdapter, diagnostic_embedding_contract
 from .embedding_config import resolve_embedding_config
 from .errors import EmbeddingProviderNotConfiguredError, SqliteVecReadinessError
@@ -33,6 +32,8 @@ def _health_action_hint(
         return "runtime_fix_or_accept_degraded"
     if freshness_notes:
         return "inspect_notes"
+    if benchmark.get("mode") == "not_evaluated":
+        return "run_retrieval_benchmark"
     return "noop"
 
 
@@ -53,6 +54,10 @@ def _health_summary_text(
         return "freshness issues likely affecting retrieval quality"
     if benchmark.get("degraded"):
         return "benchmark running in degraded non-vector mode"
+    if benchmark.get("mode") == "not_evaluated":
+        return (
+            "benchmark not run; use retrieval-benchmark for explicit quality evaluation"
+        )
     if benchmark.get("ok"):
         return "benchmark green in vector-ready mode"
     return "benchmark failure needs explain-side inspection"
@@ -201,26 +206,15 @@ def _runtime_failure_summary(
         "action_hint": "configure_sqlite_vec_path",
     }
     runtime_issue = f"sqlite_vec_runtime:{error_kind}"
-    benchmark: dict[str, Any] = {
-        "suite": "retrieval-benchmark-v0",
-        "evidence_kind": "seeded_fixture",
-        "truthfulness_note": "This benchmark could not complete because sqlite-vec runtime failed before execution.",
-        "ok": False,
-        "mode": "runtime_error",
-        "degraded": True,
-        "degraded_reason": error_kind,
-        "recommended_fix": {
+    benchmark = _not_evaluated_benchmark(
+        runtime_error=detail,
+        recommended_fix={
             "action_hint": "configure_sqlite_vec_path",
             "reason": error_kind,
             "target": "BRAINOS_SQLITE_VEC_PATH",
             "runtime_origin": sqlite_vec_env.get("runtime_origin"),
         },
-        "case_count": 0,
-        "passed": 0,
-        "failed": 0,
-        "failed_cases": [],
-        "runtime_error": detail,
-    }
+    )
     return {
         "status": "warn",
         "summary": "runtime fix needed before vector-quality interpretation; quality evidence is also still low",
@@ -250,13 +244,42 @@ def _runtime_failure_summary(
             "vector_index": {"total": 0, "by_status": {}, "by_type": {}},
         },
         "quality": {
-            "status": "degraded",
-            "issues": ["benchmark_runtime_error"],
-            "notes": [],
-            "action_hint": "accept_degraded_or_fix_runtime",
+            "status": "not_evaluated",
+            "issues": [],
+            "notes": ["runtime_probe_incomplete"],
+            "action_hint": "runtime_fix",
             "benchmark": benchmark,
         },
-        "issues": [runtime_issue, "benchmark_runtime_error"],
+        "issues": [runtime_issue],
+    }
+
+
+def _not_evaluated_benchmark(
+    *,
+    runtime_error: str | None = None,
+    recommended_fix: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "suite": "retrieval-benchmark-v0",
+        "evidence_kind": "seeded_fixture",
+        "truthfulness_note": (
+            "The diagnostic surface does not run provider-backed benchmark work. "
+            "Use retrieval-benchmark explicitly for bounded quality evaluation."
+        ),
+        "ok": None,
+        "mode": "not_evaluated",
+        "degraded": False,
+        "degraded_reason": None,
+        "recommended_fix": recommended_fix
+        or {
+            "action_hint": "run_retrieval_benchmark",
+            "target": "retrieval-benchmark",
+        },
+        "case_count": 0,
+        "passed": 0,
+        "failed": 0,
+        "failed_cases": [],
+        "runtime_error": runtime_error,
     }
 
 
@@ -281,7 +304,7 @@ def retrieval_health_summary(
             counts_by_type.get(item["object_type"], 0) + 1
         )
 
-    benchmark = run_retrieval_benchmark(store, limit=benchmark_limit)
+    benchmark = _not_evaluated_benchmark()
     low_evidence = len(states) == 0
 
     embedding_config = _embedding_config_health()
@@ -313,6 +336,8 @@ def retrieval_health_summary(
     quality_notes: list[str] = []
     if low_evidence:
         quality_notes.append("low_evidence_database")
+    elif benchmark.get("mode") == "not_evaluated":
+        quality_notes.append("benchmark_not_evaluated")
     elif not benchmark.get("ok"):
         if benchmark.get("degraded"):
             quality_issues.append("benchmark_not_green_in_degraded_mode")
@@ -328,9 +353,13 @@ def retrieval_health_summary(
         "low_evidence"
         if low_evidence
         else (
-            "ok"
-            if not quality_issues
-            else ("degraded" if benchmark.get("degraded") else "warn")
+            "not_evaluated"
+            if benchmark.get("mode") == "not_evaluated"
+            else (
+                "ok"
+                if not quality_issues
+                else ("degraded" if benchmark.get("degraded") else "warn")
+            )
         )
     )
 
@@ -382,12 +411,16 @@ def retrieval_health_summary(
             "action_hint": "seed_or_ingest_more_data"
             if low_evidence
             else (
-                "inspect_benchmark_failure"
-                if quality_issues
+                "run_retrieval_benchmark"
+                if benchmark.get("mode") == "not_evaluated"
                 else (
-                    "accept_degraded_or_fix_runtime"
-                    if benchmark.get("degraded")
-                    else "noop"
+                    "inspect_benchmark_failure"
+                    if quality_issues
+                    else (
+                        "accept_degraded_or_fix_runtime"
+                        if benchmark.get("degraded")
+                        else "noop"
+                    )
                 )
             ),
             "benchmark": {

@@ -11,6 +11,12 @@ BrainOS currently exposes two main bounded quality surfaces:
 - deterministic eval fixtures
 - local retrieval benchmark cases
 
+## Diagnostics are not evaluation
+
+- `retrieval-health`, `embedding-readiness`, and `doctor` do not run the provider-backed benchmark.
+- `retrieval-health` and the nested retrieval-health payload from `doctor` report `mode: "not_evaluated"` and direct an operator to `retrieval-benchmark` for an explicit bounded evaluation.
+- `retrieval-benchmark` may use the configured embedding provider; run it only with case-by-case approval.
+
 These surfaces are related, but they do not mean the same thing.
 
 ## Eval fixture purpose
