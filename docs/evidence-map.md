@@ -34,7 +34,7 @@ Primary repo-local evidence:
 - `retrieval_smoke.sh` proves a vector-ready green path only on the machine and environment where it is run.
 - `canonical_e2e_demo.sh` proves the local end-to-end path honestly, but in default mode it does not force remote embedding calls or claim vector-ready success unless the environment is configured for it.
 - The canonical demo defaults to a repo-local database path (`./brain_canonical_e2e.db`) and artifact directory so the walkthrough is easy to repeat and inspect.
-- Historical notes under [`docs/_archive_working/`](./_archive_working/) are supporting context, not current SSOT.
+- Historical implementation context in [`docs/implementation-notes.md`](./implementation-notes.md) is supporting context, not current SSOT.
 
 ## Still unproven or intentionally not claimed
 
