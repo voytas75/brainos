@@ -27,7 +27,7 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 - [x] **P0.2 — Schema fail-closed:** an existing unknown or incomplete `user_version=0` SQLite database must not be reported as current.
 - [x] **P0.3 — Canonical regression guard:** prove the default canonical walkthrough stays offline even when provider-like environment variables are present.
 - [x] **P1 — Adapter and documentation integrity:** validate malformed embedding responses; synchronize current contracts, SSOT roles, and tracked documentation links.
-- [ ] **P2 — Controlled follow-up:** make vector freshness model-aware; then decide, from evidence, whether LiteLLM remains mandatory or becomes an optional install profile.
+- [x] **P2 — Controlled follow-up:** vector freshness is model-aware; LiteLLM remains mandatory pending an explicit optional-dependency transition with a BrainOS-specific missing-dependency error, core-only install matrix, isolated provider tests, and approved manifest/lock changes.
 
 ## Deferred / anti-scope
 - New product features, retrieval/scoring work, HTTP/MCP/hosted runtime, and background workers.
