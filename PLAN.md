@@ -33,7 +33,7 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 
 - [x] **P0.1 — Developer setup alignment:** contributor and agent commands now install/run the same `uv` dependency groups as CI.
 - [x] **P0.2 — Tracked documentation integrity:** public active documentation no longer links to local-only archives or a missing regression-report artifact.
-- [ ] **P1.1 — Evidence-gated maintenance intake:** accept only confirmed integrity, documentation, CI/test, or dependency-hygiene corrections with a deterministic reproduction or direct control-document conflict. No product features, scoring work, broad refactors, or provider-backed evaluation.
+- [x] **P1.1 — Evidence-gated maintenance intake closure:** P0.1/P0.2 were delivered and merged; the previous maintenance cycle is closed. This closure does not assert current CI/CodeQL status, absence of security alerts, or acceptance of new maintenance work.
 
 ## Deferred / anti-scope
 - New product features, retrieval/scoring work, HTTP/MCP/hosted runtime, and background workers.
