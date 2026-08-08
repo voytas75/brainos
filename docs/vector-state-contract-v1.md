@@ -28,7 +28,7 @@ Operator interpretation:
 
 ### `fresh`
 Meaning:
-- vector artifact exists and matches the current source text hash and embedding profile
+- vector artifact exists and matches the current source text hash, embedding profile, operational provider, and model
 
 Operator interpretation:
 - healthy derived state
@@ -36,8 +36,9 @@ Operator interpretation:
 
 ### `stale`
 Meaning:
-- canonical source text or embedding profile changed relative to the last stored vector state
-- previous vector metadata may still exist, but it no longer matches the current source/profile contract
+- source text hash or embedding profile changed relative to the last stored vector state
+- for an otherwise `fresh` state, the currently configured operational provider or model differs from the stored vector identity
+- previous vector metadata may still exist, but it no longer matches the current derivation contract
 
 Operator interpretation:
 - freshness problem
@@ -68,6 +69,11 @@ Operator interpretation:
 ### Canonical source/profile change
 - if source text hash or embedding profile differs from the stored state, status becomes `stale`
 
+### Fresh embedding identity change
+- if a `fresh` state has a configured operational provider/model that differs from its stored identity, status becomes `stale`
+- missing or unavailable current configuration does not invent an identity mismatch
+- this check does not reclassify `missing`, `error`, or `disabled` states
+
 ### Successful vector generation + storage
 - status becomes `fresh`
 - last error fields are cleared
@@ -84,11 +90,12 @@ Operator interpretation:
 
 ### `refresh_vector_freshness_*`
 Intent:
-- classify whether current stored vector state still matches current canonical source/profile state
+- classify whether current stored vector state still matches current canonical source/profile state and, for `fresh` vectors, configured provider/model identity
 
 Behavior:
 - creates `missing` state if none exists yet
 - marks `stale` when source/profile drift is detected
+- marks an otherwise `fresh` state `stale` when configured provider/model identity drifts
 - preserves existing metadata fields where possible when marking stale
 
 ### `sync_vector_index`
@@ -109,6 +116,8 @@ Intent:
 Behavior:
 - returns per-object results
 - collects `BrainOSError` failures into structured batch errors
+- applies `vector_status` filtering before each object's freshness refresh; `--vector-status stale` therefore does not discover currently fresh rows whose provider/model identity has drifted
+- use a single-object sync or an unfiltered batch to discover and reindex model-identity drift
 
 ## Health interpretation
 

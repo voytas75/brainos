@@ -702,7 +702,7 @@ Current sqlite-vec readiness failure semantics:
 
 Current vector-state contract reference:
 - `docs/vector-state-contract-v1.md`
-- `fresh` means sync may legitimately return `mode=noop`
+- `fresh` means the stored vector matches source/profile/provider/model identity, so sync may legitimately return `mode=noop`
 - `disabled` is capability-gated, not the same class of signal as `stale` or `error`
 
 Current maintenance/readiness interpretation hints:
