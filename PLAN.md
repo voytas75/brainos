@@ -42,3 +42,6 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 ## Definition of done
 - Local: lock/test gates and the bounded acceptance/regression checks are green; docs state only verified facts.
 - Remote: after explicit push/settings approval, CI is green and remediation alerts/check protection are rechecked.
+
+## Dependency qualification checkpoint
+- AnyIO 4.14.2, aiohttp 3.14.4, yarl 1.25.1: isolated frozen all-extras gates and offline smoke passed; no publication or runtime activation.

@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed README and API docs to document the retrieval green-path smoke flow and updated explain diagnostics behavior.
 
 ### Fixed
+- Locked AnyIO 4.14.2, aiohttp 3.14.4, and required yarl 1.25.1; local qualification only.
 - Updated the locked `aiohttp` resolution from `3.14.0` to `3.14.3`.
 - Fixed promotion transactions so a failed durable promotion record rolls back its target object and ledger event.
 - Fixed operator acceptance so inherited `BRAINOS_SQLITE_VEC_PATH` cannot invalidate its degraded-runtime scenario.
