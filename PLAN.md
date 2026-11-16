@@ -8,7 +8,7 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 - Users: BrainOS maintainers, contributors, and local operators.
 
 ## First cycle — completed
-- [x] Updated `aiohttp` to `3.14.3`; Dependabot REST and GraphQL report zero open alerts after dependency-graph indexing.
+- [x] Historical first-cycle result: updated `aiohttp` to `3.14.3`; Dependabot REST and GraphQL reported zero open alerts after dependency-graph indexing at that checkpoint. This is not a current security-status assertion.
 - [x] Added repeatable CI gates; the current default-branch SHA completed successfully.
 - [x] Made episode promotion atomic and protected it with a failure-path test.
 - [x] Defined and tested the vector-index dimension contract.
@@ -44,4 +44,9 @@ Stabilize BrainOS as a local-first, auditable memory core before new product wor
 - Remote: after explicit push/settings approval, CI is green and remediation alerts/check protection are rechecked.
 
 ## Dependency qualification checkpoint
-- AnyIO 4.14.2, aiohttp 3.14.4, yarl 1.25.1: isolated frozen all-extras gates and offline smoke passed; no publication or runtime activation.
+- AnyIO 4.14.2, aiohttp 3.14.4, yarl 1.25.1: isolated frozen all-extras gates and offline smoke passed before publication. The lock changes were subsequently delivered through PR #14, merged as `d7aaae5`. Local runtime activation remains unverified; publication does not establish activation.
+
+## Verified delivery checkpoint — 2026-11-16
+- Maintenance closeout PR #15 merged as `5207022`; local `main` and `origin/main` matched this SHA at verification.
+- CI and CodeQL for exact merge SHA `5207022006d2676be62c8aa11252ad1ec954ebf1` succeeded. CI ran lock-check, frozen dev installation, Ruff lint/format, strict Pyright and pytest.
+- Earlier zero-alert receipts are historical. Security remediation and provider-backed retrieval acceptance remain separate scopes, not implied by maintenance closure.
